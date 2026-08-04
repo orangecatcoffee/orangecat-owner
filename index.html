@@ -96,12 +96,12 @@
 </div>
 
 <div class="tabs">
-  <div class="tab active" data-tab="report">รายงาน</div>
-  <div class="tab" data-tab="customer">ลูกค้า</div>
+  <div class="tab active" data-tab="customer">ลูกค้า</div>
+  <div class="tab" data-tab="report">รายงาน</div>
 </div>
 
 <!-- ============ TAB 1: REPORT ============ -->
-<div class="view active" id="view-report">
+<div class="view" id="view-report">
 
   <div class="card">
     <div class="card-title">ช่วงเวลา</div>
@@ -170,15 +170,15 @@
 </div>
 
 <!-- ============ TAB 2: CUSTOMER INTELLIGENCE ============ -->
-<div class="view" id="view-customer">
+<div class="view active" id="view-customer">
 
   <div class="card">
-    <div class="card-title">ภาพรวมลูกค้า</div>
+    <div class="card-title">Customer Analytics — ภาพรวม</div>
     <div id="custOverview"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
   <div class="card">
-    <div class="card-title">รายชื่อลูกค้า (แตะเพื่อดูโปรไฟล์)</div>
+    <div class="card-title">อันดับลูกค้า — ซื้อเยอะสุดก่อน (แตะดูคะแนน/ฟีดแบค)</div>
     <div id="custList"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
@@ -245,6 +245,7 @@ document.querySelectorAll(".tab").forEach(tab => {
     tab.classList.add("active");
     document.getElementById("view-" + tab.dataset.tab).classList.add("active");
     if (tab.dataset.tab === "customer" && !customerLoaded) { customerLoaded = true; loadCustomerTab(); }
+    if (tab.dataset.tab === "report" && !reportLoaded) { reportLoaded = true; loadReportTab(); }
   });
 });
 
@@ -259,6 +260,9 @@ const CUTOVER_DATE = new Date('2026-07-30T00:00:00');
 let reportRange = 'all';
 let earliestDateCache = null;
 let customerLoaded = false;
+let reportLoaded = false;
+customerLoaded = true;
+loadCustomerTab();
 
 async function resolveEarliestDate() {
   if (earliestDateCache) return earliestDateCache;
@@ -465,8 +469,6 @@ async function loadReportTab() {
     summaryEl.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
   }
 }
-loadReportTab();
-
 // ---------- CUSTOMER INTELLIGENCE TAB ----------
 function fmtDateTimeFb(iso){
   const d = new Date(iso);
@@ -489,7 +491,7 @@ async function loadCustomerTab() {
   try {
     const [members, orders, feedback] = await Promise.all([
       sb('members?select=id,line_user_id,display_name,created_at&order=created_at.asc'),
-      sb('preorders?select=line_user_id,menu_item_name,bean_name,brewed_at&brewed=eq.true&line_user_id=not.is.null'),
+      sb('preorders?select=line_user_id,menu_item_name,bean_name,brewed_at,price,order_type&brewed=eq.true&line_user_id=not.is.null'),
       sb('feedback_requests?select=*&rating=not.is.null&order=responded_at.desc'),
     ]);
 
@@ -499,19 +501,34 @@ async function loadCustomerTab() {
       return;
     }
 
+    const totalRevenue = orders
+      .filter(o => o.order_type === 'customer' || !o.order_type)
+      .reduce((s, o) => s + Number(o.price || 0), 0);
+
     overviewEl.innerHTML = `
       <div class="stat-grid">
         <div class="stat-box"><div class="stat-label">ลูกค้าทั้งหมด</div><div class="stat-val">${members.length} คน</div></div>
         <div class="stat-box"><div class="stat-label">ให้ฟีดแบคแล้ว</div><div class="stat-val">${new Set(feedback.map(f=>f.line_user_id)).size} คน</div></div>
+        <div class="stat-box"><div class="stat-label">ยอดขายรวม (ลูกค้าที่ผูก LINE)</div><div class="stat-val">฿${totalRevenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
       </div>
     `;
 
-    listEl.innerHTML = members.map(m => {
+    // ประกอบข้อมูลต่อลูกค้าก่อน แล้วเรียงจากซื้อเยอะสุด (ยอดใช้จ่าย) ไปน้อยสุด
+    const enriched = members.map(m => {
       const myOrders = orders.filter(o => o.line_user_id === m.line_user_id);
+      const myCustomerOrders = myOrders.filter(o => o.order_type === 'customer' || !o.order_type);
       const myFeedback = feedback.filter(f => f.line_user_id === m.line_user_id);
       const avgRating = myFeedback.length ? (myFeedback.reduce((s,f)=>s+Number(f.rating),0) / myFeedback.length) : null;
       const favBean = mode(myOrders.filter(o=>o.bean_name).map(o=>o.bean_name));
       const favMenu = mode(myOrders.map(o=>o.menu_item_name));
+      const revenue = myCustomerOrders.reduce((s,o) => s + Number(o.price || 0), 0);
+      return { m, myOrders, myFeedback, avgRating, favBean, favMenu, revenue };
+    }).sort((a, b) => b.revenue - a.revenue || b.myOrders.length - a.myOrders.length);
+
+    listEl.innerHTML = enriched.map((row, idx) => {
+      const { m, myOrders, myFeedback, avgRating, favBean, favMenu, revenue } = row;
+      const rank = idx + 1;
+      const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
 
       let insight = 'ยังไม่มีข้อมูลพอจะสรุป — รอออเดอร์/ฟีดแบคเพิ่มเติม';
       if (avgRating !== null || favBean || favMenu) {
@@ -545,8 +562,8 @@ async function loadCustomerTab() {
         <div class="cust-card" data-id="${m.id}">
           <div class="cust-head">
             <div>
-              <div class="cust-name">${m.display_name}</div>
-              <div class="cust-meta">${myOrders.length} แก้ว${myFeedback.length ? ' · ' + myFeedback.length + ' ฟีดแบค' : ''}</div>
+              <div class="cust-name">${rankBadge} ${m.display_name}</div>
+              <div class="cust-meta">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})} · ${myOrders.length} แก้ว${myFeedback.length ? ' · ' + myFeedback.length + ' ฟีดแบค' : ''}</div>
             </div>
             ${avgRating !== null ? `<div class="cust-rating">⭐ ${avgRating.toFixed(1)}</div>` : ''}
           </div>
