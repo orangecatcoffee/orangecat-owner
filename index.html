@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>กาแฟแมวส้ม — เจ้าของร้าน</title>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#1A1008; --card:#231508; --orange:#E8621A; --ol:#F5916A;
+    --cream:#F7EDE0; --border:rgba(255,255,255,0.08); --green:#8FBC8F; --red:#E88080;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);font-family:'Mitr',sans-serif;color:var(--cream);padding-bottom:60px;}
+
+  .header{padding:32px 20px 20px;text-align:center;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
+  .header::before{content:'';position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:400px;height:200px;background:radial-gradient(ellipse,rgba(232,98,26,0.18) 0%,transparent 70%);pointer-events:none;}
+  .htag{display:inline-block;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--ol);border:1px solid rgba(232,98,26,0.4);padding:4px 14px;border-radius:999px;margin-bottom:10px;}
+  .header h1{font-family:'Playfair Display',serif;font-size:22px;color:var(--cream);}
+
+  .tabs{display:flex;gap:0;padding:16px 16px 0;position:sticky;top:0;background:var(--bg);z-index:10;}
+  .tab{flex:1;text-align:center;padding:12px 8px;font-size:13px;font-weight:500;color:rgba(247,237,224,0.45);border-bottom:2px solid var(--border);cursor:pointer;transition:.2s;}
+  .tab.active{color:var(--ol);border-bottom-color:var(--orange);}
+
+  .view{display:none;padding:20px 16px;max-width:640px;margin:0 auto;}
+  .view.active{display:block;}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px;}
+  .card-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(247,237,224,0.4);margin-bottom:14px;font-weight:500;}
+
+  label{display:block;font-size:11px;color:rgba(247,237,224,0.55);margin-bottom:5px;margin-top:12px;font-weight:300;}
+  input, select, textarea{
+    width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:10px;
+    padding:10px 12px;color:var(--cream);font-family:'Mitr',sans-serif;font-size:13px;outline:none;
+  }
+  input:focus, select:focus, textarea:focus{border-color:rgba(232,98,26,0.5);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+  .empty{text-align:center;padding:24px 12px;color:rgba(247,237,224,0.3);font-size:12px;}
+  .loading{text-align:center;padding:20px;color:rgba(247,237,224,0.4);font-size:12px;}
+
+  .recipe-table-wrap{overflow-x:auto;margin:0 -18px;padding:0 18px;}
+  .recipe-table{width:100%;border-collapse:collapse;font-size:12px;min-width:560px;}
+  .recipe-table th{text-align:left;padding:8px 10px;color:rgba(247,237,224,0.4);font-size:9px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;}
+  .recipe-table td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top;color:rgba(247,237,224,0.85);}
+  .recipe-table tr:last-child td{border-bottom:none;}
+  .recipe-profit{font-weight:700;white-space:nowrap;}
+  .recipe-profit.good{color:var(--green);}
+  .recipe-profit.bad{color:var(--red);}
+  .recipe-group-row td{background:rgba(232,98,26,0.06);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ol);font-weight:600;padding:8px 10px;border-bottom:1px solid rgba(232,98,26,0.15);}
+
+  .range-chip.selected{border-color:var(--orange);background:rgba(232,98,26,0.15);color:var(--ol);font-weight:600;}
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{font-size:11px;padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,0.03);color:rgba(247,237,224,0.6);cursor:pointer;font-family:'Mitr',sans-serif;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .stat-box{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+  .stat-label{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:rgba(247,237,224,0.4);margin-bottom:6px;}
+  .stat-val{font-size:18px;font-weight:700;color:var(--cream);}
+  .stat-val.good{color:var(--green);} .stat-val.bad{color:var(--red);}
+  .stat-sub{font-size:10.5px;color:rgba(247,237,224,0.4);margin-top:3px;}
+  .unpaid-note{font-size:11px;color:var(--ol);margin-top:10px;text-align:center;}
+  .carryover-note{font-size:10.5px;color:rgba(247,237,224,0.45);margin-top:10px;text-align:center;font-style:italic;line-height:1.5;}
+  .freebie-row{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border);}
+  .freebie-row:last-child{border-bottom:none;}
+  .lowstock-row{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border);color:var(--red);}
+  .lowstock-row:last-child{border-bottom:none;}
+
+  /* CUSTOMER TAB */
+  .cust-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:pointer;}
+  .cust-head{display:flex;justify-content:space-between;align-items:center;}
+  .cust-name{font-size:14px;font-weight:600;color:var(--cream);}
+  .cust-meta{font-size:10.5px;color:rgba(247,237,224,0.4);margin-top:3px;}
+  .cust-rating{font-size:13px;font-weight:700;color:var(--ol);white-space:nowrap;}
+  .cust-detail{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:none;}
+  .cust-detail.open{display:block;}
+  .cust-insight{background:rgba(232,98,26,0.1);border:1px solid rgba(232,98,26,0.3);border-radius:10px;padding:10px 12px;font-size:11.5px;color:rgba(247,237,224,0.8);line-height:1.6;margin-bottom:12px;}
+  .fb-item{padding:10px 0;border-bottom:1px solid var(--border);}
+  .fb-item:last-child{border-bottom:none;}
+  .fb-top{display:flex;justify-content:space-between;align-items:center;}
+  .fb-menu{font-size:12.5px;font-weight:500;color:var(--cream);}
+  .fb-rating{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;}
+  .fb-rating.r5,.fb-rating.r4{background:rgba(143,188,143,0.15);color:var(--green);}
+  .fb-rating.r3{background:rgba(201,164,74,0.15);color:#C9A44A;}
+  .fb-rating.r2,.fb-rating.r1{background:rgba(220,100,100,0.15);color:var(--red);}
+  .fb-sub{font-size:10px;color:rgba(247,237,224,0.4);margin-top:3px;}
+  .fb-comment{font-size:11.5px;color:rgba(247,237,224,0.75);margin-top:6px;line-height:1.6;white-space:pre-wrap;}
+  .order-row{display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0;border-bottom:1px solid var(--border);color:rgba(247,237,224,0.65);}
+  .order-row:last-child{border-bottom:none;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="htag">🐱 กาแฟแมวส้ม</div>
+  <h1>เจ้าของร้าน</h1>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="report">รายงาน</div>
+  <div class="tab" data-tab="customer">ลูกค้า</div>
+</div>
+
+<!-- ============ TAB 1: REPORT ============ -->
+<div class="view active" id="view-report">
+
+  <div class="card">
+    <div class="card-title">ช่วงเวลา</div>
+    <div class="chip-row" id="reportRangeRow">
+      <button type="button" class="chip range-chip selected" data-range="all">ทั้งหมด</button>
+      <button type="button" class="chip range-chip" data-range="today">วันนี้</button>
+      <button type="button" class="chip range-chip" data-range="7">7 วัน</button>
+      <button type="button" class="chip range-chip" data-range="30">30 วัน</button>
+      <button type="button" class="chip range-chip" data-range="custom">กำหนดเอง</button>
+    </div>
+    <div class="row2" id="reportCustomRange" style="display:none;margin-top:10px;">
+      <div>
+        <label>จากวันที่</label>
+        <input type="date" id="reportFrom">
+      </div>
+      <div>
+        <label>ถึงวันที่</label>
+        <input type="date" id="reportTo">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" id="reportPeriodLabel">สรุปยอด</div>
+    <div id="reportSummary"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">แยกตามเมนู</div>
+    <div class="recipe-table-wrap">
+      <table class="recipe-table" id="reportMenuTable">
+        <thead>
+          <tr><th>เมนู</th><th>แก้ว</th><th>ยอดขาย</th><th>ต้นทุน</th><th>กำไร</th></tr>
+        </thead>
+        <tbody id="reportMenuBody">
+          <tr><td colspan="5" class="loading">กำลังโหลด...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">แยกตามลูกค้า</div>
+    <div class="recipe-table-wrap">
+      <table class="recipe-table" id="reportCustomerTable">
+        <thead>
+          <tr><th>ลูกค้า</th><th>แก้ว</th><th>ยอดขาย</th></tr>
+        </thead>
+        <tbody id="reportCustomerBody">
+          <tr><td colspan="3" class="loading">กำลังโหลด...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="color:var(--ol);">☕ ของกินเอง / 🎁 แจกฟรี</div>
+    <div id="reportFreebies"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="color:var(--red);">🔴 สต็อกใกล้หมด</div>
+    <div id="reportLowStock"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+</div>
+
+<!-- ============ TAB 2: CUSTOMER INTELLIGENCE ============ -->
+<div class="view" id="view-customer">
+
+  <div class="card">
+    <div class="card-title">ภาพรวมลูกค้า</div>
+    <div id="custOverview"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">รายชื่อลูกค้า (แตะเพื่อดูโปรไฟล์)</div>
+    <div id="custList"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="color:var(--ol);">📋 คำถามสำรวจแบบสุ่ม (Milieu-style)</div>
+    <div style="font-size:11.5px;color:rgba(247,237,224,0.5);line-height:1.7;">
+      ยังไม่ได้เปิดใช้งาน — เป็นฟีเจอร์ที่วางแผนไว้ทำต่อ: ส่งคำถามสั้นๆ วันละ 1 คำถามแบบสุ่มหาลูกค้า เพื่อรู้จักลูกค้าเชิงไลฟ์สไตล์มากขึ้น (ไม่เกี่ยวกับกาแฟแก้วไหนโดยตรง) — พอเปิดใช้งานจริง คำตอบจะมาโผล่ในโปรไฟล์ลูกค้าแต่ละคนที่นี่ด้วย
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+const SUPABASE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oempudXR2aXJqZ2ljbGtrZmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMjc3NjEsImV4cCI6MjA5ODcwMzc2MX0.Bv2zsjmo3yd9YpmfxUAmXf-aaFy7SbY77fmM_k4f7eg";
+
+async function sb(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": opts.prefer || "return=representation",
+      ...(opts.headers || {})
+    }
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || res.statusText);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function computeCupsRemainingMap(ingredients) {
+  const recipeRows = await sb('menu_recipes?select=ingredient_id,quantity');
+  const byIngredient = {};
+  recipeRows.forEach(r => {
+    if (!r.ingredient_id) return;
+    (byIngredient[r.ingredient_id] = byIngredient[r.ingredient_id] || []).push(Number(r.quantity));
+  });
+  const map = {};
+  ingredients.forEach(i => {
+    const stock = Number(i.stock_quantity);
+    if (i.category === 'coffee_bean') {
+      map[i.id] = Math.floor(stock / 20);
+      return;
+    }
+    const qtys = byIngredient[i.id];
+    if (!qtys || !qtys.length) { map[i.id] = null; return; }
+    const maxQtyPerCup = Math.max(...qtys);
+    map[i.id] = maxQtyPerCup > 0 ? Math.floor(stock / maxQtyPerCup) : null;
+  });
+  return map;
+}
+
+// ---------- TABS ----------
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("view-" + tab.dataset.tab).classList.add("active");
+    if (tab.dataset.tab === "customer" && !customerLoaded) { customerLoaded = true; loadCustomerTab(); }
+  });
+});
+
+// ---------- REPORT TAB ----------
+const SWEETNESS_RULES_REPORT = {
+  'Coconut syrup': { 'หวานปกติ': 15, 'หวานน้อย': 7, 'ไม่หวาน': 0 },
+  'Syrup': { 'หวานปกติ': 15, 'หวานน้อย': 7, 'ไม่หวาน': 0 },
+  'Condensed milk': { 'หวานปกติ': 20, 'หวานน้อย': 10, 'ไม่หวาน': 0 },
+};
+const FLAT_BEAN_COST = 20;
+const CUTOVER_DATE = new Date('2026-07-30T00:00:00');
+let reportRange = 'all';
+let earliestDateCache = null;
+let customerLoaded = false;
+
+async function resolveEarliestDate() {
+  if (earliestDateCache) return earliestDateCache;
+  try {
+    const rows = await sb('daily_sales_log?select=sale_date&order=sale_date.asc&limit=1');
+    if (rows && rows.length) {
+      earliestDateCache = new Date(rows[0].sale_date + 'T00:00:00');
+      return earliestDateCache;
+    }
+  } catch (e) { /* fall through */ }
+  earliestDateCache = new Date(CUTOVER_DATE);
+  return earliestDateCache;
+}
+
+async function getReportDateRange() {
+  const now = new Date();
+  let from, to;
+  if (reportRange === 'all') {
+    from = await resolveEarliestDate();
+    to = new Date(now); to.setHours(23,59,59,999);
+  } else if (reportRange === 'today') {
+    from = new Date(now); from.setHours(0,0,0,0);
+    to = new Date(now); to.setHours(23,59,59,999);
+  } else if (reportRange === 'custom') {
+    const fromVal = document.getElementById('reportFrom').value;
+    const toVal = document.getElementById('reportTo').value;
+    from = fromVal ? new Date(fromVal + 'T00:00:00') : await resolveEarliestDate();
+    to = toVal ? new Date(toVal + 'T23:59:59') : new Date();
+  } else {
+    const days = Number(reportRange);
+    to = new Date(now); to.setHours(23,59,59,999);
+    from = new Date(now); from.setDate(from.getDate() - (days - 1)); from.setHours(0,0,0,0);
+  }
+  return { from, to };
+}
+
+document.getElementById('reportRangeRow').addEventListener('click', (e) => {
+  const btn = e.target.closest('.range-chip');
+  if (!btn) return;
+  reportRange = btn.dataset.range;
+  document.querySelectorAll('.range-chip').forEach(b => b.classList.toggle('selected', b === btn));
+  document.getElementById('reportCustomRange').style.display = reportRange === 'custom' ? 'grid' : 'none';
+  if (reportRange !== 'custom') loadReportTab();
+});
+document.getElementById('reportFrom').addEventListener('change', loadReportTab);
+document.getElementById('reportTo').addEventListener('change', loadReportTab);
+
+async function loadReportTab() {
+  const { from, to } = await getReportDateRange();
+  document.getElementById('reportPeriodLabel').textContent =
+    `สรุปยอด (${from.toLocaleDateString('th-TH',{day:'numeric',month:'short'})} - ${to.toLocaleDateString('th-TH',{day:'numeric',month:'short'})})`;
+
+  const summaryEl = document.getElementById('reportSummary');
+  const menuBody = document.getElementById('reportMenuBody');
+  const freebiesEl = document.getElementById('reportFreebies');
+  const lowStockEl = document.getElementById('reportLowStock');
+  summaryEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  menuBody.innerHTML = '<tr><td colspan="5" class="loading">กำลังโหลด...</td></tr>';
+  freebiesEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  lowStockEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+
+  try {
+    const fromDateStr = from.toISOString().slice(0,10);
+    const toDateStr = to.toISOString().slice(0,10);
+    const preorderFrom = from < CUTOVER_DATE ? CUTOVER_DATE : from;
+    const preorderFromISO = preorderFrom <= to ? preorderFrom.toISOString() : null;
+
+    const [orders, menuItems, recipes, beans, allIngredients, manualSales] = await Promise.all([
+      preorderFromISO
+        ? sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${preorderFromISO}&brewed_at=lte.${to.toISOString()}`)
+        : Promise.resolve([]),
+      sb('menu_items?select=*'),
+      sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
+      sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
+      sb('ingredients?select=id,name,category,stock_quantity,base_unit&active=eq.true'),
+      sb(`daily_sales_log?select=quantity,revenue,total_cost&sale_date=gte.${fromDateStr}&sale_date=lte.${toDateStr}`)
+    ]);
+
+    const menuByName = {}; menuItems.forEach(m => menuByName[m.name] = m);
+    const recipeByMenuId = {};
+    recipes.forEach(r => { (recipeByMenuId[r.menu_item_id] = recipeByMenuId[r.menu_item_id] || []).push(r); });
+    const beanCost = {}; beans.forEach(b => beanCost[b.name] = Number(b.cost_per_base_unit));
+
+    function computeCost(order) {
+      const menu = menuByName[order.menu_item_name];
+      if (!menu) return 0;
+      let cost = 0;
+      if (menu.needs_bean) {
+        cost += (order.bean_name && beanCost[order.bean_name] !== undefined)
+          ? beanCost[order.bean_name] * 20
+          : FLAT_BEAN_COST;
+      }
+      const rows = recipeByMenuId[menu.id] || [];
+      rows.forEach(r => {
+        const ing = r.ingredients;
+        if (!ing || ing.category === 'coffee_bean') return;
+        let qty = Number(r.quantity);
+        const rule = SWEETNESS_RULES_REPORT[ing.name];
+        if (rule && rule[order.sweetness] !== undefined) qty = rule[order.sweetness];
+        cost += qty * Number(ing.cost_per_base_unit || 0);
+      });
+      return cost;
+    }
+
+    const customerOrders = orders.filter(o => o.order_type === 'customer' || !o.order_type);
+    const freeOrders = orders.filter(o => o.order_type === 'staff' || o.order_type === 'reward');
+
+    const REPORT_DRINK_GROUPS = [
+      { title: '☕ กาแฟ', match: c => ['espresso','dirty','signature'].includes(c) },
+      { title: '🍵 ชาเขียว', match: c => c === 'matcha' },
+      { title: '🥤 อื่นๆ', match: c => !['espresso','dirty','signature','matcha'].includes(c) },
+    ];
+
+    const byMenu = {};
+    const byCustomer = {};
+    let unpaid = 0;
+    customerOrders.forEach(o => {
+      const cost = computeCost(o);
+      if (!o.paid) unpaid += Number(o.price);
+      if (!byMenu[o.menu_item_name]) byMenu[o.menu_item_name] = { qty: 0, revenue: 0, cogs: 0 };
+      byMenu[o.menu_item_name].qty += 1;
+      byMenu[o.menu_item_name].revenue += Number(o.price);
+      byMenu[o.menu_item_name].cogs += cost;
+
+      const custName = o.customer_name || 'ไม่ระบุชื่อ';
+      if (!byCustomer[custName]) byCustomer[custName] = { qty: 0, revenue: 0 };
+      byCustomer[custName].qty += 1;
+      byCustomer[custName].revenue += Number(o.price);
+    });
+
+    const manualQty = (manualSales || []).reduce((s, r) => s + Number(r.quantity), 0);
+    const manualRevenue = (manualSales || []).reduce((s, r) => s + Number(r.revenue), 0);
+    const manualCost = (manualSales || []).reduce((s, r) => s + Number(r.total_cost), 0);
+
+    const liveRevenue = customerOrders.reduce((s, o) => s + Number(o.price), 0);
+    const liveCost = customerOrders.reduce((s, o) => s + computeCost(o), 0);
+    const liveCups = customerOrders.length;
+
+    const revenue = manualRevenue + liveRevenue;
+    const cogs = manualCost + liveCost;
+    const totalCups = manualQty + liveCups;
+
+    const profit = revenue - cogs;
+    const gp = revenue ? (profit / revenue * 100) : 0;
+
+    summaryEl.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-label">ยอดขาย</div><div class="stat-val">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div><div class="stat-sub">${totalCups} แก้ว</div></div>
+        <div class="stat-box"><div class="stat-label">ต้นทุน</div><div class="stat-val">฿${cogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">กำไรสุทธิ</div><div class="stat-val ${profit>=0?'good':'bad'}">฿${profit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">GP%</div><div class="stat-val ${gp>=0?'good':'bad'}">${gp.toFixed(1)}%</div></div>
+      </div>
+      <div class="carryover-note">ℹ️ ยกยอดมา (จนถึง 29 ก.ค. 2569): ฿${manualRevenue.toLocaleString(undefined,{maximumFractionDigits:0})} · ${manualQty} แก้ว — ตั้งแต่ 30 ก.ค. 2569 นับจากออเดอร์จริงในระบบอัตโนมัติ: ฿${liveRevenue.toLocaleString(undefined,{maximumFractionDigits:0})} · ${liveCups} แก้ว</div>
+      ${unpaid > 0 ? `<div class="unpaid-note">⚠️ ในนี้ยังไม่ได้เก็บเงิน ฿${unpaid.toLocaleString(undefined,{maximumFractionDigits:0})}</div>` : ''}
+    `;
+
+    let menuHtml = '';
+    REPORT_DRINK_GROUPS.forEach(g => {
+      const entries = Object.entries(byMenu).filter(([name]) => {
+        const menu = menuByName[name];
+        return menu && g.match(menu.category);
+      }).sort((a,b) => b[1].revenue - a[1].revenue);
+      if (!entries.length) return;
+      menuHtml += `<tr class="recipe-group-row"><td colspan="5">${g.title}</td></tr>`;
+      menuHtml += entries.map(([name, d]) => {
+        const p = d.revenue - d.cogs;
+        return `<tr>
+          <td>${name}</td>
+          <td>${d.qty}</td>
+          <td>฿${d.revenue.toFixed(0)}</td>
+          <td>฿${d.cogs.toFixed(0)}</td>
+          <td><span class="recipe-profit ${p>=0?'good':'bad'}">฿${p.toFixed(0)}</span></td>
+        </tr>`;
+      }).join("");
+    });
+    menuBody.innerHTML = menuHtml || '<tr><td colspan="5" class="empty">ไม่มีออเดอร์ในช่วงนี้</td></tr>';
+
+    const sortedCustomers = Object.entries(byCustomer).sort((a,b) => b[1].revenue - a[1].revenue);
+    const customerBody = document.getElementById('reportCustomerBody');
+    customerBody.innerHTML = sortedCustomers.length
+      ? sortedCustomers.map(([name, d]) => `<tr>
+          <td>${name}</td>
+          <td>${d.qty}</td>
+          <td>฿${d.revenue.toFixed(0)}</td>
+        </tr>`).join("")
+      : '<tr><td colspan="3" class="empty">ไม่มีออเดอร์ในช่วงนี้</td></tr>';
+
+    const staffCount = orders.filter(o => o.order_type === 'staff').length;
+    const rewardCount = orders.filter(o => o.order_type === 'reward').length;
+    const freeCost = freeOrders.reduce((sum,o) => sum + computeCost(o), 0);
+    freebiesEl.innerHTML = `
+      <div class="freebie-row"><span>☕ Staff กินเอง</span><span>${staffCount} แก้ว</span></div>
+      <div class="freebie-row"><span>🎁 แลกแต้ม/แจกฟรี</span><span>${rewardCount} แก้ว</span></div>
+      <div class="freebie-row"><b>รวมต้นทุนที่เสียไป</b><b>฿${freeCost.toFixed(0)}</b></div>
+    `;
+
+    const cupsMap = await computeCupsRemainingMap(allIngredients);
+    const lowStock = allIngredients.filter(i => cupsMap[i.id] !== null && cupsMap[i.id] < 2).sort((a,b)=>cupsMap[a.id]-cupsMap[b.id]);
+    lowStockEl.innerHTML = lowStock.length
+      ? lowStock.map(i => `<div class="lowstock-row"><span>${i.name}</span><span>ทำได้อีก ${cupsMap[i.id]} แก้ว (${Number(i.stock_quantity).toLocaleString()}${i.base_unit})</span></div>`).join("")
+      : '<div class="empty">สต็อกทุกตัวยังเพียงพอ 🎉</div>';
+
+  } catch (e) {
+    summaryEl.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
+  }
+}
+loadReportTab();
+
+// ---------- CUSTOMER INTELLIGENCE TAB ----------
+function fmtDateTimeFb(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString('th-TH',{day:'numeric',month:'short'}) + ' ' + d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+}
+
+function mode(arr) {
+  if (!arr.length) return null;
+  const counts = {};
+  arr.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+  return Object.entries(counts).sort((a,b) => b[1] - a[1])[0];
+}
+
+async function loadCustomerTab() {
+  const overviewEl = document.getElementById('custOverview');
+  const listEl = document.getElementById('custList');
+  overviewEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+
+  try {
+    const [members, orders, feedback] = await Promise.all([
+      sb('members?select=id,line_user_id,display_name,created_at&order=created_at.asc'),
+      sb('preorders?select=line_user_id,menu_item_name,bean_name,brewed_at&brewed=eq.true&line_user_id=not.is.null'),
+      sb('feedback_requests?select=*&rating=not.is.null&order=responded_at.desc'),
+    ]);
+
+    if (!members.length) {
+      overviewEl.innerHTML = '<div class="empty">ยังไม่มีลูกค้าลงทะเบียนเลย</div>';
+      listEl.innerHTML = '';
+      return;
+    }
+
+    overviewEl.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-label">ลูกค้าทั้งหมด</div><div class="stat-val">${members.length} คน</div></div>
+        <div class="stat-box"><div class="stat-label">ให้ฟีดแบคแล้ว</div><div class="stat-val">${new Set(feedback.map(f=>f.line_user_id)).size} คน</div></div>
+      </div>
+    `;
+
+    listEl.innerHTML = members.map(m => {
+      const myOrders = orders.filter(o => o.line_user_id === m.line_user_id);
+      const myFeedback = feedback.filter(f => f.line_user_id === m.line_user_id);
+      const avgRating = myFeedback.length ? (myFeedback.reduce((s,f)=>s+Number(f.rating),0) / myFeedback.length) : null;
+      const favBean = mode(myOrders.filter(o=>o.bean_name).map(o=>o.bean_name));
+      const favMenu = mode(myOrders.map(o=>o.menu_item_name));
+
+      let insight = 'ยังไม่มีข้อมูลพอจะสรุป — รอออเดอร์/ฟีดแบคเพิ่มเติม';
+      if (avgRating !== null || favBean || favMenu) {
+        const parts = [];
+        if (favMenu) parts.push(`สั่ง <b>${favMenu[0]}</b> บ่อยสุด (${favMenu[1]} ครั้ง)`);
+        if (favBean) parts.push(`ชอบเมล็ด <b>${favBean[0]}</b> (${favBean[1]} ครั้ง)`);
+        if (avgRating !== null) parts.push(`ให้คะแนนเฉลี่ย <b>${avgRating.toFixed(1)}/5</b> จาก ${myFeedback.length} ครั้ง`);
+        insight = parts.join(' · ');
+      }
+
+      const feedbackHtml = myFeedback.length
+        ? myFeedback.map(f => `
+            <div class="fb-item">
+              <div class="fb-top">
+                <span class="fb-menu">${f.menu_item_name}</span>
+                <span class="fb-rating r${f.rating}">${f.rating}/5</span>
+              </div>
+              <div class="fb-sub">${fmtDateTimeFb(f.responded_at)}${f.bean_name ? ' · 🌱 ' + f.bean_name : ''}${f.sweetness ? ' · ' + f.sweetness : ''}</div>
+              ${f.comment ? `<div class="fb-comment">${f.comment}</div>` : ''}
+            </div>
+          `).join('')
+        : '<div class="empty">ยังไม่เคยให้ฟีดแบค</div>';
+
+      const orderHtml = myOrders.length
+        ? myOrders.slice(0, 15).map(o => `
+            <div class="order-row"><span>${o.menu_item_name}${o.bean_name ? ' · ' + o.bean_name : ''}</span><span>${o.brewed_at ? fmtDateTimeFb(o.brewed_at) : ''}</span></div>
+          `).join('')
+        : '<div class="empty">ยังไม่เคยสั่ง</div>';
+
+      return `
+        <div class="cust-card" data-id="${m.id}">
+          <div class="cust-head">
+            <div>
+              <div class="cust-name">${m.display_name}</div>
+              <div class="cust-meta">${myOrders.length} แก้ว${myFeedback.length ? ' · ' + myFeedback.length + ' ฟีดแบค' : ''}</div>
+            </div>
+            ${avgRating !== null ? `<div class="cust-rating">⭐ ${avgRating.toFixed(1)}</div>` : ''}
+          </div>
+          <div class="cust-detail">
+            <div class="cust-insight">💡 ${insight}</div>
+            <div class="card-title" style="margin-top:0;">ฟีดแบคที่ให้ไว้</div>
+            ${feedbackHtml}
+            <div class="card-title" style="margin-top:16px;">ประวัติการสั่ง (ล่าสุด 15 แก้ว)</div>
+            ${orderHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    listEl.querySelectorAll('.cust-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        const detail = card.querySelector('.cust-detail');
+        detail.classList.toggle('open');
+      });
+    });
+
+  } catch (e) {
+    overviewEl.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
+    listEl.innerHTML = '';
+  }
+}
+
+</script>
+
+</body>
+</html>
