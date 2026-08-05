@@ -488,10 +488,34 @@ async function loadReportTab() {
       { title: '🥤 อื่นๆ', match: c => !['espresso','dirty','signature','matcha'].includes(c) },
     ];
 
+    // ---- Omakase: นับ 230฿ ครั้งเดียวต่อ 1 เซ็ตตอนชงครบ 3 แก้ว ไม่ใช่บวกราคาแยกแก้ว ----
+    // (ต้นทุนยังคำนวณแยกแต่ละแก้วตามปกติ ผูกกับเซ็ตแค่เรื่องยอดขาย)
+    const OMAKASE_TOTAL_PRICE = 230;
+    const omakaseSetIds = [...new Set(customerOrders.filter(o => o.omakase_set_id).map(o => o.omakase_set_id))];
+    let omakaseCupsBySet = {};
+    if (omakaseSetIds.length) {
+      const allCups = await sb(`preorders?select=id,omakase_set_id,brewed,brewed_at,customer_name,menu_item_name,bean_name,sweetness,mixer_name,misc_cost_estimate&omakase_set_id=in.(${omakaseSetIds.join(',')})`);
+      allCups.forEach(c => { (omakaseCupsBySet[c.omakase_set_id] = omakaseCupsBySet[c.omakase_set_id] || []).push(c); });
+    }
+    const completedSetIdsInRange = new Set();
+    let omakaseRevenue = 0, omakaseCogs = 0, omakaseCompletedCount = 0, omakaseCupsCounted = 0;
+    Object.entries(omakaseCupsBySet).forEach(([setId, cups]) => {
+      const complete = cups.length > 0 && cups.every(c => c.brewed);
+      if (!complete) return;
+      const completionDate = new Date(Math.max(...cups.map(c => new Date(c.brewed_at).getTime())));
+      if (completionDate < from || completionDate > to) return;
+      completedSetIdsInRange.add(setId);
+      omakaseRevenue += OMAKASE_TOTAL_PRICE;
+      omakaseCompletedCount += 1;
+      omakaseCupsCounted += cups.length;
+      omakaseCogs += cups.reduce((s, c) => s + computeCost(c), 0);
+    });
+
     const byMenu = {};
     const byCustomer = {};
     let unpaid = 0;
     customerOrders.forEach(o => {
+      if (o.omakase_set_id) return; // จัดการ Omakase รวมเป็นก้อนเดียวแยกด้านล่าง ไม่นับราคาแยกแก้วตรงนี้
       const cost = computeCost(o);
       if (!o.paid) unpaid += Number(o.price);
       if (!byMenu[o.menu_item_name]) byMenu[o.menu_item_name] = { qty: 0, revenue: 0, cogs: 0 };
@@ -505,13 +529,25 @@ async function loadReportTab() {
       byCustomer[custName].revenue += Number(o.price);
     });
 
+    if (omakaseCompletedCount > 0) {
+      byMenu['🎴 Omakase Set'] = { qty: omakaseCompletedCount, revenue: omakaseRevenue, cogs: omakaseCogs };
+      completedSetIdsInRange.forEach(setId => {
+        const cups = omakaseCupsBySet[setId];
+        const custName = (cups[0] && cups[0].customer_name) || 'ไม่ระบุชื่อ';
+        if (!byCustomer[custName]) byCustomer[custName] = { qty: 0, revenue: 0 };
+        byCustomer[custName].qty += cups.length;
+        byCustomer[custName].revenue += OMAKASE_TOTAL_PRICE;
+      });
+    }
+
     const manualQty = (manualSales || []).reduce((s, r) => s + Number(r.quantity), 0);
     const manualRevenue = (manualSales || []).reduce((s, r) => s + Number(r.revenue), 0);
     const manualCost = (manualSales || []).reduce((s, r) => s + Number(r.total_cost), 0);
 
-    const liveRevenue = customerOrders.reduce((s, o) => s + Number(o.price), 0);
-    const liveCost = customerOrders.reduce((s, o) => s + computeCost(o), 0);
-    const liveCups = customerOrders.length;
+    const nonOmakaseOrders = customerOrders.filter(o => !o.omakase_set_id);
+    const liveRevenue = nonOmakaseOrders.reduce((s, o) => s + Number(o.price), 0) + omakaseRevenue;
+    const liveCost = nonOmakaseOrders.reduce((s, o) => s + computeCost(o), 0) + omakaseCogs;
+    const liveCups = nonOmakaseOrders.length + omakaseCupsCounted;
 
     const revenue = manualRevenue + liveRevenue;
     const cogs = manualCost + liveCost;
