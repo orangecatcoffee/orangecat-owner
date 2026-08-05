@@ -440,7 +440,7 @@ async function loadReportTab() {
       sb('menu_items?select=*'),
       sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
       sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
-      sb('ingredients?select=id,name,category,stock_quantity,base_unit&active=eq.true'),
+      sb('ingredients?select=id,name,category,stock_quantity,base_unit,cost_per_base_unit&active=eq.true'),
       sb(`daily_sales_log?select=quantity,revenue,total_cost&sale_date=gte.${fromDateStr}&sale_date=lte.${toDateStr}`)
     ]);
 
@@ -448,6 +448,8 @@ async function loadReportTab() {
     const recipeByMenuId = {};
     recipes.forEach(r => { (recipeByMenuId[r.menu_item_id] = recipeByMenuId[r.menu_item_id] || []).push(r); });
     const beanCost = {}; beans.forEach(b => beanCost[b.name] = Number(b.cost_per_base_unit));
+    const ingredientCostByName = {}; allIngredients.forEach(i => ingredientCostByName[i.name] = Number(i.cost_per_base_unit || 0));
+    const MIXER_ESTIMATE_G = 150;
 
     function computeCost(order) {
       const menu = menuByName[order.menu_item_name];
@@ -467,6 +469,13 @@ async function loadReportTab() {
         if (rule && rule[order.sweetness] !== undefined) qty = rule[order.sweetness];
         cost += qty * Number(ing.cost_per_base_unit || 0);
       });
+      // เมนู secret ที่บาริสต้าเลือกมิกเซอร์/กรอกต้นทุนอื่นๆ เองตอนชง (ไม่มีสูตรตั้งไว้ล่วงหน้า)
+      if (order.mixer_name && ingredientCostByName[order.mixer_name] !== undefined) {
+        cost += ingredientCostByName[order.mixer_name] * MIXER_ESTIMATE_G;
+      }
+      if (order.misc_cost_estimate) {
+        cost += Number(order.misc_cost_estimate);
+      }
       return cost;
     }
 
