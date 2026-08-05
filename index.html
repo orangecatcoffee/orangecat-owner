@@ -10,8 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:#1A1008; --card:#231508; --orange:#E8621A; --ol:#F5916A;
-    --cream:#F7EDE0; --border:rgba(255,255,255,0.08); --green:#8FBC8F; --red:#E88080;
+    --bg:#0A1F1C; --card:#123330; --orange:#FF6B4A; --ol:#2DD4BF;
+    --cream:#EAF5F2; --border:rgba(255,255,255,0.10); --green:#4ADE80; --red:#F87171;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);font-family:'Mitr',sans-serif;color:var(--cream);padding-bottom:60px;}
@@ -37,6 +37,17 @@
     padding:10px 12px;color:var(--cream);font-family:'Mitr',sans-serif;font-size:16px;outline:none;
   }
   input:focus, select:focus, textarea:focus{border-color:rgba(232,98,26,0.5);}
+  .btn{
+    width:100%;margin-top:16px;background:linear-gradient(90deg,var(--orange),#FF8F6B);
+    border:none;border-radius:10px;padding:14px;color:#0A1F1C;font-weight:700;font-size:14px;
+    cursor:pointer;letter-spacing:.3px;box-shadow:0 4px 16px rgba(255,107,74,0.35);
+    transition:transform .1s, box-shadow .1s;
+  }
+  .btn:active{transform:scale(0.98);}
+  .btn:disabled{opacity:.4;box-shadow:none;cursor:not-allowed;}
+  .status{font-size:11px;padding:8px 12px;border-radius:8px;margin-top:10px;display:none;}
+  .status.ok{display:block;background:rgba(74,222,128,0.15);color:var(--green);border:1px solid rgba(74,222,128,0.25);}
+  .status.err{display:block;background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.25);}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 
   .empty{text-align:center;padding:24px 12px;color:rgba(247,237,224,0.3);font-size:12px;}
@@ -120,13 +131,13 @@
 </div>
 
 <div class="tabs">
-  <div class="tab active" data-tab="customer">ลูกค้า</div>
-  <div class="tab" data-tab="report">รายงาน</div>
+  <div class="tab active" data-tab="report">ยอดขาย</div>
+  <div class="tab" data-tab="customer">ลูกค้า</div>
   <div class="tab" data-tab="gtky">GTKY</div>
 </div>
 
 <!-- ============ TAB 1: REPORT ============ -->
-<div class="view" id="view-report">
+<div class="view active" id="view-report">
 
   <div class="card">
     <div class="card-title">ช่วงเวลา</div>
@@ -195,7 +206,7 @@
 </div>
 
 <!-- ============ TAB 2: CUSTOMER INTELLIGENCE ============ -->
-<div class="view active" id="view-customer">
+<div class="view" id="view-customer">
 
   <div class="card">
     <div class="card-title">Customer Analytics — ภาพรวม</div>
@@ -353,8 +364,8 @@ let earliestDateCache = null;
 let customerLoaded = false;
 let reportLoaded = false;
 let gtkyLoaded = false;
-customerLoaded = true;
-loadCustomerTab();
+reportLoaded = true;
+loadReportTab();
 
 async function resolveEarliestDate() {
   if (earliestDateCache) return earliestDateCache;
