@@ -592,10 +592,11 @@ async function loadCustomerTab() {
   listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
   try {
-    const [members, orders, feedback] = await Promise.all([
+    const [members, orders, feedback, gtkyAnswers] = await Promise.all([
       sb('members?select=id,line_user_id,display_name,created_at&order=created_at.asc'),
       sb('preorders?select=line_user_id,menu_item_name,bean_name,brewed_at,price,order_type&brewed=eq.true&line_user_id=not.is.null'),
       sb('feedback_requests?select=*&rating=not.is.null&order=responded_at.desc'),
+      sb('gtky_sends?select=*,gtky_questions(question_text,gtky_categories(name))&answer_text=not.is.null&order=responded_at.desc'),
     ]);
 
     if (!members.length) {
@@ -612,6 +613,7 @@ async function loadCustomerTab() {
       <div class="stat-grid">
         <div class="stat-box"><div class="stat-label">ลูกค้าทั้งหมด</div><div class="stat-val">${members.length} คน</div></div>
         <div class="stat-box"><div class="stat-label">ให้ฟีดแบคแล้ว</div><div class="stat-val">${new Set(feedback.map(f=>f.line_user_id)).size} คน</div></div>
+        <div class="stat-box"><div class="stat-label">ตอบ GTKY แล้ว</div><div class="stat-val">${new Set(gtkyAnswers.map(g=>g.line_user_id)).size} คน</div></div>
         <div class="stat-box"><div class="stat-label">ยอดขายรวม (ลูกค้าที่ผูก LINE)</div><div class="stat-val">฿${totalRevenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
       </div>
     `;
@@ -621,15 +623,16 @@ async function loadCustomerTab() {
       const myOrders = orders.filter(o => o.line_user_id === m.line_user_id);
       const myCustomerOrders = myOrders.filter(o => o.order_type === 'customer' || !o.order_type);
       const myFeedback = feedback.filter(f => f.line_user_id === m.line_user_id);
+      const myGtky = gtkyAnswers.filter(g => g.line_user_id === m.line_user_id);
       const avgRating = myFeedback.length ? (myFeedback.reduce((s,f)=>s+Number(f.rating),0) / myFeedback.length) : null;
       const favBean = mode(myOrders.filter(o=>o.bean_name).map(o=>o.bean_name));
       const favMenu = mode(myOrders.map(o=>o.menu_item_name));
       const revenue = myCustomerOrders.reduce((s,o) => s + Number(o.price || 0), 0);
-      return { m, myOrders, myFeedback, avgRating, favBean, favMenu, revenue };
+      return { m, myOrders, myFeedback, myGtky, avgRating, favBean, favMenu, revenue };
     }).sort((a, b) => b.revenue - a.revenue || b.myOrders.length - a.myOrders.length);
 
     listEl.innerHTML = enriched.map((row, idx) => {
-      const { m, myOrders, myFeedback, avgRating, favBean, favMenu, revenue } = row;
+      const { m, myOrders, myFeedback, myGtky, avgRating, favBean, favMenu, revenue } = row;
       const rank = idx + 1;
       const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
 
@@ -655,6 +658,18 @@ async function loadCustomerTab() {
           `).join('')
         : '<div class="empty">ยังไม่เคยให้ฟีดแบค</div>';
 
+      const gtkyHtml = myGtky.length
+        ? myGtky.map(g => `
+            <div class="fb-item">
+              <div class="fb-top">
+                <span class="fb-menu">${g.gtky_questions ? g.gtky_questions.question_text : '(คำถามถูกลบแล้ว)'}</span>
+              </div>
+              <div class="fb-sub">${g.gtky_questions && g.gtky_questions.gtky_categories ? g.gtky_questions.gtky_categories.name + ' · ' : ''}${fmtDateTimeFb(g.responded_at)}</div>
+              <div class="fb-comment">${g.answer_text}</div>
+            </div>
+          `).join('')
+        : '<div class="empty">ยังไม่เคยตอบ GTKY</div>';
+
       const orderHtml = myOrders.length
         ? myOrders.slice(0, 15).map(o => `
             <div class="order-row"><span>${o.menu_item_name}${o.bean_name ? ' · ' + o.bean_name : ''}</span><span>${o.brewed_at ? fmtDateTimeFb(o.brewed_at) : ''}</span></div>
@@ -666,7 +681,7 @@ async function loadCustomerTab() {
           <div class="cust-head">
             <div>
               <div class="cust-name">${rankBadge} ${m.display_name}</div>
-              <div class="cust-meta">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})} · ${myOrders.length} แก้ว${myFeedback.length ? ' · ' + myFeedback.length + ' ฟีดแบค' : ''}</div>
+              <div class="cust-meta">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})} · ${myOrders.length} แก้ว${myFeedback.length ? ' · ' + myFeedback.length + ' ฟีดแบค' : ''}${myGtky.length ? ' · ' + myGtky.length + ' GTKY' : ''}</div>
             </div>
             ${avgRating !== null ? `<div class="cust-rating">⭐ ${avgRating.toFixed(1)}</div>` : ''}
           </div>
@@ -674,6 +689,8 @@ async function loadCustomerTab() {
             <div class="cust-insight">💡 ${insight}</div>
             <div class="card-title" style="margin-top:0;">ฟีดแบคที่ให้ไว้</div>
             ${feedbackHtml}
+            <div class="card-title" style="margin-top:16px;">คำตอบ GTKY</div>
+            ${gtkyHtml}
             <div class="card-title" style="margin-top:16px;">ประวัติการสั่ง (ล่าสุด 15 แก้ว)</div>
             ${orderHtml}
           </div>
