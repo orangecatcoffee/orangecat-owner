@@ -89,6 +89,27 @@
   .fb-comment{font-size:11.5px;color:rgba(247,237,224,0.75);margin-top:6px;line-height:1.6;white-space:pre-wrap;}
   .order-row{display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0;border-bottom:1px solid var(--border);color:rgba(247,237,224,0.65);}
   .order-row:last-child{border-bottom:none;}
+
+  /* GTKY TAB */
+  .gtky-q-item{padding:12px 0;border-bottom:1px solid var(--border);}
+  .gtky-q-item:last-child{border-bottom:none;}
+  .gtky-q-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .gtky-q-text{font-size:13px;color:var(--cream);font-weight:500;line-height:1.5;}
+  .gtky-q-meta{font-size:10px;color:rgba(247,237,224,0.4);margin-top:4px;}
+  .gtky-badge{font-size:9px;padding:2px 8px;border-radius:999px;background:rgba(232,98,26,0.15);color:var(--ol);white-space:nowrap;}
+  .gtky-badge.expiring{background:rgba(220,100,100,0.15);color:var(--red);}
+  .gtky-opts{font-size:11px;color:rgba(247,237,224,0.55);margin-top:6px;}
+  .gtky-actions{display:flex;gap:8px;margin-top:8px;}
+  .gtky-btn-sm{font-size:10.5px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:rgba(247,237,224,0.7);cursor:pointer;font-family:'Mitr',sans-serif;}
+  .gtky-btn-sm.danger{color:var(--red);border-color:rgba(220,100,100,0.3);}
+  .gtky-cust-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;}
+  .gtky-cust-row:last-child{border-bottom:none;}
+  .gtky-cust-row input{width:auto;}
+  .opt-input-row{display:flex;gap:6px;margin-top:6px;}
+  .opt-input-row input{flex:1;}
+  .opt-input-row button{background:rgba(232,98,26,0.15);border:1px solid rgba(232,98,26,0.35);color:var(--ol);border-radius:8px;padding:0 12px;font-size:12px;cursor:pointer;}
+  .opt-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:999px;padding:4px 10px;margin:4px 6px 0 0;color:rgba(247,237,224,0.75);}
+  .opt-chip button{background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:0;}
 </style>
 </head>
 <body>
@@ -101,6 +122,7 @@
 <div class="tabs">
   <div class="tab active" data-tab="customer">ลูกค้า</div>
   <div class="tab" data-tab="report">รายงาน</div>
+  <div class="tab" data-tab="gtky">GTKY</div>
 </div>
 
 <!-- ============ TAB 1: REPORT ============ -->
@@ -186,10 +208,73 @@
   </div>
 
   <div class="card">
-    <div class="card-title" style="color:var(--ol);">📋 คำถามสำรวจแบบสุ่ม (Milieu-style)</div>
+    <div class="card-title" style="color:var(--ol);">📋 คำถามสำรวจ (GTKY)</div>
     <div style="font-size:11.5px;color:rgba(247,237,224,0.5);line-height:1.7;">
-      ยังไม่ได้เปิดใช้งาน — เป็นฟีเจอร์ที่วางแผนไว้ทำต่อ: ส่งคำถามสั้นๆ วันละ 1 คำถามแบบสุ่มหาลูกค้า เพื่อรู้จักลูกค้าเชิงไลฟ์สไตล์มากขึ้น (ไม่เกี่ยวกับกาแฟแก้วไหนโดยตรง) — พอเปิดใช้งานจริง คำตอบจะมาโผล่ในโปรไฟล์ลูกค้าแต่ละคนที่นี่ด้วย
+      เปิดใช้งานแล้ว — ไปที่แท็บ "GTKY" ด้านบนเพื่อจัดการคำถามและส่งหาลูกค้า คำตอบที่ได้จะโผล่ในโปรไฟล์ลูกค้าแต่ละคนที่นี่ด้วย
     </div>
+  </div>
+
+</div>
+
+<!-- ============ TAB 3: GTKY ============ -->
+<div class="view" id="view-gtky">
+
+  <div class="card">
+    <div class="card-title">ส่งคำถามหาลูกค้า</div>
+    <label>เลือกคำถาม</label>
+    <select id="gtkySendQuestionSelect"><option value="">กำลังโหลด...</option></select>
+    <div id="gtkySendQuestionPreview" style="font-size:11px;color:rgba(247,237,224,0.4);margin-top:6px;"></div>
+
+    <label style="margin-top:16px;">ส่งหาใคร</label>
+    <div class="chip-row" style="margin-bottom:10px;">
+      <button type="button" class="chip" id="gtkySelectAllBtn">เลือกทุกคน</button>
+      <button type="button" class="chip" id="gtkyClearAllBtn">ล้างที่เลือก</button>
+    </div>
+    <div id="gtkyCustList"><div class="loading">กำลังโหลด...</div></div>
+
+    <button class="btn" id="gtkySendBtn" style="margin-top:16px;" disabled>เลือกคำถาม + ลูกค้าก่อน</button>
+    <div class="status" id="gtkySendStatus"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">เพิ่มหมวดหมู่ใหม่</div>
+    <div class="row2">
+      <input type="text" id="gtkyNewCategoryName" placeholder="ชื่อหมวดหมู่ เช่น กลิ่นที่ชอบ">
+      <button class="btn" id="gtkyAddCategoryBtn" style="margin-top:0;">เพิ่มหมวด</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">เพิ่มคำถามใหม่</div>
+    <label>หมวดหมู่</label>
+    <select id="gtkyNewQCategory"><option value="">กำลังโหลด...</option></select>
+
+    <label>คำถาม</label>
+    <input type="text" id="gtkyNewQText" placeholder="เช่น คุณชอบเครื่องดื่มแบบไหน">
+
+    <label>ตัวเลือกคำตอบ (เว้นว่างไว้ = ให้ลูกค้าพิมพ์คำตอบเอง)</label>
+    <div class="opt-input-row">
+      <input type="text" id="gtkyNewQOptionInput" placeholder="พิมพ์ตัวเลือกแล้วกด +">
+      <button type="button" id="gtkyAddOptionBtn">+</button>
+    </div>
+    <div id="gtkyOptionChips"></div>
+
+    <div class="checkrow">
+      <input type="checkbox" id="gtkyNewQPermanent" checked>
+      <span>คำถามถาวร (ไม่หมดอายุ) — ปิดถ้าเป็นคำถาม R&D ที่จะหมดอายุ</span>
+    </div>
+    <div id="gtkyExpiryRow" style="display:none;margin-top:10px;">
+      <label>วันหมดอายุ</label>
+      <input type="date" id="gtkyNewQExpiry">
+    </div>
+
+    <button class="btn" id="gtkyAddQuestionBtn">เพิ่มคำถาม</button>
+    <div class="status" id="gtkyAddQStatus"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">คำถามทั้งหมด</div>
+    <div id="gtkyQuestionList"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
 </div>
@@ -249,6 +334,7 @@ document.querySelectorAll(".tab").forEach(tab => {
     document.getElementById("view-" + tab.dataset.tab).classList.add("active");
     if (tab.dataset.tab === "customer" && !customerLoaded) { customerLoaded = true; loadCustomerTab(); }
     if (tab.dataset.tab === "report" && !reportLoaded) { reportLoaded = true; loadReportTab(); }
+    if (tab.dataset.tab === "gtky" && !gtkyLoaded) { gtkyLoaded = true; loadGtkyTab(); }
   });
 });
 
@@ -264,6 +350,7 @@ let reportRange = 'all';
 let earliestDateCache = null;
 let customerLoaded = false;
 let reportLoaded = false;
+let gtkyLoaded = false;
 customerLoaded = true;
 loadCustomerTab();
 
@@ -593,6 +680,263 @@ async function loadCustomerTab() {
     listEl.innerHTML = '';
   }
 }
+
+// ---------- GTKY TAB ----------
+const GTKY_SEND_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/gtky-send";
+let gtkyOptionDraft = [];
+let gtkyMembersCache = [];
+let gtkyQuestionsCache = [];
+
+function gtkyFmtDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+async function loadGtkyTab() {
+  await Promise.all([
+    gtkyLoadCategoriesIntoSelect(),
+    gtkyLoadQuestions(),
+    gtkyLoadCustomerChecklist(),
+  ]);
+}
+
+async function gtkyLoadCategoriesIntoSelect() {
+  const sel = document.getElementById('gtkyNewQCategory');
+  try {
+    const cats = await sb('gtky_categories?select=id,name&order=sort_order');
+    sel.innerHTML = cats.length
+      ? cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
+      : '<option value="">ยังไม่มีหมวดหมู่ — เพิ่มก่อน</option>';
+  } catch (e) {
+    sel.innerHTML = '<option value="">โหลดไม่สำเร็จ</option>';
+  }
+}
+
+async function gtkyLoadQuestions() {
+  const listEl = document.getElementById('gtkyQuestionList');
+  const sendSel = document.getElementById('gtkySendQuestionSelect');
+  listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try {
+    const questions = await sb('gtky_questions?select=*,gtky_categories(name)&order=created_at.desc');
+    gtkyQuestionsCache = questions;
+
+    const activeQuestions = questions.filter(q => q.active);
+    sendSel.innerHTML = activeQuestions.length
+      ? '<option value="">— เลือกคำถาม —</option>' + activeQuestions.map(q =>
+          `<option value="${q.id}">[${q.gtky_categories ? q.gtky_categories.name : 'ไม่มีหมวด'}] ${q.question_text}</option>`
+        ).join('')
+      : '<option value="">ยังไม่มีคำถามที่เปิดใช้งาน</option>';
+
+    if (!questions.length) {
+      listEl.innerHTML = '<div class="empty">ยังไม่มีคำถามเลย เพิ่มด้านล่างได้เลย</div>';
+      return;
+    }
+
+    listEl.innerHTML = questions.map(q => {
+      const expiring = !q.is_permanent && q.expires_at;
+      const badge = q.is_permanent
+        ? '<span class="gtky-badge">ถาวร</span>'
+        : `<span class="gtky-badge expiring">หมดอายุ ${q.expires_at ? gtkyFmtDate(q.expires_at) : '-'}</span>`;
+      const activeBadge = q.active ? '' : '<span class="gtky-badge" style="background:rgba(255,255,255,0.08);color:rgba(247,237,224,0.4);">ปิดใช้งาน</span>';
+      return `
+        <div class="gtky-q-item">
+          <div class="gtky-q-top">
+            <div>
+              <div class="gtky-q-text">${q.question_text}</div>
+              <div class="gtky-q-meta">${q.gtky_categories ? q.gtky_categories.name : 'ไม่มีหมวด'} ${badge} ${activeBadge}</div>
+              ${q.options && q.options.length ? `<div class="gtky-opts">ตัวเลือก: ${q.options.join(' / ')}</div>` : '<div class="gtky-opts">คำตอบแบบพิมพ์เอง</div>'}
+            </div>
+          </div>
+          <div class="gtky-actions">
+            <button class="gtky-btn-sm" data-toggle-id="${q.id}" data-active="${q.active}">${q.active ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}</button>
+            <button class="gtky-btn-sm danger" data-delete-id="${q.id}">ลบ</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    listEl.querySelectorAll('[data-toggle-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const isActive = btn.dataset.active === 'true';
+        await sb(`gtky_questions?id=eq.${btn.dataset.toggleId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ active: !isActive }),
+        });
+        gtkyLoadQuestions();
+      });
+    });
+    listEl.querySelectorAll('[data-delete-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('ลบคำถามนี้ใช่ไหม? (คำตอบที่เคยส่งไปแล้วจะยังอยู่ในระบบ)')) return;
+        await sb(`gtky_questions?id=eq.${btn.dataset.deleteId}`, { method: 'DELETE' });
+        gtkyLoadQuestions();
+      });
+    });
+  } catch (e) {
+    listEl.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
+  }
+}
+
+async function gtkyLoadCustomerChecklist() {
+  const el = document.getElementById('gtkyCustList');
+  try {
+    const members = await sb('members?select=id,line_user_id,display_name&order=display_name');
+    gtkyMembersCache = members;
+    el.innerHTML = members.length
+      ? members.map(m => `
+          <div class="gtky-cust-row">
+            <input type="checkbox" class="gtky-cust-check" value="${m.line_user_id}">
+            <span>${m.display_name}</span>
+          </div>
+        `).join('')
+      : '<div class="empty">ยังไม่มีลูกค้าลงทะเบียนเลย</div>';
+    el.querySelectorAll('.gtky-cust-check').forEach(cb => cb.addEventListener('change', gtkyUpdateSendBtn));
+  } catch (e) {
+    el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
+  }
+}
+
+function gtkyUpdateSendBtn() {
+  const btn = document.getElementById('gtkySendBtn');
+  const qId = document.getElementById('gtkySendQuestionSelect').value;
+  const checked = document.querySelectorAll('.gtky-cust-check:checked').length;
+  if (!qId || checked === 0) {
+    btn.disabled = true;
+    btn.textContent = 'เลือกคำถาม + ลูกค้าก่อน';
+  } else {
+    btn.disabled = false;
+    btn.textContent = `ส่งหา ${checked} คน`;
+  }
+}
+
+document.getElementById('gtkySendQuestionSelect').addEventListener('change', (e) => {
+  const q = gtkyQuestionsCache.find(x => x.id === e.target.value);
+  document.getElementById('gtkySendQuestionPreview').textContent = q
+    ? (q.options && q.options.length ? `ตัวเลือก: ${q.options.join(' / ')}` : 'คำตอบแบบพิมพ์เอง')
+    : '';
+  gtkyUpdateSendBtn();
+});
+document.getElementById('gtkySelectAllBtn').addEventListener('click', () => {
+  document.querySelectorAll('.gtky-cust-check').forEach(cb => cb.checked = true);
+  gtkyUpdateSendBtn();
+});
+document.getElementById('gtkyClearAllBtn').addEventListener('click', () => {
+  document.querySelectorAll('.gtky-cust-check').forEach(cb => cb.checked = false);
+  gtkyUpdateSendBtn();
+});
+
+document.getElementById('gtkySendBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('gtkySendBtn');
+  const statusEl = document.getElementById('gtkySendStatus');
+  statusEl.className = 'status'; statusEl.style.display = 'none';
+  const qId = document.getElementById('gtkySendQuestionSelect').value;
+  const q = gtkyQuestionsCache.find(x => x.id === qId);
+  const checkedIds = Array.from(document.querySelectorAll('.gtky-cust-check:checked')).map(cb => cb.value);
+  if (!q || !checkedIds.length) return;
+
+  btn.disabled = true;
+  btn.textContent = 'กำลังส่ง...';
+  try {
+    const rows = checkedIds.map(lineId => ({ question_id: qId, line_user_id: lineId }));
+    const inserted = await sb('gtky_sends', {
+      method: 'POST',
+      body: JSON.stringify(rows),
+    });
+
+    for (const row of inserted) {
+      fetch(GTKY_SEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ line_user_id: row.line_user_id, gtky_send_id: row.id, question_text: q.question_text }),
+      }).catch(err => console.error('gtky-send push failed:', err));
+    }
+
+    statusEl.textContent = `ส่งแล้ว ${inserted.length} คน ✓`;
+    statusEl.className = 'status ok';
+    document.querySelectorAll('.gtky-cust-check').forEach(cb => cb.checked = false);
+    gtkyUpdateSendBtn();
+  } catch (e) {
+    statusEl.textContent = 'ส่งไม่สำเร็จ: ' + e.message;
+    statusEl.className = 'status err';
+  } finally {
+    btn.disabled = false;
+    gtkyUpdateSendBtn();
+  }
+});
+
+document.getElementById('gtkyAddCategoryBtn').addEventListener('click', async () => {
+  const input = document.getElementById('gtkyNewCategoryName');
+  const name = input.value.trim();
+  if (!name) return;
+  try {
+    await sb('gtky_categories', { method: 'POST', body: JSON.stringify([{ name, sort_order: 99 }]) });
+    input.value = '';
+    gtkyLoadCategoriesIntoSelect();
+  } catch (e) {
+    alert('เพิ่มหมวดไม่สำเร็จ: ' + e.message);
+  }
+});
+
+document.getElementById('gtkyAddOptionBtn').addEventListener('click', () => {
+  const input = document.getElementById('gtkyNewQOptionInput');
+  const val = input.value.trim();
+  if (!val) return;
+  gtkyOptionDraft.push(val);
+  input.value = '';
+  gtkyRenderOptionChips();
+});
+
+function gtkyRenderOptionChips() {
+  const el = document.getElementById('gtkyOptionChips');
+  el.innerHTML = gtkyOptionDraft.map((opt, i) => `<span class="opt-chip">${opt}<button type="button" data-idx="${i}">✕</button></span>`).join('');
+  el.querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => {
+      gtkyOptionDraft.splice(Number(b.dataset.idx), 1);
+      gtkyRenderOptionChips();
+    });
+  });
+}
+
+document.getElementById('gtkyNewQPermanent').addEventListener('change', (e) => {
+  document.getElementById('gtkyExpiryRow').style.display = e.target.checked ? 'none' : 'block';
+});
+
+document.getElementById('gtkyAddQuestionBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('gtkyAddQStatus');
+  statusEl.className = 'status'; statusEl.style.display = 'none';
+  const categoryId = document.getElementById('gtkyNewQCategory').value;
+  const text = document.getElementById('gtkyNewQText').value.trim();
+  const isPermanent = document.getElementById('gtkyNewQPermanent').checked;
+  const expiry = document.getElementById('gtkyNewQExpiry').value;
+
+  if (!categoryId || !text) {
+    statusEl.textContent = 'เลือกหมวดหมู่และพิมพ์คำถามก่อนนะ';
+    statusEl.className = 'status err';
+    return;
+  }
+
+  try {
+    await sb('gtky_questions', {
+      method: 'POST',
+      body: JSON.stringify([{
+        category_id: categoryId,
+        question_text: text,
+        options: gtkyOptionDraft.length ? gtkyOptionDraft : null,
+        is_permanent: isPermanent,
+        expires_at: (!isPermanent && expiry) ? expiry : null,
+      }]),
+    });
+    statusEl.textContent = 'เพิ่มคำถามแล้ว ✓';
+    statusEl.className = 'status ok';
+    document.getElementById('gtkyNewQText').value = '';
+    gtkyOptionDraft = [];
+    gtkyRenderOptionChips();
+    gtkyLoadQuestions();
+  } catch (e) {
+    statusEl.textContent = 'เพิ่มไม่สำเร็จ: ' + e.message;
+    statusEl.className = 'status err';
+  }
+});
 
 </script>
 
