@@ -78,6 +78,13 @@
   .barchart-label b{font-weight:700;}
   .barchart-track{height:12px;background:rgba(74,52,40,0.08);border-radius:6px;overflow:hidden;}
   .barchart-fill{height:100%;background:linear-gradient(90deg,var(--orange),#FF8F5A);border-radius:6px;}
+  .staffcal-row{display:grid;grid-template-columns:70px 1fr 1fr;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11.5px;}
+  .staffcal-row:last-child{border-bottom:none;}
+  .staffcal-date{color:rgba(74,52,40,0.6);}
+  .staffcal-cell{text-align:center;padding:4px 6px;border-radius:8px;font-weight:700;}
+  .staffcal-cell.yes{background:rgba(74,155,92,0.12);color:var(--green);}
+  .staffcal-cell.no{background:rgba(214,69,69,0.08);color:var(--red);}
+  .staffcal-head{display:grid;grid-template-columns:70px 1fr 1fr;gap:8px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:rgba(74,52,40,0.4);margin-bottom:6px;font-weight:700;}
   .gtky-idea-chip{font-size:10.5px;padding:5px 10px;}
   .gtky-idea-chip:active{background:rgba(232,98,26,0.15);}
   .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -212,6 +219,11 @@
   <div class="card">
     <div class="card-title" style="color:var(--ol);">☕ Staff Drinks / 🎁 Freebies</div>
     <div id="reportFreebies"><div class="loading">Loading...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📅 Staff Drink Log — Last 14 Days</div>
+    <div id="staffCalendar"><div class="loading">Loading...</div></div>
   </div>
 
   <div class="card-title" style="padding-left:2px;margin-top:8px;">👥 Customer Details (All-Time)</div>
@@ -397,6 +409,7 @@ document.querySelectorAll(".tab").forEach(tab => {
       reportLoaded = true;
       loadReportTab();
       loadCustomerTab();
+      loadStaffCalendar();
     }
     if (tab.dataset.tab === "gtky" && !gtkyLoaded) { gtkyLoaded = true; loadGtkyTab(); }
   });
@@ -416,6 +429,40 @@ let gtkyLoaded = false;
 reportLoaded = true;
 loadReportTab();
 loadCustomerTab();
+loadStaffCalendar();
+
+async function loadStaffCalendar() {
+  const el = document.getElementById('staffCalendar');
+  el.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const DAYS = 14;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const startDate = new Date(today); startDate.setDate(startDate.getDate() - (DAYS - 1));
+
+    const rows = await sb(`preorders?select=customer_name,brewed_at&order_type=eq.staff&brewed=eq.true&brewed_at=gte.${startDate.toISOString()}`);
+    const people = ['Fah.H', 'ซีเซีย'];
+    const loggedSet = new Set(); // "YYYY-MM-DD|name"
+    rows.forEach(r => {
+      const day = new Date(r.brewed_at).toISOString().slice(0, 10);
+      loggedSet.add(`${day}|${r.customer_name}`);
+    });
+
+    let html = `<div class="staffcal-head"><span>Date</span><span>Fah</span><span>ซีเซีย</span></div>`;
+    for (let i = 0; i < DAYS; i++) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const dayStr = d.toISOString().slice(0, 10);
+      const label = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      const cells = people.map(p => {
+        const has = loggedSet.has(`${dayStr}|${p}`);
+        return `<span class="staffcal-cell ${has ? 'yes' : 'no'}">${has ? '✓' : '—'}</span>`;
+      }).join('');
+      html += `<div class="staffcal-row"><span class="staffcal-date">${label}</span>${cells}</div>`;
+    }
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div class="empty">Failed to load: ${e.message}</div>`;
+  }
+}
 
 async function resolveEarliestDate() {
   if (earliestDateCache) return earliestDateCache;
