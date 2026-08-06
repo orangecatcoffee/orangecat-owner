@@ -212,6 +212,20 @@
   </div>
 
   <div class="card">
+    <div class="card-title">💰 Profit by Menu (มากไปน้อย)</div>
+    <div class="recipe-table-wrap">
+      <table class="recipe-table" id="dimMenuProfitTable">
+        <thead>
+          <tr><th>เมนู</th><th>แก้ว</th><th>กำไร</th><th>สัดส่วนกำไร</th></tr>
+        </thead>
+        <tbody id="dimMenuProfitBody">
+          <tr><td colspan="4" class="loading">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-title">All Transactions This Period</div>
     <label>Filter by Customer</label>
     <select id="reportTxnFilter"><option value="">— All —</option></select>
@@ -498,6 +512,7 @@ async function loadReportTab() {
   ['dimCustCups','dimCustRevenue','dimMenuCups','dimMenuRevenue'].forEach(id => {
     document.getElementById(id).innerHTML = '<div class="loading">Loading...</div>';
   });
+  document.getElementById('dimMenuProfitBody').innerHTML = '<tr><td colspan="4" class="loading">Loading...</td></tr>';
 
   try {
     const [orders, menuItems, recipes, beans, allIngredients] = await Promise.all([
@@ -646,6 +661,28 @@ async function loadReportTab() {
     renderBarChart('dimMenuRevenue',
       [...menuEntries].sort((a,b) => b[1].revenue - a[1].revenue).slice(0,5).map(([name,d]) => ({ label: name, value: d.revenue })),
       v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
+
+    // Profit by menu — full list, highest profit first, with overall margin summary row
+    const profitEntries = menuEntries
+      .map(([name, d]) => ({ name, qty: d.qty, revenue: d.revenue, profit: d.revenue - d.cogs }))
+      .sort((a, b) => b.profit - a.profit);
+    const profitBody = document.getElementById('dimMenuProfitBody');
+    profitBody.innerHTML = profitEntries.length
+      ? profitEntries.map(e => {
+          const margin = e.revenue ? (e.profit / e.revenue * 100) : 0;
+          return `<tr>
+            <td>${e.name}</td>
+            <td>${e.qty}</td>
+            <td><span class="recipe-profit ${e.profit>=0?'good':'bad'}">฿${e.profit.toFixed(0)}</span></td>
+            <td>${margin.toFixed(1)}%</td>
+          </tr>`;
+        }).join('') + `<tr style="font-weight:700;background:rgba(232,98,26,0.06);">
+            <td>รวมทั้งหมด</td>
+            <td>${totalCups}</td>
+            <td><span class="recipe-profit ${profit>=0?'good':'bad'}">฿${profit.toFixed(0)}</span></td>
+            <td>${gp.toFixed(1)}%</td>
+          </tr>`
+      : '<tr><td colspan="4" class="empty">ไม่มีออเดอร์ในช่วงนี้</td></tr>';
 
     // All transactions (most recent first) — includes staff/reward too, filterable by customer
     const allTxns = [...orders].sort((a,b) => new Date(b.brewed_at) - new Date(a.brewed_at));
