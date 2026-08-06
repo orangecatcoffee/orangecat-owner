@@ -214,6 +214,36 @@
   </div>
 
   <div class="card">
+    <div class="card-title">📝 บันทึกฟีดแบคจากบาริสต้า</div>
+    <div style="font-size:11px;color:rgba(74,52,40,0.5);margin-bottom:12px;line-height:1.6;">สำหรับฟีดแบคที่ได้ยินมาจากลูกค้าโดยตรง (ไม่ได้ผ่านระบบให้คะแนน) — จะไปโผล่ในโปรไฟล์ลูกค้าคนนั้น</div>
+
+    <label>ลูกค้า</label>
+    <select id="mfNoteCustomer"><option value="">กำลังโหลด...</option></select>
+
+    <label>เกี่ยวกับเมนูไหน (ไม่บังคับ)</label>
+    <input type="text" id="mfNoteMenu" placeholder="เช่น Iced Latte">
+
+    <label>ให้คะแนนด้วยไหม (ไม่บังคับ)</label>
+    <div class="chip-row" id="mfNoteRatingRow">
+      <button type="button" class="chip mf-rating-chip" data-rating="1">1</button>
+      <button type="button" class="chip mf-rating-chip" data-rating="2">2</button>
+      <button type="button" class="chip mf-rating-chip" data-rating="3">3</button>
+      <button type="button" class="chip mf-rating-chip" data-rating="4">4</button>
+      <button type="button" class="chip mf-rating-chip" data-rating="5">5</button>
+      <button type="button" class="chip mf-rating-chip" data-rating="">ไม่ให้คะแนน</button>
+    </div>
+
+    <label style="margin-top:12px;">บันทึกที่ได้ยินมา</label>
+    <textarea id="mfNoteText" rows="3" placeholder="เช่น ลูกค้าบอกว่าแก้วนี้หวานไปหน่อย"></textarea>
+
+    <label>เมื่อไหร่</label>
+    <input type="date" id="mfNoteDate">
+
+    <button class="btn" id="mfNoteSubmitBtn">บันทึก</button>
+    <div class="status" id="mfNoteStatus"></div>
+  </div>
+
+  <div class="card">
     <div class="card-title">อันดับลูกค้า — ซื้อเยอะสุดก่อน (แตะดูคะแนน/ฟีดแบค)</div>
     <div id="custList"><div class="loading">กำลังโหลด...</div></div>
   </div>
@@ -619,12 +649,18 @@ async function loadCustomerTab() {
   listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
   try {
-    const [members, orders, feedback, gtkyAnswers] = await Promise.all([
+    const [members, orders, feedback, gtkyAnswers, manualNotes] = await Promise.all([
       sb('members?select=id,line_user_id,display_name,member_type,created_at&order=created_at.asc'),
       sb('preorders?select=line_user_id,menu_item_name,bean_name,brewed_at,price,order_type&brewed=eq.true&line_user_id=not.is.null'),
       sb('feedback_requests?select=*&rating=not.is.null&order=responded_at.desc'),
       sb('gtky_sends?select=*,gtky_questions(question_text,gtky_categories(name))&answer_text=not.is.null&order=responded_at.desc'),
+      sb('manual_feedback_notes?select=*&order=noted_at.desc'),
     ]);
+
+    const custSelect = document.getElementById('mfNoteCustomer');
+    custSelect.innerHTML = '<option value="">— เลือกลูกค้า —</option>' + members.map(m => `<option value="${m.line_user_id}">${m.display_name}</option>`).join('');
+    const dateInput = document.getElementById('mfNoteDate');
+    if (!dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
 
     if (!members.length) {
       overviewEl.innerHTML = '<div class="empty">ยังไม่มีลูกค้าลงทะเบียนเลย</div>';
@@ -651,15 +687,16 @@ async function loadCustomerTab() {
       const myCustomerOrders = myOrders.filter(o => o.order_type === 'customer' || !o.order_type);
       const myFeedback = feedback.filter(f => f.line_user_id === m.line_user_id);
       const myGtky = gtkyAnswers.filter(g => g.line_user_id === m.line_user_id);
+      const myManualNotes = manualNotes.filter(n => n.line_user_id === m.line_user_id);
       const avgRating = myFeedback.length ? (myFeedback.reduce((s,f)=>s+Number(f.rating),0) / myFeedback.length) : null;
       const favBean = mode(myOrders.filter(o=>o.bean_name).map(o=>o.bean_name));
       const favMenu = mode(myOrders.map(o=>o.menu_item_name));
       const revenue = myCustomerOrders.reduce((s,o) => s + Number(o.price || 0), 0);
-      return { m, myOrders, myFeedback, myGtky, avgRating, favBean, favMenu, revenue };
+      return { m, myOrders, myFeedback, myGtky, myManualNotes, avgRating, favBean, favMenu, revenue };
     }).sort((a, b) => b.revenue - a.revenue || b.myOrders.length - a.myOrders.length);
 
     listEl.innerHTML = enriched.map((row, idx) => {
-      const { m, myOrders, myFeedback, myGtky, avgRating, favBean, favMenu, revenue } = row;
+      const { m, myOrders, myFeedback, myGtky, myManualNotes, avgRating, favBean, favMenu, revenue } = row;
       const rank = idx + 1;
       const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
 
@@ -697,6 +734,19 @@ async function loadCustomerTab() {
           `).join('')
         : '<div class="empty">ยังไม่เคยตอบ GTKY</div>';
 
+      const manualNotesHtml = myManualNotes.length
+        ? myManualNotes.map(n => `
+            <div class="fb-item">
+              <div class="fb-top">
+                <span class="fb-menu">${n.menu_item_name || 'ทั่วไป'}</span>
+                ${n.rating ? `<span class="fb-rating r${n.rating}">${n.rating}/5</span>` : ''}
+              </div>
+              <div class="fb-sub">${new Date(n.noted_at).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})}</div>
+              <div class="fb-comment">${n.note_text}</div>
+            </div>
+          `).join('')
+        : '<div class="empty">ยังไม่มีบันทึกจากบาริสต้า</div>';
+
       const orderHtml = myOrders.length
         ? myOrders.slice(0, 15).map(o => `
             <div class="order-row"><span>${o.menu_item_name}${o.bean_name ? ' · ' + o.bean_name : ''}</span><span>${o.brewed_at ? fmtDateTimeFb(o.brewed_at) : ''}</span></div>
@@ -708,13 +758,15 @@ async function loadCustomerTab() {
           <div class="cust-head">
             <div>
               <div class="cust-name">${rankBadge} ${m.display_name} ${m.member_type === 'walkin' ? '<span class="gtky-badge" style="background:rgba(74,52,40,0.08);color:rgba(74,52,40,0.45);">🚶 ยังไม่สมัครสมาชิก</span>' : '<span class="gtky-badge">🔗 สมาชิก LINE</span>'}</div>
-              <div class="cust-meta">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})} · ${myOrders.length} แก้ว${myFeedback.length ? ' · ' + myFeedback.length + ' ฟีดแบค' : ''}${myGtky.length ? ' · ' + myGtky.length + ' GTKY' : ''}</div>
+              <div class="cust-meta">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})} · ${myOrders.length} แก้ว${myFeedback.length ? ' · ' + myFeedback.length + ' ฟีดแบค' : ''}${myGtky.length ? ' · ' + myGtky.length + ' GTKY' : ''}${myManualNotes.length ? ' · ' + myManualNotes.length + ' บันทึก' : ''}</div>
             </div>
             ${avgRating !== null ? `<div class="cust-rating">⭐ ${avgRating.toFixed(1)}</div>` : ''}
           </div>
           <div class="cust-detail">
             <div class="cust-insight">💡 ${insight}</div>
-            <div class="card-title" style="margin-top:0;">ฟีดแบคที่ให้ไว้</div>
+            <div class="card-title" style="margin-top:0;">📝 บันทึกจากบาริสต้า</div>
+            ${manualNotesHtml}
+            <div class="card-title" style="margin-top:16px;">ฟีดแบคที่ให้ไว้</div>
             ${feedbackHtml}
             <div class="card-title" style="margin-top:16px;">คำตอบ GTKY</div>
             ${gtkyHtml}
@@ -737,6 +789,67 @@ async function loadCustomerTab() {
     listEl.innerHTML = '';
   }
 }
+
+let mfSelectedRating = null;
+let mfFormWired = false;
+function setupManualFeedbackForm() {
+  if (mfFormWired) return;
+  mfFormWired = true;
+
+  document.querySelectorAll('.mf-rating-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.mf-rating-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      mfSelectedRating = chip.dataset.rating || null;
+    });
+  });
+
+  document.getElementById('mfNoteSubmitBtn').addEventListener('click', async () => {
+    const statusEl = document.getElementById('mfNoteStatus');
+    statusEl.className = 'status'; statusEl.style.display = 'none';
+    const lineUserId = document.getElementById('mfNoteCustomer').value;
+    const menuName = document.getElementById('mfNoteMenu').value.trim();
+    const noteText = document.getElementById('mfNoteText').value.trim();
+    const noteDate = document.getElementById('mfNoteDate').value;
+
+    if (!lineUserId || !noteText) {
+      statusEl.textContent = 'เลือกลูกค้าและพิมพ์บันทึกก่อนนะ';
+      statusEl.className = 'status err';
+      return;
+    }
+
+    const btn = document.getElementById('mfNoteSubmitBtn');
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+    try {
+      await sb('manual_feedback_notes', {
+        method: 'POST',
+        body: JSON.stringify([{
+          line_user_id: lineUserId,
+          menu_item_name: menuName || null,
+          rating: mfSelectedRating ? Number(mfSelectedRating) : null,
+          note_text: noteText,
+          noted_at: noteDate || new Date().toISOString().slice(0, 10),
+        }]),
+      });
+      statusEl.textContent = 'บันทึกแล้ว ✓';
+      statusEl.className = 'status ok';
+      document.getElementById('mfNoteMenu').value = '';
+      document.getElementById('mfNoteText').value = '';
+      document.querySelectorAll('.mf-rating-chip').forEach(c => c.classList.remove('selected'));
+      mfSelectedRating = null;
+      customerLoaded = false;
+      loadCustomerTab();
+      customerLoaded = true;
+    } catch (e) {
+      statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + e.message;
+      statusEl.className = 'status err';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'บันทึก';
+    }
+  });
+}
+setupManualFeedbackForm();
 
 // ---------- GTKY TAB ----------
 const GTKY_SEND_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/gtky-send";
