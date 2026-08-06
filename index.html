@@ -81,6 +81,8 @@
 
   /* CUSTOMER TAB */
   .cust-card{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--orange);border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.04);}
+  .cust-subhead{font-size:12.5px;font-weight:700;color:var(--orange);margin:18px 0 8px;letter-spacing:0.3px;}
+  .cust-subhead:first-child{margin-top:0;}
   .cust-head{display:flex;justify-content:space-between;align-items:center;}
   .cust-name{font-size:14px;font-weight:600;color:var(--cream);}
   .cust-meta{font-size:10.5px;color:rgba(74,52,40,0.4);margin-top:3px;}
@@ -214,44 +216,14 @@
   </div>
 
   <div class="card">
-    <div class="card-title">📝 บันทึกฟีดแบคจากบาริสต้า</div>
-    <div style="font-size:11px;color:rgba(74,52,40,0.5);margin-bottom:12px;line-height:1.6;">สำหรับฟีดแบคที่ได้ยินมาจากลูกค้าโดยตรง (ไม่ได้ผ่านระบบให้คะแนน) — จะไปโผล่ในโปรไฟล์ลูกค้าคนนั้น</div>
-
-    <label>ลูกค้า</label>
-    <select id="mfNoteCustomer"><option value="">กำลังโหลด...</option></select>
-
-    <label>เกี่ยวกับเมนูไหน (ไม่บังคับ)</label>
-    <input type="text" id="mfNoteMenu" placeholder="เช่น Iced Latte">
-
-    <label>ให้คะแนนด้วยไหม (ไม่บังคับ)</label>
-    <div class="chip-row" id="mfNoteRatingRow">
-      <button type="button" class="chip mf-rating-chip" data-rating="1">1</button>
-      <button type="button" class="chip mf-rating-chip" data-rating="2">2</button>
-      <button type="button" class="chip mf-rating-chip" data-rating="3">3</button>
-      <button type="button" class="chip mf-rating-chip" data-rating="4">4</button>
-      <button type="button" class="chip mf-rating-chip" data-rating="5">5</button>
-      <button type="button" class="chip mf-rating-chip" data-rating="">ไม่ให้คะแนน</button>
-    </div>
-
-    <label style="margin-top:12px;">บันทึกที่ได้ยินมา</label>
-    <textarea id="mfNoteText" rows="3" placeholder="เช่น ลูกค้าบอกว่าแก้วนี้หวานไปหน่อย"></textarea>
-
-    <label>เมื่อไหร่</label>
-    <input type="date" id="mfNoteDate">
-
-    <button class="btn" id="mfNoteSubmitBtn">บันทึก</button>
-    <div class="status" id="mfNoteStatus"></div>
-  </div>
-
-  <div class="card">
     <div class="card-title">อันดับลูกค้า — ซื้อเยอะสุดก่อน (แตะดูคะแนน/ฟีดแบค)</div>
     <div id="custList"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
   <div class="card">
-    <div class="card-title" style="color:var(--ol);">📋 คำถามสำรวจ (GTKY)</div>
+    <div class="card-title" style="color:var(--ol);">📋 คำถามสำรวจ (GTKY) / Barista Feedback</div>
     <div style="font-size:11.5px;color:rgba(74,52,40,0.5);line-height:1.7;">
-      เปิดใช้งานแล้ว — ไปที่แท็บ "GTKY" ด้านบนเพื่อจัดการคำถามและส่งหาลูกค้า คำตอบที่ได้จะโผล่ในโปรไฟล์ลูกค้าแต่ละคนที่นี่ด้วย
+      หน้านี้เป็นหน้าดูอย่างเดียว — ส่งคำถาม GTKY หรือบันทึก Barista Feedback ให้ไปที่แท็บ "GTKY" ด้านบน ผลลัพธ์จะโผล่ในโปรไฟล์ลูกค้าแต่ละคนที่นี่โดยอัตโนมัติ
     </div>
   </div>
 
@@ -259,6 +231,8 @@
 
 <!-- ============ TAB 3: GTKY ============ -->
 <div class="view" id="view-gtky">
+
+  <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--orange);font-weight:700;padding-left:2px;margin-bottom:10px;">📩 GTKY — คำถามสร้างความสัมพันธ์</div>
 
   <div class="card" style="border-color:rgba(232,98,26,0.4);background:rgba(232,98,26,0.06);">
     <div class="card-title" style="color:var(--ol);font-size:13px;letter-spacing:1px;">🚀 ส่งคำถามหาลูกค้า</div>
@@ -318,6 +292,39 @@
   <div class="card">
     <div class="card-title">คำถามทั้งหมด (แตะ ⭐ เพื่อปักคำถามโปรด)</div>
     <div id="gtkyQuestionList"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div style="height:2px;background:linear-gradient(90deg,var(--green),transparent);margin:28px 0 14px;"></div>
+  <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--green);font-weight:700;padding-left:2px;margin-bottom:10px;">📝 Barista Feedback — บันทึกจากฝั่งร้าน</div>
+
+  <div class="card" style="border-color:rgba(74,155,92,0.4);background:rgba(74,155,92,0.06);">
+    <div class="card-title" style="color:var(--green);font-size:13px;letter-spacing:1px;">📝 Barista Feedback</div>
+    <div style="font-size:11px;color:rgba(74,52,40,0.5);margin-bottom:12px;line-height:1.6;">สำหรับฟีดแบคที่ได้ยินมาจากลูกค้าโดยตรง (ไม่ได้ผ่านระบบให้คะแนน) — จะไปโผล่ในโปรไฟล์ลูกค้าคนนั้นในแท็บ "ลูกค้า"</div>
+
+    <label>ลูกค้า</label>
+    <select id="mfNoteCustomer"><option value="">กำลังโหลด...</option></select>
+
+    <label>เกี่ยวกับเมนูไหน (ไม่บังคับ)</label>
+    <input type="text" id="mfNoteMenu" placeholder="เช่น Iced Latte">
+
+    <label>ให้คะแนนด้วยไหม (ไม่บังคับ)</label>
+    <div class="chip-row" id="mfNoteRatingRow">
+      <button type="button" class="chip mf-rating-chip" data-rating="1">1</button>
+      <button type="button" class="chip mf-rating-chip" data-rating="2">2</button>
+      <button type="button" class="chip mf-rating-chip" data-rating="3">3</button>
+      <button type="button" class="chip mf-rating-chip" data-rating="4">4</button>
+      <button type="button" class="chip mf-rating-chip" data-rating="5">5</button>
+      <button type="button" class="chip mf-rating-chip" data-rating="">ไม่ให้คะแนน</button>
+    </div>
+
+    <label style="margin-top:12px;">บันทึกที่ได้ยินมา</label>
+    <textarea id="mfNoteText" rows="3" placeholder="เช่น ลูกค้าบอกว่าแก้วนี้หวานไปหน่อย"></textarea>
+
+    <label>เมื่อไหร่</label>
+    <input type="date" id="mfNoteDate">
+
+    <button class="btn" id="mfNoteSubmitBtn" style="background:var(--green);">บันทึก</button>
+    <div class="status" id="mfNoteStatus"></div>
   </div>
 
 </div>
@@ -657,11 +664,6 @@ async function loadCustomerTab() {
       sb('manual_feedback_notes?select=*&order=noted_at.desc'),
     ]);
 
-    const custSelect = document.getElementById('mfNoteCustomer');
-    custSelect.innerHTML = '<option value="">— เลือกลูกค้า —</option>' + members.map(m => `<option value="${m.line_user_id}">${m.display_name}</option>`).join('');
-    const dateInput = document.getElementById('mfNoteDate');
-    if (!dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
-
     if (!members.length) {
       overviewEl.innerHTML = '<div class="empty">ยังไม่มีลูกค้าลงทะเบียนเลย</div>';
       listEl.innerHTML = '';
@@ -709,8 +711,9 @@ async function loadCustomerTab() {
         insight = parts.join(' · ');
       }
 
-      const feedbackHtml = myFeedback.length
-        ? myFeedback.map(f => `
+      const feedbackHtml = myFeedback.length ? `
+        <div class="cust-subhead">ฟีดแบคที่ให้ไว้</div>
+        ${myFeedback.map(f => `
             <div class="fb-item">
               <div class="fb-top">
                 <span class="fb-menu">${f.menu_item_name}</span>
@@ -719,11 +722,12 @@ async function loadCustomerTab() {
               <div class="fb-sub">${fmtDateTimeFb(f.responded_at)}${f.bean_name ? ' · 🌱 ' + f.bean_name : ''}${f.sweetness ? ' · ' + f.sweetness : ''}</div>
               ${f.comment ? `<div class="fb-comment">${f.comment}</div>` : ''}
             </div>
-          `).join('')
-        : '<div class="empty">ยังไม่เคยให้ฟีดแบค</div>';
+          `).join('')}
+      ` : '';
 
-      const gtkyHtml = myGtky.length
-        ? myGtky.map(g => `
+      const gtkyHtml = myGtky.length ? `
+        <div class="cust-subhead">คำตอบ GTKY</div>
+        ${myGtky.map(g => `
             <div class="fb-item">
               <div class="fb-top">
                 <span class="fb-menu">${g.gtky_questions ? g.gtky_questions.question_text : '(คำถามถูกลบแล้ว)'}</span>
@@ -731,11 +735,12 @@ async function loadCustomerTab() {
               <div class="fb-sub">${g.gtky_questions && g.gtky_questions.gtky_categories ? g.gtky_questions.gtky_categories.name + ' · ' : ''}${fmtDateTimeFb(g.responded_at)}</div>
               <div class="fb-comment">${g.answer_text}</div>
             </div>
-          `).join('')
-        : '<div class="empty">ยังไม่เคยตอบ GTKY</div>';
+          `).join('')}
+      ` : '';
 
-      const manualNotesHtml = myManualNotes.length
-        ? myManualNotes.map(n => `
+      const manualNotesHtml = myManualNotes.length ? `
+        <div class="cust-subhead">📝 Barista Feedback</div>
+        ${myManualNotes.map(n => `
             <div class="fb-item">
               <div class="fb-top">
                 <span class="fb-menu">${n.menu_item_name || 'ทั่วไป'}</span>
@@ -744,14 +749,15 @@ async function loadCustomerTab() {
               <div class="fb-sub">${new Date(n.noted_at).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})}</div>
               <div class="fb-comment">${n.note_text}</div>
             </div>
-          `).join('')
-        : '<div class="empty">ยังไม่มีบันทึกจากบาริสต้า</div>';
+          `).join('')}
+      ` : '';
 
-      const orderHtml = myOrders.length
-        ? myOrders.slice(0, 15).map(o => `
+      const orderHtml = myOrders.length ? `
+        <div class="cust-subhead">ประวัติการสั่ง (ล่าสุด 15 แก้ว)</div>
+        ${myOrders.slice(0, 15).map(o => `
             <div class="order-row"><span>${o.menu_item_name}${o.bean_name ? ' · ' + o.bean_name : ''}</span><span>${o.brewed_at ? fmtDateTimeFb(o.brewed_at) : ''}</span></div>
-          `).join('')
-        : '<div class="empty">ยังไม่เคยสั่ง</div>';
+          `).join('')}
+      ` : '';
 
       return `
         <div class="cust-card" data-id="${m.id}">
@@ -764,13 +770,9 @@ async function loadCustomerTab() {
           </div>
           <div class="cust-detail">
             <div class="cust-insight">💡 ${insight}</div>
-            <div class="card-title" style="margin-top:0;">📝 บันทึกจากบาริสต้า</div>
             ${manualNotesHtml}
-            <div class="card-title" style="margin-top:16px;">ฟีดแบคที่ให้ไว้</div>
             ${feedbackHtml}
-            <div class="card-title" style="margin-top:16px;">คำตอบ GTKY</div>
             ${gtkyHtml}
-            <div class="card-title" style="margin-top:16px;">ประวัติการสั่ง (ล่าสุด 15 แก้ว)</div>
             ${orderHtml}
           </div>
         </div>
@@ -868,6 +870,11 @@ async function loadGtkyTab() {
     gtkyLoadQuestions(),
     gtkyLoadCustomerChecklist(),
   ]);
+
+  const custSelect = document.getElementById('mfNoteCustomer');
+  custSelect.innerHTML = '<option value="">— เลือกลูกค้า —</option>' + gtkyMembersCache.map(m => `<option value="${m.line_user_id}">${m.display_name}</option>`).join('');
+  const dateInput = document.getElementById('mfNoteDate');
+  if (!dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
 }
 
 async function gtkyLoadCategoriesIntoSelect() {
