@@ -147,12 +147,11 @@
 </div>
 
 <div class="tabs">
-  <div class="tab active" data-tab="report">Sales</div>
-  <div class="tab" data-tab="customer">Customers</div>
+  <div class="tab active" data-tab="report">Sales & Customers</div>
   <div class="tab" data-tab="gtky">GTKY</div>
 </div>
 
-<!-- ============ TAB 1: REPORT ============ -->
+<!-- ============ TAB 1: SALES & CUSTOMER PERFORMANCE ============ -->
 <div class="view active" id="view-report">
 
   <div class="card">
@@ -177,36 +176,37 @@
   </div>
 
   <div class="card">
-    <div class="card-title" id="reportPeriodLabel">สรุปยอด</div>
+    <div class="card-title" id="reportPeriodLabel">ภาพรวม</div>
     <div id="reportSummary"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
-  <div class="card">
-    <div class="card-title">แยกตามเมนู</div>
-    <div class="recipe-table-wrap">
-      <table class="recipe-table" id="reportMenuTable">
-        <thead>
-          <tr><th>เมนู</th><th>แก้ว</th><th>ยอดขาย</th><th>ต้นทุน</th><th>กำไร</th></tr>
-        </thead>
-        <tbody id="reportMenuBody">
-          <tr><td colspan="5" class="loading">กำลังโหลด...</td></tr>
-        </tbody>
-      </table>
+  <div class="card-title" style="padding-left:2px;color:var(--orange);">👤 มิติลูกค้า</div>
+  <div class="row2" style="align-items:start;">
+    <div class="card">
+      <div class="card-title">Top 5 — แก้ว</div>
+      <div id="dimCustCups"><div class="loading">กำลังโหลด...</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top 5 — ยอดขาย</div>
+      <div id="dimCustRevenue"><div class="loading">กำลังโหลด...</div></div>
+    </div>
+  </div>
+
+  <div class="card-title" style="padding-left:2px;margin-top:8px;color:var(--orange);">☕ มิติเมนู</div>
+  <div class="row2" style="align-items:start;">
+    <div class="card">
+      <div class="card-title">Top 5 — แก้ว</div>
+      <div id="dimMenuCups"><div class="loading">กำลังโหลด...</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top 5 — ยอดขาย</div>
+      <div id="dimMenuRevenue"><div class="loading">กำลังโหลด...</div></div>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">แยกตามลูกค้า</div>
-    <div class="recipe-table-wrap">
-      <table class="recipe-table" id="reportCustomerTable">
-        <thead>
-          <tr><th>ลูกค้า</th><th>แก้ว</th><th>ยอดขาย</th></tr>
-        </thead>
-        <tbody id="reportCustomerBody">
-          <tr><td colspan="3" class="loading">กำลังโหลด...</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <div class="card-title">รายการธุรกรรมทั้งหมดในช่วงนี้</div>
+    <div id="reportTransactionList"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
   <div class="card">
@@ -214,41 +214,9 @@
     <div id="reportFreebies"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
+  <div class="card-title" style="padding-left:2px;margin-top:8px;">👥 รายละเอียดลูกค้ารายคน (ทั้งหมด ไม่จำกัดช่วงเวลา)</div>
   <div class="card">
-    <div class="card-title" style="color:var(--red);">🔴 สต็อกใกล้หมด</div>
-    <div id="reportLowStock"><div class="loading">กำลังโหลด...</div></div>
-  </div>
-
-</div>
-
-<!-- ============ TAB 2: CUSTOMER INTELLIGENCE ============ -->
-<div class="view" id="view-customer">
-
-  <div class="card">
-    <div class="card-title">Customer Analytics — ภาพรวม</div>
-    <div id="custOverview"><div class="loading">กำลังโหลด...</div></div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">📊 Top 5 — แก้วเยอะสุด</div>
-    <div id="custChartCups"><div class="loading">กำลังโหลด...</div></div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">📊 Top 5 — ยอดขายสูงสุด</div>
-    <div id="custChartRevenue"><div class="loading">กำลังโหลด...</div></div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">อันดับลูกค้า (แตะดูคะแนน/ฟีดแบค)</div>
     <div id="custList"><div class="loading">กำลังโหลด...</div></div>
-  </div>
-
-  <div class="card">
-    <div class="card-title" style="color:var(--ol);">📋 คำถามสำรวจ (GTKY) / Barista Feedback</div>
-    <div style="font-size:11.5px;color:rgba(74,52,40,0.5);line-height:1.7;">
-      หน้านี้เป็นหน้าดูอย่างเดียว — ส่งคำถาม GTKY หรือบันทึก Barista Feedback ให้ไปที่แท็บ "GTKY" ด้านบน ผลลัพธ์จะโผล่ในโปรไฟล์ลูกค้าแต่ละคนที่นี่โดยอัตโนมัติ
-    </div>
   </div>
 
 </div>
@@ -425,8 +393,11 @@ document.querySelectorAll(".tab").forEach(tab => {
     document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
     tab.classList.add("active");
     document.getElementById("view-" + tab.dataset.tab).classList.add("active");
-    if (tab.dataset.tab === "customer" && !customerLoaded) { customerLoaded = true; loadCustomerTab(); }
-    if (tab.dataset.tab === "report" && !reportLoaded) { reportLoaded = true; loadReportTab(); }
+    if (tab.dataset.tab === "report" && !reportLoaded) {
+      reportLoaded = true;
+      loadReportTab();
+      loadCustomerTab();
+    }
     if (tab.dataset.tab === "gtky" && !gtkyLoaded) { gtkyLoaded = true; loadGtkyTab(); }
   });
 });
@@ -440,11 +411,11 @@ const SWEETNESS_RULES_REPORT = {
 const FLAT_BEAN_COST = 20;
 let reportRange = 'all';
 let earliestDateCache = null;
-let customerLoaded = false;
 let reportLoaded = false;
 let gtkyLoaded = false;
 reportLoaded = true;
 loadReportTab();
+loadCustomerTab();
 
 async function resolveEarliestDate() {
   if (earliestDateCache) return earliestDateCache;
@@ -492,19 +463,32 @@ document.getElementById('reportRangeRow').addEventListener('click', (e) => {
 document.getElementById('reportFrom').addEventListener('change', loadReportTab);
 document.getElementById('reportTo').addEventListener('change', loadReportTab);
 
+function renderBarChart(containerId, items, valueFmt) {
+  const el = document.getElementById(containerId);
+  if (!items.length) { el.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>'; return; }
+  const max = Math.max(...items.map(i => i.value)) || 1;
+  el.innerHTML = items.map(i => `
+    <div class="barchart-row">
+      <div class="barchart-label"><span>${i.label}</span><b>${valueFmt(i.value)}</b></div>
+      <div class="barchart-track"><div class="barchart-fill" style="width:${Math.max(4, (i.value / max) * 100)}%;"></div></div>
+    </div>
+  `).join('');
+}
+
 async function loadReportTab() {
   const { from, to } = await getReportDateRange();
   document.getElementById('reportPeriodLabel').textContent =
-    `สรุปยอด (${from.toLocaleDateString('th-TH',{day:'numeric',month:'short'})} - ${to.toLocaleDateString('th-TH',{day:'numeric',month:'short'})})`;
+    `ภาพรวม (${from.toLocaleDateString('th-TH',{day:'numeric',month:'short'})} - ${to.toLocaleDateString('th-TH',{day:'numeric',month:'short'})})`;
 
   const summaryEl = document.getElementById('reportSummary');
-  const menuBody = document.getElementById('reportMenuBody');
   const freebiesEl = document.getElementById('reportFreebies');
-  const lowStockEl = document.getElementById('reportLowStock');
+  const txnEl = document.getElementById('reportTransactionList');
   summaryEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
-  menuBody.innerHTML = '<tr><td colspan="5" class="loading">กำลังโหลด...</td></tr>';
   freebiesEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
-  lowStockEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  txnEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  ['dimCustCups','dimCustRevenue','dimMenuCups','dimMenuRevenue'].forEach(id => {
+    document.getElementById(id).innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  });
 
   try {
     const [orders, menuItems, recipes, beans, allIngredients] = await Promise.all([
@@ -540,7 +524,6 @@ async function loadReportTab() {
         if (rule && rule[order.sweetness] !== undefined) qty = rule[order.sweetness];
         cost += qty * Number(ing.cost_per_base_unit || 0);
       });
-      // เมนู secret ที่บาริสต้าเลือกมิกเซอร์/กรอกต้นทุนอื่นๆ เองตอนชง (ไม่มีสูตรตั้งไว้ล่วงหน้า)
       if (order.mixer_name && ingredientCostByName[order.mixer_name] !== undefined) {
         cost += ingredientCostByName[order.mixer_name] * MIXER_ESTIMATE_G;
       }
@@ -553,14 +536,7 @@ async function loadReportTab() {
     const customerOrders = orders.filter(o => o.order_type === 'customer' || !o.order_type);
     const freeOrders = orders.filter(o => o.order_type === 'staff' || o.order_type === 'reward');
 
-    const REPORT_DRINK_GROUPS = [
-      { title: '☕ กาแฟ', match: c => ['espresso','dirty','signature'].includes(c) },
-      { title: '🍵 ชาเขียว', match: c => c === 'matcha' },
-      { title: '🥤 อื่นๆ', match: c => !['espresso','dirty','signature','matcha'].includes(c) },
-    ];
-
     // ---- Omakase: นับ 230฿ ครั้งเดียวต่อ 1 เซ็ตตอนชงครบ 3 แก้ว ไม่ใช่บวกราคาแยกแก้ว ----
-    // (ต้นทุนยังคำนวณแยกแต่ละแก้วตามปกติ ผูกกับเซ็ตแค่เรื่องยอดขาย)
     const OMAKASE_TOTAL_PRICE = 230;
     const omakaseSetIds = [...new Set(customerOrders.filter(o => o.omakase_set_id).map(o => o.omakase_set_id))];
     let omakaseCupsBySet = {};
@@ -586,7 +562,7 @@ async function loadReportTab() {
     const byCustomer = {};
     let unpaid = 0;
     customerOrders.forEach(o => {
-      if (o.omakase_set_id) return; // จัดการ Omakase รวมเป็นก้อนเดียวแยกด้านล่าง ไม่นับราคาแยกแก้วตรงนี้
+      if (o.omakase_set_id) return;
       const cost = computeCost(o);
       if (!o.paid) unpaid += Number(o.price);
       if (!byMenu[o.menu_item_name]) byMenu[o.menu_item_name] = { qty: 0, revenue: 0, cogs: 0 };
@@ -615,50 +591,53 @@ async function loadReportTab() {
     const revenue = nonOmakaseOrders.reduce((s, o) => s + Number(o.price), 0) + omakaseRevenue;
     const cogs = nonOmakaseOrders.reduce((s, o) => s + computeCost(o), 0) + omakaseCogs;
     const totalCups = nonOmakaseOrders.length + omakaseCupsCounted;
+    const custCount = Object.keys(byCustomer).length;
+    const avgPerCup = totalCups ? (revenue / totalCups) : 0;
 
     const profit = revenue - cogs;
     const gp = revenue ? (profit / revenue * 100) : 0;
 
     summaryEl.innerHTML = `
       <div class="stat-grid">
-        <div class="stat-box"><div class="stat-label">ยอดขาย</div><div class="stat-val">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div><div class="stat-sub">${totalCups} แก้ว</div></div>
+        <div class="stat-box"><div class="stat-label">ยอดขาย</div><div class="stat-val">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">จำนวนลูกค้า</div><div class="stat-val">${custCount} คน</div></div>
+        <div class="stat-box"><div class="stat-label">จำนวนแก้ว</div><div class="stat-val">${totalCups} แก้ว</div></div>
+        <div class="stat-box"><div class="stat-label">ยอดขายเฉลี่ย/แก้ว</div><div class="stat-val">฿${avgPerCup.toFixed(0)}</div></div>
         <div class="stat-box"><div class="stat-label">ต้นทุน</div><div class="stat-val">฿${cogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
         <div class="stat-box"><div class="stat-label">กำไรสุทธิ</div><div class="stat-val ${profit>=0?'good':'bad'}">฿${profit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-        <div class="stat-box"><div class="stat-label">GP%</div><div class="stat-val ${gp>=0?'good':'bad'}">${gp.toFixed(1)}%</div></div>
+        <div class="stat-box"><div class="stat-label">GP% (มาร์จิ้น)</div><div class="stat-val ${gp>=0?'good':'bad'}">${gp.toFixed(1)}%</div></div>
       </div>
       ${unpaid > 0 ? `<div class="unpaid-note">⚠️ ในนี้ยังไม่ได้เก็บเงิน ฿${unpaid.toLocaleString(undefined,{maximumFractionDigits:0})}</div>` : ''}
     `;
 
-    let menuHtml = '';
-    REPORT_DRINK_GROUPS.forEach(g => {
-      const entries = Object.entries(byMenu).filter(([name]) => {
-        const menu = menuByName[name];
-        return menu && g.match(menu.category);
-      }).sort((a,b) => b[1].revenue - a[1].revenue);
-      if (!entries.length) return;
-      menuHtml += `<tr class="recipe-group-row"><td colspan="5">${g.title}</td></tr>`;
-      menuHtml += entries.map(([name, d]) => {
-        const p = d.revenue - d.cogs;
-        return `<tr>
-          <td>${name}</td>
-          <td>${d.qty}</td>
-          <td>฿${d.revenue.toFixed(0)}</td>
-          <td>฿${d.cogs.toFixed(0)}</td>
-          <td><span class="recipe-profit ${p>=0?'good':'bad'}">฿${p.toFixed(0)}</span></td>
-        </tr>`;
-      }).join("");
-    });
-    menuBody.innerHTML = menuHtml || '<tr><td colspan="5" class="empty">ไม่มีออเดอร์ในช่วงนี้</td></tr>';
+    // Dimension 1: ลูกค้า
+    const custEntries = Object.entries(byCustomer);
+    renderBarChart('dimCustCups',
+      [...custEntries].sort((a,b) => b[1].qty - a[1].qty).slice(0,5).map(([name,d]) => ({ label: name, value: d.qty })),
+      v => `${v} แก้ว`);
+    renderBarChart('dimCustRevenue',
+      [...custEntries].sort((a,b) => b[1].revenue - a[1].revenue).slice(0,5).map(([name,d]) => ({ label: name, value: d.revenue })),
+      v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
 
-    const sortedCustomers = Object.entries(byCustomer).sort((a,b) => b[1].revenue - a[1].revenue);
-    const customerBody = document.getElementById('reportCustomerBody');
-    customerBody.innerHTML = sortedCustomers.length
-      ? sortedCustomers.map(([name, d]) => `<tr>
-          <td>${name}</td>
-          <td>${d.qty}</td>
-          <td>฿${d.revenue.toFixed(0)}</td>
-        </tr>`).join("")
-      : '<tr><td colspan="3" class="empty">ไม่มีออเดอร์ในช่วงนี้</td></tr>';
+    // Dimension 2: เมนู
+    const menuEntries = Object.entries(byMenu);
+    renderBarChart('dimMenuCups',
+      [...menuEntries].sort((a,b) => b[1].qty - a[1].qty).slice(0,5).map(([name,d]) => ({ label: name, value: d.qty })),
+      v => `${v} แก้ว`);
+    renderBarChart('dimMenuRevenue',
+      [...menuEntries].sort((a,b) => b[1].revenue - a[1].revenue).slice(0,5).map(([name,d]) => ({ label: name, value: d.revenue })),
+      v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
+
+    // รายการธุรกรรมทั้งหมด (เรียงล่าสุดก่อน)
+    const allTxns = [...customerOrders].sort((a,b) => new Date(b.brewed_at) - new Date(a.brewed_at));
+    txnEl.innerHTML = allTxns.length
+      ? allTxns.map(o => `
+          <div class="order-row">
+            <span>${o.menu_item_name}${o.bean_name ? ' · ' + o.bean_name : ''}${o.omakase_set_id ? ' <span class="gtky-badge" style="background:rgba(232,98,26,0.1);color:var(--ol);">Omakase</span>' : ''} — ${o.customer_name || 'ไม่ระบุชื่อ'}</span>
+            <span>฿${Number(o.price).toFixed(0)} · ${fmtDateTimeFb(o.brewed_at)}</span>
+          </div>
+        `).join('')
+      : '<div class="empty">ไม่มีธุรกรรมในช่วงนี้</div>';
 
     const staffCount = orders.filter(o => o.order_type === 'staff').length;
     const rewardCount = orders.filter(o => o.order_type === 'reward').length;
@@ -668,12 +647,6 @@ async function loadReportTab() {
       <div class="freebie-row"><span>🎁 แลกแต้ม/แจกฟรี</span><span>${rewardCount} แก้ว</span></div>
       <div class="freebie-row"><b>รวมต้นทุนที่เสียไป</b><b>฿${freeCost.toFixed(0)}</b></div>
     `;
-
-    const cupsMap = await computeCupsRemainingMap(allIngredients);
-    const lowStock = allIngredients.filter(i => cupsMap[i.id] !== null && cupsMap[i.id] < 2).sort((a,b)=>cupsMap[a.id]-cupsMap[b.id]);
-    lowStockEl.innerHTML = lowStock.length
-      ? lowStock.map(i => `<div class="lowstock-row"><span>${i.name}</span><span>ทำได้อีก ${cupsMap[i.id]} แก้ว (${Number(i.stock_quantity).toLocaleString()}${i.base_unit})</span></div>`).join("")
-      : '<div class="empty">สต็อกทุกตัวยังเพียงพอ 🎉</div>';
 
   } catch (e) {
     summaryEl.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
@@ -693,9 +666,7 @@ function mode(arr) {
 }
 
 async function loadCustomerTab() {
-  const overviewEl = document.getElementById('custOverview');
   const listEl = document.getElementById('custList');
-  overviewEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
   listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
   try {
@@ -708,12 +679,11 @@ async function loadCustomerTab() {
     ]);
 
     if (!members.length) {
-      overviewEl.innerHTML = '<div class="empty">ยังไม่มีลูกค้าลงทะเบียนเลย</div>';
-      listEl.innerHTML = '';
+      listEl.innerHTML = '<div class="empty">ยังไม่มีลูกค้าลงทะเบียนเลย</div>';
       return;
     }
 
-    // ---- Omakase: ให้ตรงกับแท็บยอดขาย — นับ 230฿ ก้อนเดียวต่อเซ็ตตอนชงครบ 3 แก้วเท่านั้น ไม่ใช่บวกราคาแยกแก้ว ----
+    // ---- Omakase: ให้ตรงกับด้านบน — นับ 230฿ ก้อนเดียวต่อเซ็ตตอนชงครบ 3 แก้วเท่านั้น ----
     const OMAKASE_TOTAL_PRICE = 230;
     const custOmakaseSetIds = [...new Set(orders.filter(o => o.omakase_set_id).map(o => o.omakase_set_id))];
     let custOmakaseCupsBySet = {};
@@ -735,18 +705,6 @@ async function loadCustomerTab() {
       return nonOmakase + countedSets.size * OMAKASE_TOTAL_PRICE;
     }
 
-    const customerOnlyOrders = orders.filter(o => o.order_type === 'customer' || !o.order_type);
-    const totalRevenue = omakaseAwareRevenue(customerOnlyOrders);
-
-    overviewEl.innerHTML = `
-      <div class="stat-grid">
-        <div class="stat-box"><div class="stat-label">ลูกค้าทั้งหมด</div><div class="stat-val">${members.length} คน</div></div>
-        <div class="stat-box"><div class="stat-label">ให้ฟีดแบคแล้ว</div><div class="stat-val">${new Set(feedback.map(f=>f.line_user_id)).size} คน</div></div>
-        <div class="stat-box"><div class="stat-label">ตอบ GTKY แล้ว</div><div class="stat-val">${new Set(gtkyAnswers.map(g=>g.line_user_id)).size} คน</div></div>
-        <div class="stat-box"><div class="stat-label">ยอดขายรวม (ลูกค้าที่ผูก LINE)</div><div class="stat-val">฿${totalRevenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-      </div>
-    `;
-
     // ประกอบข้อมูลต่อลูกค้าก่อน แล้วเรียงจากซื้อเยอะสุด (ยอดใช้จ่าย) ไปน้อยสุด
     const enriched = members.map(m => {
       const myOrders = orders.filter(o => o.line_user_id === m.line_user_id);
@@ -760,26 +718,6 @@ async function loadCustomerTab() {
       const revenue = omakaseAwareRevenue(myCustomerOrders);
       return { m, myOrders, myFeedback, myGtky, myManualNotes, avgRating, favBean, favMenu, revenue };
     }).sort((a, b) => b.revenue - a.revenue || b.myOrders.length - a.myOrders.length);
-
-    function renderBarChart(containerId, items, valueFmt) {
-      const el = document.getElementById(containerId);
-      if (!items.length) { el.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>'; return; }
-      const max = Math.max(...items.map(i => i.value)) || 1;
-      el.innerHTML = items.map(i => `
-        <div class="barchart-row">
-          <div class="barchart-label"><span>${i.label}</span><b>${valueFmt(i.value)}</b></div>
-          <div class="barchart-track"><div class="barchart-fill" style="width:${Math.max(4, (i.value / max) * 100)}%;"></div></div>
-        </div>
-      `).join('');
-    }
-
-    const top5Cups = [...enriched].sort((a, b) => b.myOrders.length - a.myOrders.length).slice(0, 5)
-      .map(row => ({ label: row.m.display_name, value: row.myOrders.length }));
-    renderBarChart('custChartCups', top5Cups, v => `${v} แก้ว`);
-
-    const top5Revenue = [...enriched].sort((a, b) => b.revenue - a.revenue).slice(0, 5)
-      .map(row => ({ label: row.m.display_name, value: row.revenue }));
-    renderBarChart('custChartRevenue', top5Revenue, v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
 
     listEl.innerHTML = enriched.map((row, idx) => {
       const { m, myOrders, myFeedback, myGtky, myManualNotes, avgRating, favBean, favMenu, revenue } = row;
@@ -871,8 +809,7 @@ async function loadCustomerTab() {
     });
 
   } catch (e) {
-    overviewEl.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
-    listEl.innerHTML = '';
+    listEl.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
   }
 }
 
@@ -923,9 +860,7 @@ function setupManualFeedbackForm() {
       document.getElementById('mfNoteText').value = '';
       document.querySelectorAll('.mf-rating-chip').forEach(c => c.classList.remove('selected'));
       mfSelectedRating = null;
-      customerLoaded = false;
       loadCustomerTab();
-      customerLoaded = true;
     } catch (e) {
       statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + e.message;
       statusEl.className = 'status err';
