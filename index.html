@@ -155,68 +155,68 @@
 <div class="view active" id="view-report">
 
   <div class="card">
-    <div class="card-title">ช่วงเวลา</div>
+    <div class="card-title">Date Range</div>
     <div class="chip-row" id="reportRangeRow">
-      <button type="button" class="chip range-chip selected" data-range="all">ทั้งหมด</button>
-      <button type="button" class="chip range-chip" data-range="today">วันนี้</button>
-      <button type="button" class="chip range-chip" data-range="7">7 วัน</button>
-      <button type="button" class="chip range-chip" data-range="30">30 วัน</button>
-      <button type="button" class="chip range-chip" data-range="custom">กำหนดเอง</button>
+      <button type="button" class="chip range-chip selected" data-range="all">All</button>
+      <button type="button" class="chip range-chip" data-range="today">Today</button>
+      <button type="button" class="chip range-chip" data-range="7">7 Days</button>
+      <button type="button" class="chip range-chip" data-range="30">30 Days</button>
+      <button type="button" class="chip range-chip" data-range="custom">Custom</button>
     </div>
     <div class="row2" id="reportCustomRange" style="display:none;margin-top:10px;">
       <div>
-        <label>จากวันที่</label>
+        <label>From</label>
         <input type="date" id="reportFrom">
       </div>
       <div>
-        <label>ถึงวันที่</label>
+        <label>To</label>
         <input type="date" id="reportTo">
       </div>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title" id="reportPeriodLabel">ภาพรวม</div>
-    <div id="reportSummary"><div class="loading">กำลังโหลด...</div></div>
+    <div class="card-title" id="reportPeriodLabel">Overview</div>
+    <div id="reportSummary"><div class="loading">Loading...</div></div>
   </div>
 
-  <div class="card-title" style="padding-left:2px;color:var(--orange);">👤 มิติลูกค้า</div>
+  <div class="card-title" style="padding-left:2px;color:var(--orange);">👤 Customer Dimension</div>
   <div class="row2" style="align-items:start;">
     <div class="card">
-      <div class="card-title">Top 5 — แก้ว</div>
-      <div id="dimCustCups"><div class="loading">กำลังโหลด...</div></div>
+      <div class="card-title">Top 5 — Cups</div>
+      <div id="dimCustCups"><div class="loading">Loading...</div></div>
     </div>
     <div class="card">
-      <div class="card-title">Top 5 — ยอดขาย</div>
-      <div id="dimCustRevenue"><div class="loading">กำลังโหลด...</div></div>
+      <div class="card-title">Top 5 — Revenue</div>
+      <div id="dimCustRevenue"><div class="loading">Loading...</div></div>
     </div>
   </div>
 
-  <div class="card-title" style="padding-left:2px;margin-top:8px;color:var(--orange);">☕ มิติเมนู</div>
+  <div class="card-title" style="padding-left:2px;margin-top:8px;color:var(--orange);">☕ Menu Dimension</div>
   <div class="row2" style="align-items:start;">
     <div class="card">
-      <div class="card-title">Top 5 — แก้ว</div>
-      <div id="dimMenuCups"><div class="loading">กำลังโหลด...</div></div>
+      <div class="card-title">Top 5 — Cups</div>
+      <div id="dimMenuCups"><div class="loading">Loading...</div></div>
     </div>
     <div class="card">
-      <div class="card-title">Top 5 — ยอดขาย</div>
-      <div id="dimMenuRevenue"><div class="loading">กำลังโหลด...</div></div>
+      <div class="card-title">Top 5 — Revenue</div>
+      <div id="dimMenuRevenue"><div class="loading">Loading...</div></div>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">รายการธุรกรรมทั้งหมดในช่วงนี้</div>
-    <div id="reportTransactionList"><div class="loading">กำลังโหลด...</div></div>
+    <div class="card-title">All Transactions This Period</div>
+    <div id="reportTransactionList"><div class="loading">Loading...</div></div>
   </div>
 
   <div class="card">
-    <div class="card-title" style="color:var(--ol);">☕ ของกินเอง / 🎁 แจกฟรี</div>
-    <div id="reportFreebies"><div class="loading">กำลังโหลด...</div></div>
+    <div class="card-title" style="color:var(--ol);">☕ Staff Drinks / 🎁 Freebies</div>
+    <div id="reportFreebies"><div class="loading">Loading...</div></div>
   </div>
 
-  <div class="card-title" style="padding-left:2px;margin-top:8px;">👥 รายละเอียดลูกค้ารายคน (ทั้งหมด ไม่จำกัดช่วงเวลา)</div>
+  <div class="card-title" style="padding-left:2px;margin-top:8px;">👥 Customer Details (All-Time)</div>
   <div class="card">
-    <div id="custList"><div class="loading">กำลังโหลด...</div></div>
+    <div id="custList"><div class="loading">Loading...</div></div>
   </div>
 
 </div>
@@ -478,16 +478,16 @@ function renderBarChart(containerId, items, valueFmt) {
 async function loadReportTab() {
   const { from, to } = await getReportDateRange();
   document.getElementById('reportPeriodLabel').textContent =
-    `ภาพรวม (${from.toLocaleDateString('th-TH',{day:'numeric',month:'short'})} - ${to.toLocaleDateString('th-TH',{day:'numeric',month:'short'})})`;
+    `Overview (${from.toLocaleDateString('en-GB',{day:'numeric',month:'short'})} - ${to.toLocaleDateString('en-GB',{day:'numeric',month:'short'})})`;
 
   const summaryEl = document.getElementById('reportSummary');
   const freebiesEl = document.getElementById('reportFreebies');
   const txnEl = document.getElementById('reportTransactionList');
-  summaryEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
-  freebiesEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
-  txnEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  summaryEl.innerHTML = '<div class="loading">Loading...</div>';
+  freebiesEl.innerHTML = '<div class="loading">Loading...</div>';
+  txnEl.innerHTML = '<div class="loading">Loading...</div>';
   ['dimCustCups','dimCustRevenue','dimMenuCups','dimMenuRevenue'].forEach(id => {
-    document.getElementById(id).innerHTML = '<div class="loading">กำลังโหลด...</div>';
+    document.getElementById(id).innerHTML = '<div class="loading">Loading...</div>';
   });
 
   try {
@@ -599,63 +599,73 @@ async function loadReportTab() {
 
     summaryEl.innerHTML = `
       <div class="stat-grid">
-        <div class="stat-box"><div class="stat-label">ยอดขาย</div><div class="stat-val">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-        <div class="stat-box"><div class="stat-label">จำนวนลูกค้า</div><div class="stat-val">${custCount} คน</div></div>
-        <div class="stat-box"><div class="stat-label">จำนวนแก้ว</div><div class="stat-val">${totalCups} แก้ว</div></div>
-        <div class="stat-box"><div class="stat-label">ยอดขายเฉลี่ย/แก้ว</div><div class="stat-val">฿${avgPerCup.toFixed(0)}</div></div>
-        <div class="stat-box"><div class="stat-label">ต้นทุน</div><div class="stat-val">฿${cogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-        <div class="stat-box"><div class="stat-label">กำไรสุทธิ</div><div class="stat-val ${profit>=0?'good':'bad'}">฿${profit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-        <div class="stat-box"><div class="stat-label">GP% (มาร์จิ้น)</div><div class="stat-val ${gp>=0?'good':'bad'}">${gp.toFixed(1)}%</div></div>
+        <div class="stat-box"><div class="stat-label">Revenue</div><div class="stat-val">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">Customers</div><div class="stat-val">${custCount}</div></div>
+        <div class="stat-box"><div class="stat-label">Cups</div><div class="stat-val">${totalCups}</div></div>
+        <div class="stat-box"><div class="stat-label">Avg / Cup</div><div class="stat-val">฿${avgPerCup.toFixed(0)}</div></div>
       </div>
-      ${unpaid > 0 ? `<div class="unpaid-note">⚠️ ในนี้ยังไม่ได้เก็บเงิน ฿${unpaid.toLocaleString(undefined,{maximumFractionDigits:0})}</div>` : ''}
+      ${unpaid > 0 ? `<div class="unpaid-note">⚠️ Unpaid: ฿${unpaid.toLocaleString(undefined,{maximumFractionDigits:0})}</div>` : ''}
+      <button type="button" class="chip" id="reportFinToggle" style="margin-top:12px;">💰 Show Cost &amp; Margin</button>
+      <div class="stat-grid" id="reportFinStats" style="display:none;margin-top:10px;">
+        <div class="stat-box"><div class="stat-label">Cost</div><div class="stat-val">฿${cogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">Net Profit</div><div class="stat-val ${profit>=0?'good':'bad'}">฿${profit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">Margin (GP%)</div><div class="stat-val ${gp>=0?'good':'bad'}">${gp.toFixed(1)}%</div></div>
+      </div>
     `;
+    const finToggleBtn = document.getElementById('reportFinToggle');
+    const finStatsEl = document.getElementById('reportFinStats');
+    finToggleBtn.addEventListener('click', () => {
+      const showing = finStatsEl.style.display !== 'none';
+      finStatsEl.style.display = showing ? 'none' : 'grid';
+      finToggleBtn.textContent = showing ? '💰 Show Cost & Margin' : '🙈 Hide Cost & Margin';
+    });
 
-    // Dimension 1: ลูกค้า
+    // Dimension 1: Customer
     const custEntries = Object.entries(byCustomer);
     renderBarChart('dimCustCups',
       [...custEntries].sort((a,b) => b[1].qty - a[1].qty).slice(0,5).map(([name,d]) => ({ label: name, value: d.qty })),
-      v => `${v} แก้ว`);
+      v => `${v} cups`);
     renderBarChart('dimCustRevenue',
       [...custEntries].sort((a,b) => b[1].revenue - a[1].revenue).slice(0,5).map(([name,d]) => ({ label: name, value: d.revenue })),
       v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
 
-    // Dimension 2: เมนู
+    // Dimension 2: Menu
     const menuEntries = Object.entries(byMenu);
     renderBarChart('dimMenuCups',
       [...menuEntries].sort((a,b) => b[1].qty - a[1].qty).slice(0,5).map(([name,d]) => ({ label: name, value: d.qty })),
-      v => `${v} แก้ว`);
+      v => `${v} cups`);
     renderBarChart('dimMenuRevenue',
       [...menuEntries].sort((a,b) => b[1].revenue - a[1].revenue).slice(0,5).map(([name,d]) => ({ label: name, value: d.revenue })),
       v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
 
-    // รายการธุรกรรมทั้งหมด (เรียงล่าสุดก่อน)
+    // All transactions (most recent first)
     const allTxns = [...customerOrders].sort((a,b) => new Date(b.brewed_at) - new Date(a.brewed_at));
     txnEl.innerHTML = allTxns.length
       ? allTxns.map(o => `
           <div class="order-row">
-            <span>${o.menu_item_name}${o.bean_name ? ' · ' + o.bean_name : ''}${o.omakase_set_id ? ' <span class="gtky-badge" style="background:rgba(232,98,26,0.1);color:var(--ol);">Omakase</span>' : ''} — ${o.customer_name || 'ไม่ระบุชื่อ'}</span>
+            <span>${o.menu_item_name}${o.bean_name ? ' · ' + o.bean_name : ''}${o.omakase_set_id ? ' <span class="gtky-badge" style="background:rgba(232,98,26,0.1);color:var(--ol);">Omakase</span>' : ''} — ${o.customer_name || 'Unknown'}</span>
             <span>฿${Number(o.price).toFixed(0)} · ${fmtDateTimeFb(o.brewed_at)}</span>
           </div>
         `).join('')
-      : '<div class="empty">ไม่มีธุรกรรมในช่วงนี้</div>';
+      : '<div class="empty">No transactions this period</div>';
 
     const staffCount = orders.filter(o => o.order_type === 'staff').length;
     const rewardCount = orders.filter(o => o.order_type === 'reward').length;
     const freeCost = freeOrders.reduce((sum,o) => sum + computeCost(o), 0);
     freebiesEl.innerHTML = `
-      <div class="freebie-row"><span>☕ Staff กินเอง</span><span>${staffCount} แก้ว</span></div>
-      <div class="freebie-row"><span>🎁 แลกแต้ม/แจกฟรี</span><span>${rewardCount} แก้ว</span></div>
-      <div class="freebie-row"><b>รวมต้นทุนที่เสียไป</b><b>฿${freeCost.toFixed(0)}</b></div>
+      <div class="freebie-row"><span>☕ Staff Drinks</span><span>${staffCount} cups</span></div>
+      <div class="freebie-row"><span>🎁 Rewards / Free</span><span>${rewardCount} cups</span></div>
+      <div class="freebie-row"><b>Total Cost Lost</b><b>฿${freeCost.toFixed(0)}</b></div>
     `;
 
   } catch (e) {
-    summaryEl.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
+    summaryEl.innerHTML = `<div class="empty">Failed to load: ${e.message}</div>`;
   }
 }
 // ---------- CUSTOMER INTELLIGENCE TAB ----------
 function fmtDateTimeFb(iso){
   const d = new Date(iso);
-  return d.toLocaleDateString('th-TH',{day:'numeric',month:'short'}) + ' ' + d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + ' ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
 }
 
 function mode(arr) {
@@ -679,11 +689,11 @@ async function loadCustomerTab() {
     ]);
 
     if (!members.length) {
-      listEl.innerHTML = '<div class="empty">ยังไม่มีลูกค้าลงทะเบียนเลย</div>';
+      listEl.innerHTML = '<div class="empty">No registered customers yet</div>';
       return;
     }
 
-    // ---- Omakase: ให้ตรงกับด้านบน — นับ 230฿ ก้อนเดียวต่อเซ็ตตอนชงครบ 3 แก้วเท่านั้น ----
+    // ---- Omakase: match the top-of-page logic — count 230฿ once per set only when all 3 cups are brewed ----
     const OMAKASE_TOTAL_PRICE = 230;
     const custOmakaseSetIds = [...new Set(orders.filter(o => o.omakase_set_id).map(o => o.omakase_set_id))];
     let custOmakaseCupsBySet = {};
@@ -705,7 +715,7 @@ async function loadCustomerTab() {
       return nonOmakase + countedSets.size * OMAKASE_TOTAL_PRICE;
     }
 
-    // ประกอบข้อมูลต่อลูกค้าก่อน แล้วเรียงจากซื้อเยอะสุด (ยอดใช้จ่าย) ไปน้อยสุด
+    // Build per-customer data, sorted by spend (highest first)
     const enriched = members.map(m => {
       const myOrders = orders.filter(o => o.line_user_id === m.line_user_id);
       const myCustomerOrders = myOrders.filter(o => o.order_type === 'customer' || !o.order_type);
@@ -724,17 +734,17 @@ async function loadCustomerTab() {
       const rank = idx + 1;
       const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
 
-      let insight = 'ยังไม่มีข้อมูลพอจะสรุป — รอออเดอร์/ฟีดแบคเพิ่มเติม';
+      let insight = 'Not enough data yet — waiting for more orders/feedback';
       if (avgRating !== null || favBean || favMenu) {
         const parts = [];
-        if (favMenu) parts.push(`สั่ง <b>${favMenu[0]}</b> บ่อยสุด (${favMenu[1]} ครั้ง)`);
-        if (favBean) parts.push(`ชอบเมล็ด <b>${favBean[0]}</b> (${favBean[1]} ครั้ง)`);
-        if (avgRating !== null) parts.push(`ให้คะแนนเฉลี่ย <b>${avgRating.toFixed(1)}/5</b> จาก ${myFeedback.length} ครั้ง`);
+        if (favMenu) parts.push(`Orders <b>${favMenu[0]}</b> most (${favMenu[1]}x)`);
+        if (favBean) parts.push(`Prefers <b>${favBean[0]}</b> bean (${favBean[1]}x)`);
+        if (avgRating !== null) parts.push(`Avg rating <b>${avgRating.toFixed(1)}/5</b> from ${myFeedback.length} reviews`);
         insight = parts.join(' · ');
       }
 
       const feedbackHtml = myFeedback.length ? `
-        <div class="cust-subhead">ฟีดแบคที่ให้ไว้</div>
+        <div class="cust-subhead">Feedback Given</div>
         ${myFeedback.map(f => `
             <div class="fb-item">
               <div class="fb-top">
@@ -748,11 +758,11 @@ async function loadCustomerTab() {
       ` : '';
 
       const gtkyHtml = myGtky.length ? `
-        <div class="cust-subhead">คำตอบ GTKY</div>
+        <div class="cust-subhead">GTKY Answers</div>
         ${myGtky.map(g => `
             <div class="fb-item">
               <div class="fb-top">
-                <span class="fb-menu">${g.gtky_questions ? g.gtky_questions.question_text : '(คำถามถูกลบแล้ว)'}</span>
+                <span class="fb-menu">${g.gtky_questions ? g.gtky_questions.question_text : '(question deleted)'}</span>
               </div>
               <div class="fb-sub">${g.gtky_questions && g.gtky_questions.gtky_categories ? g.gtky_questions.gtky_categories.name + ' · ' : ''}${fmtDateTimeFb(g.responded_at)}</div>
               <div class="fb-comment">${g.answer_text}</div>
@@ -765,17 +775,17 @@ async function loadCustomerTab() {
         ${myManualNotes.map(n => `
             <div class="fb-item">
               <div class="fb-top">
-                <span class="fb-menu">${n.menu_item_name || 'ทั่วไป'}</span>
+                <span class="fb-menu">${n.menu_item_name || 'General'}</span>
                 ${n.rating ? `<span class="fb-rating r${n.rating}">${n.rating}/5</span>` : ''}
               </div>
-              <div class="fb-sub">${new Date(n.noted_at).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})}</div>
+              <div class="fb-sub">${new Date(n.noted_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
               <div class="fb-comment">${n.note_text}</div>
             </div>
           `).join('')}
       ` : '';
 
       const orderHtml = myOrders.length ? `
-        <div class="cust-subhead">ประวัติการสั่ง (ล่าสุด 15 แก้ว)</div>
+        <div class="cust-subhead">Order History (Last 15)</div>
         ${myOrders.slice(0, 15).map(o => `
             <div class="order-row"><span>${o.menu_item_name}${o.bean_name ? ' · ' + o.bean_name : ''}</span><span>${o.brewed_at ? fmtDateTimeFb(o.brewed_at) : ''}</span></div>
           `).join('')}
@@ -785,8 +795,8 @@ async function loadCustomerTab() {
         <div class="cust-card" data-id="${m.id}">
           <div class="cust-head">
             <div>
-              <div class="cust-name">${rankBadge} ${m.display_name} ${m.member_type === 'walkin' ? '<span class="gtky-badge" style="background:rgba(74,52,40,0.08);color:rgba(74,52,40,0.45);">🚶 ยังไม่สมัครสมาชิก</span>' : '<span class="gtky-badge">🔗 สมาชิก LINE</span>'}</div>
-              <div class="cust-meta">${myOrders.length} แก้ว${myFeedback.length ? ' · ' + myFeedback.length + ' ฟีดแบค' : ''}${myGtky.length ? ' · ' + myGtky.length + ' GTKY' : ''}${myManualNotes.length ? ' · ' + myManualNotes.length + ' บันทึก' : ''}</div>
+              <div class="cust-name">${rankBadge} ${m.display_name} ${m.member_type === 'walkin' ? '<span class="gtky-badge" style="background:rgba(74,52,40,0.08);color:rgba(74,52,40,0.45);">🚶 Not a Member</span>' : '<span class="gtky-badge">🔗 LINE Member</span>'}</div>
+              <div class="cust-meta">${myOrders.length} cups${myFeedback.length ? ' · ' + myFeedback.length + ' feedback' : ''}${myGtky.length ? ' · ' + myGtky.length + ' GTKY' : ''}${myManualNotes.length ? ' · ' + myManualNotes.length + ' notes' : ''}</div>
             </div>
             ${avgRating !== null ? `<div class="cust-rating">⭐ ${avgRating.toFixed(1)}</div>` : ''}
           </div>
@@ -809,7 +819,7 @@ async function loadCustomerTab() {
     });
 
   } catch (e) {
-    listEl.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
+    listEl.innerHTML = `<div class="empty">Failed to load: ${e.message}</div>`;
   }
 }
 
