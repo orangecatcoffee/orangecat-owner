@@ -78,6 +78,20 @@
   .barchart-label b{font-weight:700;}
   .barchart-track{height:12px;background:rgba(74,52,40,0.08);border-radius:6px;overflow:hidden;}
   .barchart-fill{height:100%;background:linear-gradient(90deg,var(--orange),#FF8F5A);border-radius:6px;}
+  .menprofit-item{padding:10px 0;border-bottom:1px solid var(--border);}
+  .menprofit-item:last-child{border-bottom:none;}
+  .menprofit-name{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;font-weight:600;color:var(--cream);margin-bottom:6px;}
+  .menprofit-margin{font-size:10.5px;font-weight:700;color:var(--ol);}
+  .menprofit-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+  .menprofit-row:last-child{margin-bottom:0;}
+  .menprofit-tag{font-size:9.5px;color:rgba(74,52,40,0.4);width:34px;flex-shrink:0;}
+  .menprofit-track{flex:1;height:8px;background:rgba(74,52,40,0.08);border-radius:4px;overflow:hidden;}
+  .menprofit-fill{height:100%;border-radius:4px;}
+  .menprofit-fill.cups{background:linear-gradient(90deg,#8FA8C4,#B8CCE0);}
+  .menprofit-fill.profit{background:linear-gradient(90deg,var(--orange),#FF8F5A);}
+  .menprofit-fill.profit.bad{background:linear-gradient(90deg,var(--red),#E88080);}
+  .menprofit-val{font-size:10.5px;color:rgba(74,52,40,0.55);width:52px;flex-shrink:0;text-align:right;}
+  .menprofit-total{margin-top:4px;padding-top:12px;border-top:2px solid var(--border);font-weight:700;}
   .staffcal-row{display:grid;grid-template-columns:70px 1fr 1fr;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11.5px;}
   .staffcal-row:last-child{border-bottom:none;}
   .staffcal-date{color:rgba(74,52,40,0.6);}
@@ -213,16 +227,7 @@
 
   <div class="card">
     <div class="card-title">💰 Profit by Menu (มากไปน้อย)</div>
-    <div class="recipe-table-wrap">
-      <table class="recipe-table" id="dimMenuProfitTable">
-        <thead>
-          <tr><th>เมนู</th><th>แก้ว</th><th>กำไร</th><th>สัดส่วนกำไร</th></tr>
-        </thead>
-        <tbody id="dimMenuProfitBody">
-          <tr><td colspan="4" class="loading">Loading...</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <div id="dimMenuProfit"><div class="loading">Loading...</div></div>
   </div>
 
   <div class="card">
@@ -512,7 +517,7 @@ async function loadReportTab() {
   ['dimCustCups','dimCustRevenue','dimMenuCups','dimMenuRevenue'].forEach(id => {
     document.getElementById(id).innerHTML = '<div class="loading">Loading...</div>';
   });
-  document.getElementById('dimMenuProfitBody').innerHTML = '<tr><td colspan="4" class="loading">Loading...</td></tr>';
+  document.getElementById('dimMenuProfit').innerHTML = '<div class="loading">Loading...</div>';
 
   try {
     const [orders, menuItems, recipes, beans, allIngredients] = await Promise.all([
@@ -662,27 +667,43 @@ async function loadReportTab() {
       [...menuEntries].sort((a,b) => b[1].revenue - a[1].revenue).slice(0,5).map(([name,d]) => ({ label: name, value: d.revenue })),
       v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
 
-    // Profit by menu — full list, highest profit first, with overall margin summary row
+    // Profit by menu — dual bar chart (cups scale independent from profit-baht scale), highest profit first
     const profitEntries = menuEntries
       .map(([name, d]) => ({ name, qty: d.qty, revenue: d.revenue, profit: d.revenue - d.cogs }))
       .sort((a, b) => b.profit - a.profit);
-    const profitBody = document.getElementById('dimMenuProfitBody');
-    profitBody.innerHTML = profitEntries.length
-      ? profitEntries.map(e => {
-          const margin = e.revenue ? (e.profit / e.revenue * 100) : 0;
-          return `<tr>
-            <td>${e.name}</td>
-            <td>${e.qty}</td>
-            <td><span class="recipe-profit ${e.profit>=0?'good':'bad'}">฿${e.profit.toFixed(0)}</span></td>
-            <td>${margin.toFixed(1)}%</td>
-          </tr>`;
-        }).join('') + `<tr style="font-weight:700;background:rgba(232,98,26,0.06);">
-            <td>รวมทั้งหมด</td>
-            <td>${totalCups}</td>
-            <td><span class="recipe-profit ${profit>=0?'good':'bad'}">฿${profit.toFixed(0)}</span></td>
-            <td>${gp.toFixed(1)}%</td>
-          </tr>`
-      : '<tr><td colspan="4" class="empty">ไม่มีออเดอร์ในช่วงนี้</td></tr>';
+    const profitEl = document.getElementById('dimMenuProfit');
+    if (!profitEntries.length) {
+      profitEl.innerHTML = '<div class="empty">ไม่มีออเดอร์ในช่วงนี้</div>';
+    } else {
+      const maxQty = Math.max(...profitEntries.map(e => e.qty)) || 1;
+      const maxProfitAbs = Math.max(...profitEntries.map(e => Math.abs(e.profit))) || 1;
+      const rowHtml = (e) => {
+        const margin = e.revenue ? (e.profit / e.revenue * 100) : 0;
+        const isBad = e.profit < 0;
+        return `
+          <div class="menprofit-row">
+            <span class="menprofit-tag">แก้ว</span>
+            <div class="menprofit-track"><div class="menprofit-fill cups" style="width:${Math.max(4, (e.qty/maxQty)*100)}%;"></div></div>
+            <span class="menprofit-val">${e.qty}</span>
+          </div>
+          <div class="menprofit-row">
+            <span class="menprofit-tag">กำไร</span>
+            <div class="menprofit-track"><div class="menprofit-fill profit ${isBad?'bad':''}" style="width:${Math.max(4, (Math.abs(e.profit)/maxProfitAbs)*100)}%;"></div></div>
+            <span class="menprofit-val">฿${e.profit.toFixed(0)}</span>
+          </div>`;
+      };
+      profitEl.innerHTML = profitEntries.map(e => `
+        <div class="menprofit-item">
+          <div class="menprofit-name"><span>${e.name}</span><span class="menprofit-margin">${(e.revenue ? (e.profit/e.revenue*100) : 0).toFixed(1)}%</span></div>
+          ${rowHtml(e)}
+        </div>
+      `).join('') + `
+        <div class="menprofit-item menprofit-total">
+          <div class="menprofit-name"><span>รวมทั้งหมด</span><span class="menprofit-margin">${gp.toFixed(1)}%</span></div>
+          ${rowHtml({ qty: totalCups, revenue, profit })}
+        </div>
+      `;
+    }
 
     // All transactions (most recent first) — includes staff/reward too, filterable by customer
     const allTxns = [...orders].sort((a,b) => new Date(b.brewed_at) - new Date(a.brewed_at));
