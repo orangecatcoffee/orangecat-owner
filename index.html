@@ -358,7 +358,6 @@ const SWEETNESS_RULES_REPORT = {
   'Condensed milk': { 'หวานปกติ': 20, 'หวานน้อย': 10, 'ไม่หวาน': 0 },
 };
 const FLAT_BEAN_COST = 20;
-const CUTOVER_DATE = new Date('2026-07-30T00:00:00');
 let reportRange = 'all';
 let earliestDateCache = null;
 let customerLoaded = false;
@@ -370,13 +369,13 @@ loadReportTab();
 async function resolveEarliestDate() {
   if (earliestDateCache) return earliestDateCache;
   try {
-    const rows = await sb('daily_sales_log?select=sale_date&order=sale_date.asc&limit=1');
+    const rows = await sb('preorders?select=wanted_date&order=wanted_date.asc&limit=1');
     if (rows && rows.length) {
-      earliestDateCache = new Date(rows[0].sale_date + 'T00:00:00');
+      earliestDateCache = new Date(rows[0].wanted_date + 'T00:00:00');
       return earliestDateCache;
     }
   } catch (e) { /* fall through */ }
-  earliestDateCache = new Date(CUTOVER_DATE);
+  earliestDateCache = new Date();
   return earliestDateCache;
 }
 
@@ -428,20 +427,12 @@ async function loadReportTab() {
   lowStockEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
   try {
-    const fromDateStr = from.toISOString().slice(0,10);
-    const toDateStr = to.toISOString().slice(0,10);
-    const preorderFrom = from < CUTOVER_DATE ? CUTOVER_DATE : from;
-    const preorderFromISO = preorderFrom <= to ? preorderFrom.toISOString() : null;
-
-    const [orders, menuItems, recipes, beans, allIngredients, manualSales] = await Promise.all([
-      preorderFromISO
-        ? sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${preorderFromISO}&brewed_at=lte.${to.toISOString()}`)
-        : Promise.resolve([]),
+    const [orders, menuItems, recipes, beans, allIngredients] = await Promise.all([
+      sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}`),
       sb('menu_items?select=*'),
       sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
       sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
-      sb('ingredients?select=id,name,category,stock_quantity,base_unit,cost_per_base_unit&active=eq.true'),
-      sb(`daily_sales_log?select=quantity,revenue,total_cost&sale_date=gte.${fromDateStr}&sale_date=lte.${toDateStr}`)
+      sb('ingredients?select=id,name,category,stock_quantity,base_unit,cost_per_base_unit&active=eq.true')
     ]);
 
     const menuByName = {}; menuItems.forEach(m => menuByName[m.name] = m);
@@ -540,18 +531,10 @@ async function loadReportTab() {
       });
     }
 
-    const manualQty = (manualSales || []).reduce((s, r) => s + Number(r.quantity), 0);
-    const manualRevenue = (manualSales || []).reduce((s, r) => s + Number(r.revenue), 0);
-    const manualCost = (manualSales || []).reduce((s, r) => s + Number(r.total_cost), 0);
-
     const nonOmakaseOrders = customerOrders.filter(o => !o.omakase_set_id);
-    const liveRevenue = nonOmakaseOrders.reduce((s, o) => s + Number(o.price), 0) + omakaseRevenue;
-    const liveCost = nonOmakaseOrders.reduce((s, o) => s + computeCost(o), 0) + omakaseCogs;
-    const liveCups = nonOmakaseOrders.length + omakaseCupsCounted;
-
-    const revenue = manualRevenue + liveRevenue;
-    const cogs = manualCost + liveCost;
-    const totalCups = manualQty + liveCups;
+    const revenue = nonOmakaseOrders.reduce((s, o) => s + Number(o.price), 0) + omakaseRevenue;
+    const cogs = nonOmakaseOrders.reduce((s, o) => s + computeCost(o), 0) + omakaseCogs;
+    const totalCups = nonOmakaseOrders.length + omakaseCupsCounted;
 
     const profit = revenue - cogs;
     const gp = revenue ? (profit / revenue * 100) : 0;
@@ -563,7 +546,6 @@ async function loadReportTab() {
         <div class="stat-box"><div class="stat-label">กำไรสุทธิ</div><div class="stat-val ${profit>=0?'good':'bad'}">฿${profit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
         <div class="stat-box"><div class="stat-label">GP%</div><div class="stat-val ${gp>=0?'good':'bad'}">${gp.toFixed(1)}%</div></div>
       </div>
-      <div class="carryover-note">ℹ️ ยกยอดมา (จนถึง 29 ก.ค. 2569): ฿${manualRevenue.toLocaleString(undefined,{maximumFractionDigits:0})} · ${manualQty} แก้ว — ตั้งแต่ 30 ก.ค. 2569 นับจากออเดอร์จริงในระบบอัตโนมัติ: ฿${liveRevenue.toLocaleString(undefined,{maximumFractionDigits:0})} · ${liveCups} แก้ว</div>
       ${unpaid > 0 ? `<div class="unpaid-note">⚠️ ในนี้ยังไม่ได้เก็บเงิน ฿${unpaid.toLocaleString(undefined,{maximumFractionDigits:0})}</div>` : ''}
     `;
 
