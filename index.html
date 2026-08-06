@@ -71,6 +71,7 @@
   .chip-row{display:flex;flex-wrap:wrap;gap:8px;}
   .chip{font-size:11px;padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:rgba(74,52,40,0.03);color:rgba(74,52,40,0.6);cursor:pointer;font-family:'Mitr',sans-serif;}
   .gtky-mode-chip.selected{border-color:var(--orange);background:var(--orange);color:#fff;font-weight:700;}
+  .gtky-cust-chip.selected{border-color:var(--orange);background:var(--orange);color:#fff;font-weight:700;}
   .gtky-idea-chip{font-size:10.5px;padding:5px 10px;}
   .gtky-idea-chip:active{background:rgba(232,98,26,0.15);}
   .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -246,6 +247,60 @@
 
   <div class="gtky-subview active" id="subview-gtky-questions">
 
+  <div class="card">
+    <div class="card-title">✏️ เพิ่มคำถามใหม่</div>
+
+    <label>คำถามนี้อยู่โหมดไหน</label>
+    <div class="chip-row" id="gtkyModeRow">
+      <button type="button" class="chip gtky-mode-chip" data-mode="โปรไฟล์ตัวตน (Identity)">Identity</button>
+      <button type="button" class="chip gtky-mode-chip" data-mode="เพรฟเฟอเรนซ์ (Preference)">Preference</button>
+      <button type="button" class="chip gtky-mode-chip" data-mode="R&D เมนูใหม่">R&D</button>
+    </div>
+
+    <label style="margin-top:12px;">คำถาม</label>
+    <input type="text" id="gtkyNewQText" placeholder="พิมพ์คำถามของพี่เอง">
+
+    <div style="font-size:10.5px;color:rgba(74,52,40,0.45);margin-top:10px;margin-bottom:4px;">💡 หัวข้อไอเดีย (แตะเพื่อแทรกเข้าช่องคำถาม)</div>
+    <div class="chip-row" id="gtkyIdeaChipRow">
+      <button type="button" class="chip gtky-idea-chip">MBTI</button>
+      <button type="button" class="chip gtky-idea-chip">BIRTHDAY</button>
+      <button type="button" class="chip gtky-idea-chip">กรุ๊ปเลือด</button>
+      <button type="button" class="chip gtky-idea-chip">COLOR</button>
+      <button type="button" class="chip gtky-idea-chip">FLAVOR</button>
+      <button type="button" class="chip gtky-idea-chip">กลิ่น</button>
+      <button type="button" class="chip gtky-idea-chip">เพลง</button>
+      <button type="button" class="chip gtky-idea-chip">หนัง/ซีรีส์</button>
+      <button type="button" class="chip gtky-idea-chip">สัตว์เลี้ยง</button>
+      <button type="button" class="chip gtky-idea-chip">งานอดิเรก</button>
+      <button type="button" class="chip gtky-idea-chip">ฤดูที่ชอบ</button>
+      <button type="button" class="chip gtky-idea-chip">อาหารเช้า</button>
+    </div>
+
+    <label style="margin-top:12px;">ตัวเลือกคำตอบ (เว้นว่างไว้ = ให้ลูกค้าพิมพ์คำตอบเอง)</label>
+    <div class="opt-input-row">
+      <input type="text" id="gtkyNewQOptionInput" placeholder="พิมพ์ตัวเลือกแล้วกด +">
+      <button type="button" id="gtkyAddOptionBtn">+</button>
+    </div>
+    <div id="gtkyOptionChips"></div>
+
+    <div class="checkrow">
+      <input type="checkbox" id="gtkyNewQPermanent" checked>
+      <span>คำถามถาวร (ไม่หมดอายุ) — ปิดถ้าเป็นคำถาม R&D ที่จะหมดอายุ</span>
+    </div>
+    <div id="gtkyExpiryRow" style="display:none;margin-top:10px;">
+      <label>วันหมดอายุ</label>
+      <input type="date" id="gtkyNewQExpiry">
+    </div>
+
+    <button class="btn" id="gtkyAddQuestionBtn">เพิ่มคำถาม</button>
+    <div class="status" id="gtkyAddQStatus"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">คำถามทั้งหมด (แตะ ⭐ เพื่อปักคำถามโปรด)</div>
+    <div id="gtkyQuestionList"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
   <div class="card" style="border-color:rgba(232,98,26,0.4);background:rgba(232,98,26,0.06);">
     <div class="card-title" style="color:var(--ol);font-size:13px;letter-spacing:1px;">🚀 ส่งคำถามหาลูกค้า</div>
     <label>เลือกคำถาม (⭐ = คำถามโปรด อยู่บนสุด)</label>
@@ -257,66 +312,10 @@
       <button type="button" class="chip" id="gtkySelectAllBtn">เลือกทุกคน</button>
       <button type="button" class="chip" id="gtkyClearAllBtn">ล้างที่เลือก</button>
     </div>
-    <div id="gtkyCustList"><div class="loading">กำลังโหลด...</div></div>
+    <div class="chip-row" id="gtkyCustList"><div class="loading">กำลังโหลด...</div></div>
 
     <button class="btn" id="gtkySendBtn" style="margin-top:16px;" disabled>เลือกคำถาม + ลูกค้าก่อน</button>
     <div class="status" id="gtkySendStatus"></div>
-  </div>
-
-  <details class="card" style="padding:0;">
-    <summary style="padding:18px;cursor:pointer;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(74,52,40,0.4);font-weight:500;">⚙️ เพิ่มคำถามใหม่ (แตะเพื่อเปิด)</summary>
-    <div style="padding:0 18px 18px;">
-
-      <label style="margin-top:10px;">คำถามนี้อยู่โหมดไหน</label>
-      <div class="chip-row" id="gtkyModeRow">
-        <button type="button" class="chip gtky-mode-chip" data-mode="โปรไฟล์ตัวตน (Identity)">Identity</button>
-        <button type="button" class="chip gtky-mode-chip" data-mode="เพรฟเฟอเรนซ์ (Preference)">Preference</button>
-        <button type="button" class="chip gtky-mode-chip" data-mode="R&D เมนูใหม่">R&D</button>
-      </div>
-
-      <label style="margin-top:12px;">คำถาม</label>
-      <input type="text" id="gtkyNewQText" placeholder="พิมพ์คำถามของพี่เอง">
-
-      <div style="font-size:10.5px;color:rgba(74,52,40,0.45);margin-top:10px;margin-bottom:4px;">💡 หัวข้อไอเดีย (แตะเพื่อแทรกเข้าช่องคำถาม)</div>
-      <div class="chip-row" id="gtkyIdeaChipRow">
-        <button type="button" class="chip gtky-idea-chip">MBTI</button>
-        <button type="button" class="chip gtky-idea-chip">BIRTHDAY</button>
-        <button type="button" class="chip gtky-idea-chip">กรุ๊ปเลือด</button>
-        <button type="button" class="chip gtky-idea-chip">COLOR</button>
-        <button type="button" class="chip gtky-idea-chip">FLAVOR</button>
-        <button type="button" class="chip gtky-idea-chip">กลิ่น</button>
-        <button type="button" class="chip gtky-idea-chip">เพลง</button>
-        <button type="button" class="chip gtky-idea-chip">หนัง/ซีรีส์</button>
-        <button type="button" class="chip gtky-idea-chip">สัตว์เลี้ยง</button>
-        <button type="button" class="chip gtky-idea-chip">งานอดิเรก</button>
-        <button type="button" class="chip gtky-idea-chip">ฤดูที่ชอบ</button>
-        <button type="button" class="chip gtky-idea-chip">อาหารเช้า</button>
-      </div>
-
-      <label style="margin-top:12px;">ตัวเลือกคำตอบ (เว้นว่างไว้ = ให้ลูกค้าพิมพ์คำตอบเอง)</label>
-      <div class="opt-input-row">
-        <input type="text" id="gtkyNewQOptionInput" placeholder="พิมพ์ตัวเลือกแล้วกด +">
-        <button type="button" id="gtkyAddOptionBtn">+</button>
-      </div>
-      <div id="gtkyOptionChips"></div>
-
-      <div class="checkrow">
-        <input type="checkbox" id="gtkyNewQPermanent" checked>
-        <span>คำถามถาวร (ไม่หมดอายุ) — ปิดถ้าเป็นคำถาม R&D ที่จะหมดอายุ</span>
-      </div>
-      <div id="gtkyExpiryRow" style="display:none;margin-top:10px;">
-        <label>วันหมดอายุ</label>
-        <input type="date" id="gtkyNewQExpiry">
-      </div>
-
-      <button class="btn" id="gtkyAddQuestionBtn">เพิ่มคำถาม</button>
-      <div class="status" id="gtkyAddQStatus"></div>
-    </div>
-  </details>
-
-  <div class="card">
-    <div class="card-title">คำถามทั้งหมด (แตะ ⭐ เพื่อปักคำถามโปรด)</div>
-    <div id="gtkyQuestionList"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
   </div>
@@ -999,14 +998,12 @@ async function gtkyLoadCustomerChecklist() {
     const members = await sb('members?select=id,line_user_id,display_name&order=display_name');
     gtkyMembersCache = members;
     el.innerHTML = members.length
-      ? members.map(m => `
-          <div class="gtky-cust-row">
-            <input type="checkbox" class="gtky-cust-check" value="${m.line_user_id}">
-            <span>${m.display_name}</span>
-          </div>
-        `).join('')
+      ? members.map(m => `<button type="button" class="chip gtky-cust-chip" data-line-id="${m.line_user_id}">${m.display_name}</button>`).join('')
       : '<div class="empty">ยังไม่มีลูกค้าลงทะเบียนเลย</div>';
-    el.querySelectorAll('.gtky-cust-check').forEach(cb => cb.addEventListener('change', gtkyUpdateSendBtn));
+    el.querySelectorAll('.gtky-cust-chip').forEach(chip => chip.addEventListener('click', () => {
+      chip.classList.toggle('selected');
+      gtkyUpdateSendBtn();
+    }));
   } catch (e) {
     el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
   }
@@ -1015,7 +1012,7 @@ async function gtkyLoadCustomerChecklist() {
 function gtkyUpdateSendBtn() {
   const btn = document.getElementById('gtkySendBtn');
   const qId = document.getElementById('gtkySendQuestionSelect').value;
-  const checked = document.querySelectorAll('.gtky-cust-check:checked').length;
+  const checked = document.querySelectorAll('.gtky-cust-chip.selected').length;
   if (!qId || checked === 0) {
     btn.disabled = true;
     btn.textContent = 'เลือกคำถาม + ลูกค้าก่อน';
@@ -1033,11 +1030,11 @@ document.getElementById('gtkySendQuestionSelect').addEventListener('change', (e)
   gtkyUpdateSendBtn();
 });
 document.getElementById('gtkySelectAllBtn').addEventListener('click', () => {
-  document.querySelectorAll('.gtky-cust-check').forEach(cb => cb.checked = true);
+  document.querySelectorAll('.gtky-cust-chip').forEach(c => c.classList.add('selected'));
   gtkyUpdateSendBtn();
 });
 document.getElementById('gtkyClearAllBtn').addEventListener('click', () => {
-  document.querySelectorAll('.gtky-cust-check').forEach(cb => cb.checked = false);
+  document.querySelectorAll('.gtky-cust-chip').forEach(c => c.classList.remove('selected'));
   gtkyUpdateSendBtn();
 });
 
@@ -1047,7 +1044,7 @@ document.getElementById('gtkySendBtn').addEventListener('click', async () => {
   statusEl.className = 'status'; statusEl.style.display = 'none';
   const qId = document.getElementById('gtkySendQuestionSelect').value;
   const q = gtkyQuestionsCache.find(x => x.id === qId);
-  const checkedIds = Array.from(document.querySelectorAll('.gtky-cust-check:checked')).map(cb => cb.value);
+  const checkedIds = Array.from(document.querySelectorAll('.gtky-cust-chip.selected')).map(c => c.dataset.lineId);
   if (!q || !checkedIds.length) return;
 
   btn.disabled = true;
@@ -1069,7 +1066,7 @@ document.getElementById('gtkySendBtn').addEventListener('click', async () => {
 
     statusEl.textContent = `ส่งแล้ว ${inserted.length} คน ✓`;
     statusEl.className = 'status ok';
-    document.querySelectorAll('.gtky-cust-check').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.gtky-cust-chip').forEach(c => c.classList.remove('selected'));
     gtkyUpdateSendBtn();
   } catch (e) {
     statusEl.textContent = 'ส่งไม่สำเร็จ: ' + e.message;
