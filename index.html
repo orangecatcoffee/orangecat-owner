@@ -620,7 +620,7 @@ async function loadCustomerTab() {
 
   try {
     const [members, orders, feedback, gtkyAnswers] = await Promise.all([
-      sb('members?select=id,line_user_id,display_name,created_at&order=created_at.asc'),
+      sb('members?select=id,line_user_id,display_name,member_type,created_at&order=created_at.asc'),
       sb('preorders?select=line_user_id,menu_item_name,bean_name,brewed_at,price,order_type&brewed=eq.true&line_user_id=not.is.null'),
       sb('feedback_requests?select=*&rating=not.is.null&order=responded_at.desc'),
       sb('gtky_sends?select=*,gtky_questions(question_text,gtky_categories(name))&answer_text=not.is.null&order=responded_at.desc'),
@@ -707,7 +707,7 @@ async function loadCustomerTab() {
         <div class="cust-card" data-id="${m.id}">
           <div class="cust-head">
             <div>
-              <div class="cust-name">${rankBadge} ${m.display_name}</div>
+              <div class="cust-name">${rankBadge} ${m.display_name} ${m.member_type === 'walkin' ? '<span class="gtky-badge" style="background:rgba(74,52,40,0.08);color:rgba(74,52,40,0.45);">🚶 ยังไม่สมัครสมาชิก</span>' : '<span class="gtky-badge">🔗 สมาชิก LINE</span>'}</div>
               <div class="cust-meta">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})} · ${myOrders.length} แก้ว${myFeedback.length ? ' · ' + myFeedback.length + ' ฟีดแบค' : ''}${myGtky.length ? ' · ' + myGtky.length + ' GTKY' : ''}</div>
             </div>
             ${avgRating !== null ? `<div class="cust-rating">⭐ ${avgRating.toFixed(1)}</div>` : ''}
