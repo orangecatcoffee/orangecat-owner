@@ -694,15 +694,15 @@ async function loadReportTab() {
       };
       profitEl.innerHTML = profitEntries.map(e => {
         const margin = e.revenue ? (e.profit/e.revenue*100) : 0;
-        const costPerCup = e.qty ? (e.cogs/e.qty) : 0;
+        const profitPerCup = e.qty ? (e.profit/e.qty) : 0;
         return `
         <div class="menprofit-item">
-          <div class="menprofit-name"><span>${e.name}</span><span class="menprofit-margin">฿${costPerCup.toFixed(0)}/แก้ว · ${margin.toFixed(1)}%</span></div>
+          <div class="menprofit-name"><span>${e.name}</span><span class="menprofit-margin">฿${profitPerCup.toFixed(0)}/แก้ว · ${margin.toFixed(1)}%</span></div>
           ${rowHtml(e)}
         </div>
       `;}).join('') + `
         <div class="menprofit-item menprofit-total">
-          <div class="menprofit-name"><span>รวมทั้งหมด</span><span class="menprofit-margin">฿${(totalCups ? (cogs/totalCups) : 0).toFixed(0)}/แก้ว · ${gp.toFixed(1)}%</span></div>
+          <div class="menprofit-name"><span>รวมทั้งหมด</span><span class="menprofit-margin">฿${(totalCups ? (profit/totalCups) : 0).toFixed(0)}/แก้ว · ${gp.toFixed(1)}%</span></div>
           ${rowHtml({ qty: totalCups, revenue, profit })}
         </div>
       `;
