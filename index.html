@@ -72,6 +72,12 @@
   .chip{font-size:11px;padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:rgba(74,52,40,0.03);color:rgba(74,52,40,0.6);cursor:pointer;font-family:'Mitr',sans-serif;}
   .gtky-mode-chip.selected{border-color:var(--orange);background:var(--orange);color:#fff;font-weight:700;}
   .gtky-cust-chip.selected{border-color:var(--orange);background:var(--orange);color:#fff;font-weight:700;}
+  .barchart-row{margin-bottom:12px;}
+  .barchart-row:last-child{margin-bottom:0;}
+  .barchart-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;color:var(--cream);}
+  .barchart-label b{font-weight:700;}
+  .barchart-track{height:12px;background:rgba(74,52,40,0.08);border-radius:6px;overflow:hidden;}
+  .barchart-fill{height:100%;background:linear-gradient(90deg,var(--orange),#FF8F5A);border-radius:6px;}
   .gtky-idea-chip{font-size:10.5px;padding:5px 10px;}
   .gtky-idea-chip:active{background:rgba(232,98,26,0.15);}
   .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -141,8 +147,8 @@
 </div>
 
 <div class="tabs">
-  <div class="tab active" data-tab="report">ยอดขาย</div>
-  <div class="tab" data-tab="customer">ลูกค้า</div>
+  <div class="tab active" data-tab="report">Sales</div>
+  <div class="tab" data-tab="customer">Customers</div>
   <div class="tab" data-tab="gtky">GTKY</div>
 </div>
 
@@ -224,7 +230,17 @@
   </div>
 
   <div class="card">
-    <div class="card-title">อันดับลูกค้า — ซื้อเยอะสุดก่อน (แตะดูคะแนน/ฟีดแบค)</div>
+    <div class="card-title">📊 Top 5 — แก้วเยอะสุด</div>
+    <div id="custChartCups"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 Top 5 — ยอดขายสูงสุด</div>
+    <div id="custChartRevenue"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">อันดับลูกค้า (แตะดูคะแนน/ฟีดแบค)</div>
     <div id="custList"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
@@ -685,7 +701,7 @@ async function loadCustomerTab() {
   try {
     const [members, orders, feedback, gtkyAnswers, manualNotes] = await Promise.all([
       sb('members?select=id,line_user_id,display_name,member_type,created_at&order=created_at.asc'),
-      sb('preorders?select=line_user_id,menu_item_name,bean_name,brewed_at,price,order_type&brewed=eq.true&line_user_id=not.is.null'),
+      sb('preorders?select=line_user_id,menu_item_name,bean_name,brewed_at,price,order_type,omakase_set_id&brewed=eq.true&line_user_id=not.is.null'),
       sb('feedback_requests?select=*&rating=not.is.null&order=responded_at.desc'),
       sb('gtky_sends?select=*,gtky_questions(question_text,gtky_categories(name))&answer_text=not.is.null&order=responded_at.desc'),
       sb('manual_feedback_notes?select=*&order=noted_at.desc'),
@@ -697,9 +713,30 @@ async function loadCustomerTab() {
       return;
     }
 
-    const totalRevenue = orders
-      .filter(o => o.order_type === 'customer' || !o.order_type)
-      .reduce((s, o) => s + Number(o.price || 0), 0);
+    // ---- Omakase: ให้ตรงกับแท็บยอดขาย — นับ 230฿ ก้อนเดียวต่อเซ็ตตอนชงครบ 3 แก้วเท่านั้น ไม่ใช่บวกราคาแยกแก้ว ----
+    const OMAKASE_TOTAL_PRICE = 230;
+    const custOmakaseSetIds = [...new Set(orders.filter(o => o.omakase_set_id).map(o => o.omakase_set_id))];
+    let custOmakaseCupsBySet = {};
+    if (custOmakaseSetIds.length) {
+      const allCups = await sb(`preorders?select=id,omakase_set_id,brewed,line_user_id&omakase_set_id=in.(${custOmakaseSetIds.join(',')})`);
+      allCups.forEach(c => { (custOmakaseCupsBySet[c.omakase_set_id] = custOmakaseCupsBySet[c.omakase_set_id] || []).push(c); });
+    }
+    const custCompletedOmakaseSetIds = new Set();
+    Object.entries(custOmakaseCupsBySet).forEach(([setId, cups]) => {
+      if (cups.length > 0 && cups.every(c => c.brewed)) custCompletedOmakaseSetIds.add(setId);
+    });
+
+    function omakaseAwareRevenue(orderList) {
+      const nonOmakase = orderList.filter(o => !o.omakase_set_id).reduce((s, o) => s + Number(o.price || 0), 0);
+      const countedSets = new Set();
+      orderList.forEach(o => {
+        if (o.omakase_set_id && custCompletedOmakaseSetIds.has(o.omakase_set_id)) countedSets.add(o.omakase_set_id);
+      });
+      return nonOmakase + countedSets.size * OMAKASE_TOTAL_PRICE;
+    }
+
+    const customerOnlyOrders = orders.filter(o => o.order_type === 'customer' || !o.order_type);
+    const totalRevenue = omakaseAwareRevenue(customerOnlyOrders);
 
     overviewEl.innerHTML = `
       <div class="stat-grid">
@@ -720,9 +757,29 @@ async function loadCustomerTab() {
       const avgRating = myFeedback.length ? (myFeedback.reduce((s,f)=>s+Number(f.rating),0) / myFeedback.length) : null;
       const favBean = mode(myOrders.filter(o=>o.bean_name).map(o=>o.bean_name));
       const favMenu = mode(myOrders.map(o=>o.menu_item_name));
-      const revenue = myCustomerOrders.reduce((s,o) => s + Number(o.price || 0), 0);
+      const revenue = omakaseAwareRevenue(myCustomerOrders);
       return { m, myOrders, myFeedback, myGtky, myManualNotes, avgRating, favBean, favMenu, revenue };
     }).sort((a, b) => b.revenue - a.revenue || b.myOrders.length - a.myOrders.length);
+
+    function renderBarChart(containerId, items, valueFmt) {
+      const el = document.getElementById(containerId);
+      if (!items.length) { el.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>'; return; }
+      const max = Math.max(...items.map(i => i.value)) || 1;
+      el.innerHTML = items.map(i => `
+        <div class="barchart-row">
+          <div class="barchart-label"><span>${i.label}</span><b>${valueFmt(i.value)}</b></div>
+          <div class="barchart-track"><div class="barchart-fill" style="width:${Math.max(4, (i.value / max) * 100)}%;"></div></div>
+        </div>
+      `).join('');
+    }
+
+    const top5Cups = [...enriched].sort((a, b) => b.myOrders.length - a.myOrders.length).slice(0, 5)
+      .map(row => ({ label: row.m.display_name, value: row.myOrders.length }));
+    renderBarChart('custChartCups', top5Cups, v => `${v} แก้ว`);
+
+    const top5Revenue = [...enriched].sort((a, b) => b.revenue - a.revenue).slice(0, 5)
+      .map(row => ({ label: row.m.display_name, value: row.revenue }));
+    renderBarChart('custChartRevenue', top5Revenue, v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
 
     listEl.innerHTML = enriched.map((row, idx) => {
       const { m, myOrders, myFeedback, myGtky, myManualNotes, avgRating, favBean, favMenu, revenue } = row;
@@ -791,7 +848,7 @@ async function loadCustomerTab() {
           <div class="cust-head">
             <div>
               <div class="cust-name">${rankBadge} ${m.display_name} ${m.member_type === 'walkin' ? '<span class="gtky-badge" style="background:rgba(74,52,40,0.08);color:rgba(74,52,40,0.45);">🚶 ยังไม่สมัครสมาชิก</span>' : '<span class="gtky-badge">🔗 สมาชิก LINE</span>'}</div>
-              <div class="cust-meta">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})} · ${myOrders.length} แก้ว${myFeedback.length ? ' · ' + myFeedback.length + ' ฟีดแบค' : ''}${myGtky.length ? ' · ' + myGtky.length + ' GTKY' : ''}${myManualNotes.length ? ' · ' + myManualNotes.length + ' บันทึก' : ''}</div>
+              <div class="cust-meta">${myOrders.length} แก้ว${myFeedback.length ? ' · ' + myFeedback.length + ' ฟีดแบค' : ''}${myGtky.length ? ' · ' + myGtky.length + ' GTKY' : ''}${myManualNotes.length ? ' · ' + myManualNotes.length + ' บันทึก' : ''}</div>
             </div>
             ${avgRating !== null ? `<div class="cust-rating">⭐ ${avgRating.toFixed(1)}</div>` : ''}
           </div>
