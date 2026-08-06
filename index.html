@@ -669,7 +669,7 @@ async function loadReportTab() {
 
     // Profit by menu — dual bar chart (cups scale independent from profit-baht scale), highest profit first
     const profitEntries = menuEntries
-      .map(([name, d]) => ({ name, qty: d.qty, revenue: d.revenue, profit: d.revenue - d.cogs }))
+      .map(([name, d]) => ({ name, qty: d.qty, revenue: d.revenue, cogs: d.cogs, profit: d.revenue - d.cogs }))
       .sort((a, b) => b.profit - a.profit);
     const profitEl = document.getElementById('dimMenuProfit');
     if (!profitEntries.length) {
@@ -692,14 +692,17 @@ async function loadReportTab() {
             <span class="menprofit-val">฿${e.profit.toFixed(0)}</span>
           </div>`;
       };
-      profitEl.innerHTML = profitEntries.map(e => `
+      profitEl.innerHTML = profitEntries.map(e => {
+        const margin = e.revenue ? (e.profit/e.revenue*100) : 0;
+        const costPerCup = e.qty ? (e.cogs/e.qty) : 0;
+        return `
         <div class="menprofit-item">
-          <div class="menprofit-name"><span>${e.name}</span><span class="menprofit-margin">${(e.revenue ? (e.profit/e.revenue*100) : 0).toFixed(1)}%</span></div>
+          <div class="menprofit-name"><span>${e.name}</span><span class="menprofit-margin">฿${costPerCup.toFixed(0)}/แก้ว · ${margin.toFixed(1)}%</span></div>
           ${rowHtml(e)}
         </div>
-      `).join('') + `
+      `;}).join('') + `
         <div class="menprofit-item menprofit-total">
-          <div class="menprofit-name"><span>รวมทั้งหมด</span><span class="menprofit-margin">${gp.toFixed(1)}%</span></div>
+          <div class="menprofit-name"><span>รวมทั้งหมด</span><span class="menprofit-margin">฿${(totalCups ? (cogs/totalCups) : 0).toFixed(0)}/แก้ว · ${gp.toFixed(1)}%</span></div>
           ${rowHtml({ qty: totalCups, revenue, profit })}
         </div>
       `;
