@@ -236,6 +236,23 @@
     <div id="dimMenuProfit"><div class="loading">Loading...</div></div>
   </div>
 
+  <div class="card-title" style="padding-left:2px;margin-top:8px;color:var(--orange);">🫘 Bean Dimension</div>
+  <div class="row2" style="align-items:start;">
+    <div class="card">
+      <div class="card-title">Top 5 — Cups</div>
+      <div id="dimBeanCups"><div class="loading">Loading...</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top 5 — Revenue</div>
+      <div id="dimBeanRevenue"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🎯 Bean Strategy Map (มาร์จิ้น × ยอดขาย)</div>
+    <div id="dimBeanProfit"><div class="loading">Loading...</div></div>
+  </div>
+
   <div class="card">
     <div class="card-title">All Transactions This Period</div>
     <label>Filter by Customer</label>
@@ -443,6 +460,9 @@ const SWEETNESS_RULES_REPORT = {
   'Condensed milk': { 'หวานปกติ': 20, 'หวานน้อย': 10, 'ไม่หวาน': 0 },
 };
 const FLAT_BEAN_COST = 20;
+// Total the customer actually paid — price (base) + bean_surcharge (special-bean upcharge kept in
+// its own column so menu-dimension reporting can roll special-bean drinks up under their base name).
+function orderTotal(o) { return Number(o.price || 0) + Number(o.bean_surcharge || 0); }
 let reportRange = 'all';
 let earliestDateCache = null;
 let reportLoaded = false;
@@ -520,10 +540,11 @@ async function loadReportTab() {
   summaryEl.innerHTML = '<div class="loading">Loading...</div>';
   freebiesEl.innerHTML = '<div class="loading">Loading...</div>';
   txnEl.innerHTML = '<div class="loading">Loading...</div>';
-  ['dimCustCups','dimCustRevenue','dimMenuCups','dimMenuRevenue'].forEach(id => {
+  ['dimCustCups','dimCustRevenue','dimMenuCups','dimMenuRevenue','dimBeanCups','dimBeanRevenue'].forEach(id => {
     document.getElementById(id).innerHTML = '<div class="loading">Loading...</div>';
   });
   document.getElementById('dimMenuProfit').innerHTML = '<div class="loading">Loading...</div>';
+  document.getElementById('dimBeanProfit').innerHTML = '<div class="loading">Loading...</div>';
 
   try {
     const [orders, menuItems, recipes, beans, allIngredients] = await Promise.all([
@@ -540,15 +561,45 @@ async function loadReportTab() {
     const beanCost = {}; beans.forEach(b => beanCost[b.name] = Number(b.cost_per_base_unit));
     const ingredientCostByName = {}; allIngredients.forEach(i => ingredientCostByName[i.name] = Number(i.cost_per_base_unit || 0));
     const MIXER_ESTIMATE_G = 150;
+    const BEAN_DOSE_G = 20;
+
+    // "เบลนด์: Brazil 10g + Ethiopia 5g + Peach Peace 5g" -> real weighted cost from each component's
+    // actual cost_per_base_unit, instead of the flat per-cup estimate. Returns null if not a blend string.
+    function parseBlendCost(beanName) {
+      if (!beanName || !beanName.startsWith('เบลนด์:')) return null;
+      const parts = beanName.replace('เบลนด์:', '').split('+').map(s => s.trim());
+      let cost = 0;
+      parts.forEach(p => {
+        const m = p.match(/^(.+?)\s+([\d.]+)\s*g$/i);
+        if (m) {
+          const name = m[1].trim();
+          const grams = Number(m[2]);
+          cost += (beanCost[name] !== undefined ? beanCost[name] : 0) * grams;
+        }
+      });
+      return cost;
+    }
+
+    // For dimension/quadrant grouping: house blends collapse into a single "House Blend" point,
+    // single-origin orders keep their own bean name.
+    function beanKey(o) {
+      if (!o.bean_name) return null;
+      return o.bean_name.startsWith('เบลนด์:') ? 'House Blend' : o.bean_name;
+    }
 
     function computeCost(order) {
       const menu = menuByName[order.menu_item_name];
       if (!menu) return 0;
       let cost = 0;
       if (menu.needs_bean) {
-        cost += (order.bean_name && beanCost[order.bean_name] !== undefined)
-          ? beanCost[order.bean_name] * 20
-          : FLAT_BEAN_COST;
+        const blendCost = parseBlendCost(order.bean_name);
+        if (blendCost !== null) {
+          cost += blendCost;
+        } else {
+          cost += (order.bean_name && beanCost[order.bean_name] !== undefined)
+            ? beanCost[order.bean_name] * BEAN_DOSE_G
+            : FLAT_BEAN_COST;
+        }
       }
       const rows = recipeByMenuId[menu.id] || [];
       rows.forEach(r => {
@@ -599,16 +650,16 @@ async function loadReportTab() {
     customerOrders.forEach(o => {
       if (o.omakase_set_id) return;
       const cost = computeCost(o);
-      if (!o.paid) unpaid += Number(o.price);
+      if (!o.paid) unpaid += orderTotal(o);
       if (!byMenu[o.menu_item_name]) byMenu[o.menu_item_name] = { qty: 0, revenue: 0, cogs: 0 };
       byMenu[o.menu_item_name].qty += 1;
-      byMenu[o.menu_item_name].revenue += Number(o.price);
+      byMenu[o.menu_item_name].revenue += orderTotal(o);
       byMenu[o.menu_item_name].cogs += cost;
 
       const custName = o.customer_name || 'ไม่ระบุชื่อ';
       if (!byCustomer[custName]) byCustomer[custName] = { qty: 0, revenue: 0 };
       byCustomer[custName].qty += 1;
-      byCustomer[custName].revenue += Number(o.price);
+      byCustomer[custName].revenue += orderTotal(o);
     });
 
     if (omakaseCompletedCount > 0) {
@@ -623,7 +674,7 @@ async function loadReportTab() {
     }
 
     const nonOmakaseOrders = customerOrders.filter(o => !o.omakase_set_id);
-    const revenue = nonOmakaseOrders.reduce((s, o) => s + Number(o.price), 0) + omakaseRevenue;
+    const revenue = nonOmakaseOrders.reduce((s, o) => s + orderTotal(o), 0) + omakaseRevenue;
     const cogs = nonOmakaseOrders.reduce((s, o) => s + computeCost(o), 0) + omakaseCogs;
     const totalCups = nonOmakaseOrders.length + omakaseCupsCounted;
     const custCount = Object.keys(byCustomer).length;
@@ -673,21 +724,21 @@ async function loadReportTab() {
       [...menuEntries].sort((a,b) => b[1].revenue - a[1].revenue).slice(0,5).map(([name,d]) => ({ label: name, value: d.revenue })),
       v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
 
-    // Menu Strategy Map — quadrant chart: X=cups sold, Y=margin%, bubble size=total profit
-    // Quadrant thresholds: overall blended margin (gp) and average cups-per-menu-item
-    const profitEntries = menuEntries
-      .map(([name, d]) => ({ name, qty: d.qty, revenue: d.revenue, cogs: d.cogs, profit: d.revenue - d.cogs, margin: d.revenue ? ((d.revenue - d.cogs) / d.revenue * 100) : 0 }));
-    const profitEl = document.getElementById('dimMenuProfit');
-    if (!profitEntries.length) {
-      profitEl.innerHTML = '<div class="empty">ไม่มีออเดอร์ในช่วงนี้</div>';
-    } else {
-      const xThresh = profitEntries.reduce((s,e) => s + e.qty, 0) / profitEntries.length;
-      const yThresh = gp;
-      const xMax = Math.max(...profitEntries.map(e => e.qty), xThresh * 1.5) * 1.2;
-      const marginVals = profitEntries.map(e => e.margin);
+    // Strategy Map — quadrant chart: X=cups sold, Y=margin%, bubble size=total profit.
+    // Quadrant thresholds: overall blended margin (gp) and average cups-per-entry. Shared by
+    // the Menu Strategy Map and Bean Strategy Map — same math, different grouping.
+    function renderStrategyMap(elId, entries, yThresh) {
+      const el = document.getElementById(elId);
+      if (!entries.length) {
+        el.innerHTML = '<div class="empty">ไม่มีออเดอร์ในช่วงนี้</div>';
+        return;
+      }
+      const xThresh = entries.reduce((s,e) => s + e.qty, 0) / entries.length;
+      const xMax = Math.max(...entries.map(e => e.qty), xThresh * 1.5) * 1.2;
+      const marginVals = entries.map(e => e.margin);
       const yMin = Math.min(0, Math.floor(Math.min(...marginVals) / 10) * 10);
       const yMax = Math.max(100, Math.ceil(Math.max(...marginVals) / 10) * 10 + 10);
-      const maxAbsProfit = Math.max(...profitEntries.map(e => Math.abs(e.profit)), 1);
+      const maxAbsProfit = Math.max(...entries.map(e => Math.abs(e.profit)), 1);
       const rMin = 7, rMax = 24;
 
       const PL = 34, PR = 312, PT = 14, PB = 208; // plot box in viewBox units
@@ -723,7 +774,7 @@ async function loadReportTab() {
         <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PB}" stroke="rgba(74,52,40,0.4)" stroke-width="1.2"></line>
         <line x1="${PL}" y1="${PB}" x2="${PR}" y2="${PB}" stroke="rgba(74,52,40,0.4)" stroke-width="1.2"></line>
       `;
-      const points = profitEntries.map(e => {
+      const points = entries.map(e => {
         const cx = xPix(e.qty), cy = yPix(e.margin), r = rPix(Math.abs(e.profit));
         const act = actionOf(e);
         const shortName = e.name.length > 12 ? e.name.slice(0,11) + '…' : e.name;
@@ -745,7 +796,7 @@ async function loadReportTab() {
         </svg>
       `;
 
-      const legendHtml = [...profitEntries].sort((a,b) => b.profit - a.profit).map(e => {
+      const legendHtml = [...entries].sort((a,b) => b.profit - a.profit).map(e => {
         const act = actionOf(e);
         return `<div class="menprofit-legend-row">
           <span class="menprofit-legend-dot" style="background:${act.color};"></span>
@@ -755,8 +806,36 @@ async function loadReportTab() {
         </div>`;
       }).join('');
 
-      profitEl.innerHTML = svg + `<div style="margin-top:10px;">${legendHtml}</div>`;
+      el.innerHTML = svg + `<div style="margin-top:10px;">${legendHtml}</div>`;
     }
+
+    // Menu Strategy Map
+    const profitEntries = menuEntries
+      .map(([name, d]) => ({ name, qty: d.qty, revenue: d.revenue, cogs: d.cogs, profit: d.revenue - d.cogs, margin: d.revenue ? ((d.revenue - d.cogs) / d.revenue * 100) : 0 }));
+    renderStrategyMap('dimMenuProfit', profitEntries, gp);
+
+    // Dimension 3: Bean — only orders whose menu item needs a bean; house blends collapse into one "House Blend" point
+    const byBean = {};
+    customerOrders.forEach(o => {
+      if (o.omakase_set_id) return;
+      const menu = menuByName[o.menu_item_name];
+      const key = menu && menu.needs_bean ? beanKey(o) : null;
+      if (!key) return;
+      if (!byBean[key]) byBean[key] = { qty: 0, revenue: 0, cogs: 0 };
+      byBean[key].qty += 1;
+      byBean[key].revenue += orderTotal(o);
+      byBean[key].cogs += computeCost(o);
+    });
+    const beanEntries = Object.entries(byBean);
+    renderBarChart('dimBeanCups',
+      [...beanEntries].sort((a,b) => b[1].qty - a[1].qty).slice(0,5).map(([name,d]) => ({ label: name, value: d.qty })),
+      v => `${v} cups`);
+    renderBarChart('dimBeanRevenue',
+      [...beanEntries].sort((a,b) => b[1].revenue - a[1].revenue).slice(0,5).map(([name,d]) => ({ label: name, value: d.revenue })),
+      v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
+    const beanProfitEntries = beanEntries
+      .map(([name, d]) => ({ name, qty: d.qty, revenue: d.revenue, cogs: d.cogs, profit: d.revenue - d.cogs, margin: d.revenue ? ((d.revenue - d.cogs) / d.revenue * 100) : 0 }));
+    renderStrategyMap('dimBeanProfit', beanProfitEntries, gp);
 
     // All transactions (most recent first) — includes staff/reward too, filterable by customer
     const allTxns = [...orders].sort((a,b) => new Date(b.brewed_at) - new Date(a.brewed_at));
@@ -766,7 +845,7 @@ async function loadReportTab() {
         ? list.map(o => `
             <div class="order-row">
               <span>${o.menu_item_name}${o.bean_name ? ' · ' + o.bean_name : ''}${o.omakase_set_id ? ' <span class="gtky-badge" style="background:rgba(232,98,26,0.1);color:var(--ol);">Omakase</span>' : ''} — ${o.customer_name || 'Unknown'}</span>
-              <span>฿${Number(o.price).toFixed(0)} · ${fmtDateTimeFb(o.brewed_at)}</span>
+              <span>฿${orderTotal(o).toFixed(0)} · ${fmtDateTimeFb(o.brewed_at)}</span>
             </div>
           `).join('')
         : '<div class="empty">No transactions this period</div>';
@@ -814,7 +893,7 @@ async function loadCustomerTab() {
   try {
     const [members, orders, feedback, gtkyAnswers, manualNotes] = await Promise.all([
       sb('members?select=id,line_user_id,display_name,member_type,created_at&order=created_at.asc'),
-      sb('preorders?select=line_user_id,menu_item_name,bean_name,brewed_at,price,order_type,omakase_set_id&brewed=eq.true&line_user_id=not.is.null'),
+      sb('preorders?select=line_user_id,menu_item_name,bean_name,brewed_at,price,bean_surcharge,order_type,omakase_set_id&brewed=eq.true&line_user_id=not.is.null'),
       sb('feedback_requests?select=*&rating=not.is.null&order=responded_at.desc'),
       sb('gtky_sends?select=*,gtky_questions(question_text,gtky_categories(name))&answer_text=not.is.null&order=responded_at.desc'),
       sb('manual_feedback_notes?select=*&order=noted_at.desc'),
@@ -839,7 +918,7 @@ async function loadCustomerTab() {
     });
 
     function omakaseAwareRevenue(orderList) {
-      const nonOmakase = orderList.filter(o => !o.omakase_set_id).reduce((s, o) => s + Number(o.price || 0), 0);
+      const nonOmakase = orderList.filter(o => !o.omakase_set_id).reduce((s, o) => s + orderTotal(o), 0);
       const countedSets = new Set();
       orderList.forEach(o => {
         if (o.omakase_set_id && custCompletedOmakaseSetIds.has(o.omakase_set_id)) countedSets.add(o.omakase_set_id);
