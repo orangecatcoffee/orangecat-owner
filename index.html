@@ -1258,6 +1258,11 @@ setupManualFeedbackForm();
 
 // ---------- GTKY TAB ----------
 const GTKY_SEND_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/gtky-send";
+const NOTIFY_SHOP_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/notify-shop-gtky";
+function gtkyCustName(lineId) {
+  const m = gtkyMembersCache.find(x => x.line_user_id === lineId);
+  return m ? m.display_name : lineId;
+}
 let gtkyOptionDraft = [];
 let gtkyMembersCache = [];
 let gtkyQuestionsCache = [];
@@ -1499,6 +1504,17 @@ document.getElementById('gtkySendBtn').addEventListener('click', async () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ line_user_id: lineId, batch_id: batchId, question_count: qItems.length }),
         }).catch(err => console.error('gtky-send batch push failed:', err));
+
+        const sentQuestionTexts = qItems.map(item => {
+          const qq = gtkyQuestionsCache.find(x => x.id === item.qId);
+          return qq ? qq.question_text : '(ไม่พบคำถาม)';
+        });
+        fetch(NOTIFY_SHOP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'sent', customer_name: gtkyCustName(lineId), questions: sentQuestionTexts }),
+        }).catch(err => console.error('notify-shop-gtky sent-confirm failed:', err));
+
         sentCount++;
       }
       statusEl.textContent = `ส่งชุด ${qItems.length} คำถามให้ ${sentCount} คน (ลิงก์เดียว/คน) ✓`;
@@ -1535,6 +1551,12 @@ document.getElementById('gtkySendBtn').addEventListener('click', async () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ line_user_id: row.line_user_id, gtky_send_id: row.id, question_text: q.question_text }),
       }).catch(err => console.error('gtky-send push failed:', err));
+
+      fetch(NOTIFY_SHOP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'sent', customer_name: gtkyCustName(row.line_user_id), questions: [q.question_text] }),
+      }).catch(err => console.error('notify-shop-gtky sent-confirm failed:', err));
     }
 
     statusEl.textContent = `ส่งแล้ว ${inserted.length} คน ✓`;
