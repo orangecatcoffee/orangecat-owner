@@ -909,11 +909,18 @@ async function loadReportTab() {
     function renderTxnRows(list) {
       txnEl.innerHTML = list.length
         ? list.map(o => {
+            const isSelfConsumed = o.order_type === 'staff' || o.order_type === 'reward';
             const revenue = orderTotal(o);
             const cost = computeCost(o);
-            const profit = revenue - cost;
-            const profitCls = profit >= 0 ? 'good' : 'bad';
-            const profitSign = profit >= 0 ? '฿' : '-฿';
+            let subLine;
+            if (isSelfConsumed) {
+              subLine = `<span>ต้นทุน ฿${cost.toFixed(0)} <span style="opacity:.6;">(สตาฟชง — ไม่นับกำไรขาดทุน)</span></span>`;
+            } else {
+              const profit = revenue - cost;
+              const profitCls = profit >= 0 ? 'good' : 'bad';
+              const profitSign = profit >= 0 ? '฿' : '-฿';
+              subLine = `<span>ต้นทุน ฿${cost.toFixed(0)}</span><span class="txn-profit ${profitCls}">กำไร ${profitSign}${Math.abs(profit).toFixed(0)}</span>`;
+            }
             return `
             <div class="txn-row">
               <div class="txn-row-main">
@@ -921,8 +928,7 @@ async function loadReportTab() {
                 <span>฿${revenue.toFixed(0)} · ${fmtDateTimeFb(o.brewed_at)}</span>
               </div>
               <div class="txn-row-sub">
-                <span>ต้นทุน ฿${cost.toFixed(0)}</span>
-                <span class="txn-profit ${profitCls}">กำไร ${profitSign}${Math.abs(profit).toFixed(0)}</span>
+                ${subLine}
               </div>
             </div>
           `;
