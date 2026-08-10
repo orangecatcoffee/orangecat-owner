@@ -1313,10 +1313,16 @@ async function gtkyLoadQuestions() {
       : '<option value="">ยังไม่มีคำถามที่เปิดใช้งาน</option>';
 
     const batchListEl = document.getElementById('gtkyBatchQuestionList');
-    batchListEl.innerHTML = activeQuestions.length
-      ? activeQuestions.map(q => `
+    const batchOrderedQuestions = [...activeQuestions].sort((a, b) => {
+      const catA = a.gtky_categories ? a.gtky_categories.name : '';
+      const catB = b.gtky_categories ? b.gtky_categories.name : '';
+      if (catA !== catB) return catA.localeCompare(catB);
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
+    batchListEl.innerHTML = batchOrderedQuestions.length
+      ? batchOrderedQuestions.map(q => `
           <div class="gtky-cust-row">
-            <input type="checkbox" data-qid="${q.id}" data-cat-id="${q.category_id || ''}" id="gtkybq-${q.id}">
+            <input type="checkbox" data-qid="${q.id}" data-cat-id="${q.category_id || ''}" data-sort-order="${q.sort_order || 0}" id="gtkybq-${q.id}">
             <label for="gtkybq-${q.id}" style="cursor:pointer;">${q.is_favorite ? '⭐ ' : ''}[${q.gtky_categories ? q.gtky_categories.name : 'ไม่มีหมวด'}] ${q.question_text}</label>
           </div>
         `).join('')
@@ -1474,9 +1480,10 @@ document.getElementById('gtkySendBtn').addEventListener('click', async () => {
   statusEl.className = 'status'; statusEl.style.display = 'none';
 
   if (gtkyBatchMode) {
-    const qIds = Array.from(document.querySelectorAll('#gtkyBatchQuestionList input[type=checkbox]:checked')).map(cb => cb.dataset.qid);
+    const checkedBoxes = Array.from(document.querySelectorAll('#gtkyBatchQuestionList input[type=checkbox]:checked'));
+    const qItems = checkedBoxes.map(cb => ({ qId: cb.dataset.qid, order: parseInt(cb.dataset.sortOrder || '0', 10) }));
     const custIds = Array.from(document.querySelectorAll('.gtky-cust-chip.selected')).map(c => c.dataset.lineId);
-    if (!qIds.length || !custIds.length) return;
+    if (!qItems.length || !custIds.length) return;
 
     btn.disabled = true;
     btn.textContent = 'กำลังส่ง...';
@@ -1484,16 +1491,16 @@ document.getElementById('gtkySendBtn').addEventListener('click', async () => {
       let sentCount = 0;
       for (const lineId of custIds) {
         const batchId = crypto.randomUUID();
-        const rows = qIds.map(qId => ({ question_id: qId, line_user_id: lineId, batch_id: batchId }));
+        const rows = qItems.map(item => ({ question_id: item.qId, line_user_id: lineId, batch_id: batchId, batch_order: item.order }));
         await sb('gtky_sends', { method: 'POST', body: JSON.stringify(rows) });
         fetch(GTKY_SEND_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ line_user_id: lineId, batch_id: batchId, question_count: qIds.length }),
+          body: JSON.stringify({ line_user_id: lineId, batch_id: batchId, question_count: qItems.length }),
         }).catch(err => console.error('gtky-send batch push failed:', err));
         sentCount++;
       }
-      statusEl.textContent = `ส่งชุด ${qIds.length} คำถามให้ ${sentCount} คน (ลิงก์เดียว/คน) ✓`;
+      statusEl.textContent = `ส่งชุด ${qItems.length} คำถามให้ ${sentCount} คน (ลิงก์เดียว/คน) ✓`;
       statusEl.className = 'status ok';
       document.querySelectorAll('.gtky-cust-chip').forEach(c => c.classList.remove('selected'));
       gtkyUpdateSendBtn();
