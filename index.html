@@ -150,6 +150,7 @@
   .txn-profit{font-weight:600;}
   .txn-profit.good{color:var(--green);}
   .txn-profit.bad{color:var(--red);}
+  .staff-badge{font-weight:600;color:var(--ol);background:rgba(232,98,26,0.1);border-radius:6px;padding:1px 7px;font-size:9.5px;letter-spacing:.3px;}
 
   /* GTKY TAB */
   .gtky-q-item{padding:12px 0;border-bottom:1px solid var(--border);}
@@ -567,7 +568,7 @@ async function loadReportTab() {
     recipes.forEach(r => { (recipeByMenuId[r.menu_item_id] = recipeByMenuId[r.menu_item_id] || []).push(r); });
     const beanCost = {}; beans.forEach(b => beanCost[b.name] = Number(b.cost_per_base_unit));
     const ingredientCostByName = {}; allIngredients.forEach(i => ingredientCostByName[i.name] = Number(i.cost_per_base_unit || 0));
-    const MIXER_ESTIMATE_G = 150;
+    const MIXER_ESTIMATE_G = 170;
     const BEAN_DOSE_G = 20;
 
     // "เบลนด์: Brazil 10g + Ethiopia 5g + Peach Peace 5g" -> real weighted cost from each component's
@@ -906,15 +907,41 @@ async function loadReportTab() {
     // All transactions (most recent first) — includes staff/reward too, filterable by customer
     const allTxns = [...orders].sort((a,b) => new Date(b.brewed_at) - new Date(a.brewed_at));
 
+    // Omakase per-cup revenue split for the "All Transactions" list:
+    // The 2 regular-menu cups get credited their REAL menu price (not whatever's stored in
+    // preorders.price, which isn't reliably itemized per cup for omakase orders). The secret
+    // cup (identified by menu_items.omakase_only, not by cup order/position) gets whatever's
+    // left over from the flat 230 set price. Only applied when a set cleanly has exactly one
+    // secret cup + the rest regular — ambiguous sets (0 or 2+ secret cups, likely a data entry
+    // mistake) fall back to the old orderTotal() display rather than guessing.
+    const omakaseRevenueById = {};
+    {
+      const bySet = {};
+      allTxns.forEach(o => {
+        if (!o.omakase_set_id) return;
+        (bySet[o.omakase_set_id] = bySet[o.omakase_set_id] || []).push(o);
+      });
+      Object.values(bySet).forEach(cups => {
+        const isSecret = c => !!(menuByName[c.menu_item_name] && menuByName[c.menu_item_name].omakase_only);
+        const secretCups = cups.filter(isSecret);
+        const regularCups = cups.filter(c => !isSecret(c));
+        if (secretCups.length === 1 && regularCups.length >= 1) {
+          const regularTotal = regularCups.reduce((s, c) => s + Number((menuByName[c.menu_item_name] || {}).price || 0), 0);
+          regularCups.forEach(c => { omakaseRevenueById[c.id] = Number((menuByName[c.menu_item_name] || {}).price || 0); });
+          omakaseRevenueById[secretCups[0].id] = Math.max(0, OMAKASE_TOTAL_PRICE - regularTotal);
+        }
+      });
+    }
+
     function renderTxnRows(list) {
       txnEl.innerHTML = list.length
         ? list.map(o => {
             const isSelfConsumed = o.order_type === 'staff' || o.order_type === 'reward';
-            const revenue = orderTotal(o);
+            const revenue = (o.omakase_set_id && omakaseRevenueById[o.id] !== undefined) ? omakaseRevenueById[o.id] : orderTotal(o);
             const cost = computeCost(o);
             let subLine;
             if (isSelfConsumed) {
-              subLine = `<span>ต้นทุน ฿${cost.toFixed(0)} <span style="opacity:.6;">(สตาฟชง — ไม่นับกำไรขาดทุน)</span></span>`;
+              subLine = `<span>ต้นทุน ฿${cost.toFixed(0)}</span><span class="staff-badge">Staff แมวส้ม</span>`;
             } else {
               const profit = revenue - cost;
               const profitCls = profit >= 0 ? 'good' : 'bad';
