@@ -346,9 +346,25 @@
 
   <div class="card" style="border-color:rgba(232,98,26,0.4);background:rgba(232,98,26,0.06);">
     <div class="card-title" style="color:var(--ol);font-size:13px;letter-spacing:1px;">🚀 ส่งคำถามหาลูกค้า</div>
-    <label>เลือกคำถาม (⭐ = คำถามโปรด อยู่บนสุด)</label>
-    <select id="gtkySendQuestionSelect"><option value="">กำลังโหลด...</option></select>
-    <div id="gtkySendQuestionPreview" style="font-size:11px;color:rgba(74,52,40,0.4);margin-top:6px;"></div>
+
+    <div class="chip-row" style="margin-bottom:12px;">
+      <button type="button" class="chip gtky-mode-chip selected" id="gtkySingleModeBtn">📩 ส่งทีละข้อ</button>
+      <button type="button" class="chip gtky-mode-chip" id="gtkyBatchModeBtn">📦 ส่งเป็นชุด (ลิงก์เดียว)</button>
+    </div>
+
+    <div id="gtkySingleSendBlock">
+      <label>เลือกคำถาม (⭐ = คำถามโปรด อยู่บนสุด)</label>
+      <select id="gtkySendQuestionSelect"><option value="">กำลังโหลด...</option></select>
+      <div id="gtkySendQuestionPreview" style="font-size:11px;color:rgba(74,52,40,0.4);margin-top:6px;"></div>
+    </div>
+
+    <div id="gtkyBatchSendBlock" style="display:none;">
+      <label>เลือกหมวด (ติ๊กคำถามทั้งหมวดให้อัตโนมัติ)</label>
+      <select id="gtkyBatchCategorySelect"><option value="">— เลือกหมวด —</option></select>
+      <label style="margin-top:12px;">คำถามในชุดนี้ (ติ๊ก/ปลดเองได้)</label>
+      <div id="gtkyBatchQuestionList"><div class="loading">กำลังโหลด...</div></div>
+      <div style="font-size:11px;color:rgba(74,52,40,0.4);margin-top:6px;">ลูกค้าจะได้รับแจ้งเตือน LINE แค่ครั้งเดียว กดลิงก์เข้าไปเจอคำถามที่ติ๊กไว้ครบในหน้าเดียว</div>
+    </div>
 
     <label style="margin-top:16px;">ส่งหาใคร</label>
     <div class="chip-row" style="margin-bottom:10px;">
@@ -1265,12 +1281,18 @@ async function loadGtkyTab() {
 
 let gtkyCategoryIdByName = {};
 let gtkySelectedCategoryId = null;
+let gtkyBatchMode = false;
+let gtkyCategoriesCache = [];
 
 async function gtkyLoadCategoriesForModeChips() {
   try {
-    const cats = await sb('gtky_categories?select=id,name');
+    const cats = await sb('gtky_categories?select=id,name&order=sort_order');
+    gtkyCategoriesCache = cats;
     gtkyCategoryIdByName = {};
     cats.forEach(c => { gtkyCategoryIdByName[c.name] = c.id; });
+    const batchCatSel = document.getElementById('gtkyBatchCategorySelect');
+    batchCatSel.innerHTML = '<option value="">— เลือกหมวด —</option>' +
+      cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   } catch (e) { /* เงียบไว้ ไม่ critical */ }
 }
 
@@ -1289,6 +1311,17 @@ async function gtkyLoadQuestions() {
           `<option value="${q.id}">${q.is_favorite ? '⭐ ' : ''}[${q.gtky_categories ? q.gtky_categories.name : 'ไม่มีหมวด'}] ${q.question_text}</option>`
         ).join('')
       : '<option value="">ยังไม่มีคำถามที่เปิดใช้งาน</option>';
+
+    const batchListEl = document.getElementById('gtkyBatchQuestionList');
+    batchListEl.innerHTML = activeQuestions.length
+      ? activeQuestions.map(q => `
+          <div class="gtky-cust-row">
+            <input type="checkbox" data-qid="${q.id}" data-cat-id="${q.category_id || ''}" id="gtkybq-${q.id}">
+            <label for="gtkybq-${q.id}" style="cursor:pointer;">${q.is_favorite ? '⭐ ' : ''}[${q.gtky_categories ? q.gtky_categories.name : 'ไม่มีหมวด'}] ${q.question_text}</label>
+          </div>
+        `).join('')
+      : '<div class="empty">ยังไม่มีคำถามที่เปิดใช้งาน</div>';
+    batchListEl.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', gtkyUpdateSendBtn));
 
     if (!questions.length) {
       listEl.innerHTML = '<div class="empty">ยังไม่มีคำถามเลย เพิ่มด้านล่างได้เลย</div>';
@@ -1370,8 +1403,21 @@ async function gtkyLoadCustomerChecklist() {
 
 function gtkyUpdateSendBtn() {
   const btn = document.getElementById('gtkySendBtn');
-  const qId = document.getElementById('gtkySendQuestionSelect').value;
   const checked = document.querySelectorAll('.gtky-cust-chip.selected').length;
+
+  if (gtkyBatchMode) {
+    const qChecked = document.querySelectorAll('#gtkyBatchQuestionList input[type=checkbox]:checked').length;
+    if (!qChecked || checked === 0) {
+      btn.disabled = true;
+      btn.textContent = 'เลือกคำถาม + ลูกค้าก่อน';
+    } else {
+      btn.disabled = false;
+      btn.textContent = `ส่งชุด ${qChecked} ข้อ หา ${checked} คน`;
+    }
+    return;
+  }
+
+  const qId = document.getElementById('gtkySendQuestionSelect').value;
   if (!qId || checked === 0) {
     btn.disabled = true;
     btn.textContent = 'เลือกคำถาม + ลูกค้าก่อน';
@@ -1380,6 +1426,31 @@ function gtkyUpdateSendBtn() {
     btn.textContent = `ส่งหา ${checked} คน`;
   }
 }
+
+document.getElementById('gtkySingleModeBtn').addEventListener('click', () => {
+  gtkyBatchMode = false;
+  document.getElementById('gtkySingleModeBtn').classList.add('selected');
+  document.getElementById('gtkyBatchModeBtn').classList.remove('selected');
+  document.getElementById('gtkySingleSendBlock').style.display = 'block';
+  document.getElementById('gtkyBatchSendBlock').style.display = 'none';
+  gtkyUpdateSendBtn();
+});
+document.getElementById('gtkyBatchModeBtn').addEventListener('click', () => {
+  gtkyBatchMode = true;
+  document.getElementById('gtkyBatchModeBtn').classList.add('selected');
+  document.getElementById('gtkySingleModeBtn').classList.remove('selected');
+  document.getElementById('gtkySingleSendBlock').style.display = 'none';
+  document.getElementById('gtkyBatchSendBlock').style.display = 'block';
+  gtkyUpdateSendBtn();
+});
+document.getElementById('gtkyBatchCategorySelect').addEventListener('change', (e) => {
+  const catId = e.target.value;
+  if (!catId) return;
+  document.querySelectorAll('#gtkyBatchQuestionList input[type=checkbox]').forEach(cb => {
+    cb.checked = (cb.dataset.catId === catId);
+  });
+  gtkyUpdateSendBtn();
+});
 
 document.getElementById('gtkySendQuestionSelect').addEventListener('change', (e) => {
   const q = gtkyQuestionsCache.find(x => x.id === e.target.value);
@@ -1401,6 +1472,41 @@ document.getElementById('gtkySendBtn').addEventListener('click', async () => {
   const btn = document.getElementById('gtkySendBtn');
   const statusEl = document.getElementById('gtkySendStatus');
   statusEl.className = 'status'; statusEl.style.display = 'none';
+
+  if (gtkyBatchMode) {
+    const qIds = Array.from(document.querySelectorAll('#gtkyBatchQuestionList input[type=checkbox]:checked')).map(cb => cb.dataset.qid);
+    const custIds = Array.from(document.querySelectorAll('.gtky-cust-chip.selected')).map(c => c.dataset.lineId);
+    if (!qIds.length || !custIds.length) return;
+
+    btn.disabled = true;
+    btn.textContent = 'กำลังส่ง...';
+    try {
+      let sentCount = 0;
+      for (const lineId of custIds) {
+        const batchId = crypto.randomUUID();
+        const rows = qIds.map(qId => ({ question_id: qId, line_user_id: lineId, batch_id: batchId }));
+        await sb('gtky_sends', { method: 'POST', body: JSON.stringify(rows) });
+        fetch(GTKY_SEND_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ line_user_id: lineId, batch_id: batchId, question_count: qIds.length }),
+        }).catch(err => console.error('gtky-send batch push failed:', err));
+        sentCount++;
+      }
+      statusEl.textContent = `ส่งชุด ${qIds.length} คำถามให้ ${sentCount} คน (ลิงก์เดียว/คน) ✓`;
+      statusEl.className = 'status ok';
+      document.querySelectorAll('.gtky-cust-chip').forEach(c => c.classList.remove('selected'));
+      gtkyUpdateSendBtn();
+    } catch (e) {
+      statusEl.textContent = 'ส่งไม่สำเร็จ: ' + e.message;
+      statusEl.className = 'status err';
+    } finally {
+      btn.disabled = false;
+      gtkyUpdateSendBtn();
+    }
+    return;
+  }
+
   const qId = document.getElementById('gtkySendQuestionSelect').value;
   const q = gtkyQuestionsCache.find(x => x.id === qId);
   const checkedIds = Array.from(document.querySelectorAll('.gtky-cust-chip.selected')).map(c => c.dataset.lineId);
