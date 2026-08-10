@@ -143,6 +143,13 @@
   .fb-comment{font-size:11.5px;color:rgba(74,52,40,0.75);margin-top:6px;line-height:1.6;white-space:pre-wrap;}
   .order-row{display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0;border-bottom:1px solid var(--border);color:rgba(74,52,40,0.65);}
   .order-row:last-child{border-bottom:none;}
+  .txn-row{padding:7px 0;border-bottom:1px solid var(--border);font-size:11.5px;color:rgba(74,52,40,0.65);}
+  .txn-row:last-child{border-bottom:none;}
+  .txn-row-main{display:flex;justify-content:space-between;gap:8px;}
+  .txn-row-sub{display:flex;justify-content:space-between;gap:8px;margin-top:3px;font-size:10px;color:rgba(74,52,40,0.4);}
+  .txn-profit{font-weight:600;}
+  .txn-profit.good{color:var(--green);}
+  .txn-profit.bad{color:var(--red);}
 
   /* GTKY TAB */
   .gtky-q-item{padding:12px 0;border-bottom:1px solid var(--border);}
@@ -901,12 +908,25 @@ async function loadReportTab() {
 
     function renderTxnRows(list) {
       txnEl.innerHTML = list.length
-        ? list.map(o => `
-            <div class="order-row">
-              <span>${o.menu_item_name}${o.bean_name ? ' · ' + o.bean_name : ''}${o.omakase_set_id ? ' <span class="gtky-badge" style="background:rgba(232,98,26,0.1);color:var(--ol);">Omakase</span>' : ''} — ${o.customer_name || 'Unknown'}</span>
-              <span>฿${orderTotal(o).toFixed(0)} · ${fmtDateTimeFb(o.brewed_at)}</span>
+        ? list.map(o => {
+            const revenue = orderTotal(o);
+            const cost = computeCost(o);
+            const profit = revenue - cost;
+            const profitCls = profit >= 0 ? 'good' : 'bad';
+            const profitSign = profit >= 0 ? '฿' : '-฿';
+            return `
+            <div class="txn-row">
+              <div class="txn-row-main">
+                <span>${o.menu_item_name}${o.bean_name ? ' · ' + o.bean_name : ''}${o.omakase_set_id ? ' <span class="gtky-badge" style="background:rgba(232,98,26,0.1);color:var(--ol);">Omakase</span>' : ''} — ${o.customer_name || 'Unknown'}</span>
+                <span>฿${revenue.toFixed(0)} · ${fmtDateTimeFb(o.brewed_at)}</span>
+              </div>
+              <div class="txn-row-sub">
+                <span>ต้นทุน ฿${cost.toFixed(0)}</span>
+                <span class="txn-profit ${profitCls}">กำไร ${profitSign}${Math.abs(profit).toFixed(0)}</span>
+              </div>
             </div>
-          `).join('')
+          `;
+          }).join('')
         : '<div class="empty">No transactions this period</div>';
     }
 
