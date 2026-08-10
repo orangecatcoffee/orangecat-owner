@@ -1139,6 +1139,7 @@ async function loadCustomerTab() {
               </div>
               <div class="fb-sub">${g.gtky_questions && g.gtky_questions.gtky_categories ? g.gtky_questions.gtky_categories.name + ' · ' : ''}${fmtDateTimeFb(g.responded_at)}</div>
               <div class="fb-comment">${g.answer_text}</div>
+              ${g.note ? `<div class="fb-comment" style="color:rgba(74,52,40,0.55);font-style:italic;margin-top:2px;">📝 ${g.note}</div>` : ''}
             </div>
           `).join('')}
       ` : '';
