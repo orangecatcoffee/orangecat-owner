@@ -265,6 +265,10 @@
     <div class="card-title">All Transactions This Period</div>
     <label>Filter by Customer</label>
     <select id="reportTxnFilter"><option value="">— All —</option></select>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      <button type="button" class="chip range-chip" id="txnSecretChip" data-secret-only="0">🔮 Secret เท่านั้น</button>
+      <button type="button" class="chip range-chip selected" id="txnStaffChip" data-include-staff="1">👥 รวม Staff</button>
+    </div>
     <div id="reportTransactionList" style="margin-top:10px;"><div class="loading">Loading...</div></div>
   </div>
 
@@ -966,10 +970,35 @@ async function loadReportTab() {
     const txnFilterEl = document.getElementById('reportTxnFilter');
     const txnNames = [...new Set(allTxns.map(o => o.customer_name || 'Unknown'))].sort((a,b) => a.localeCompare(b));
     txnFilterEl.innerHTML = '<option value="">— All —</option>' + txnNames.map(n => `<option value="${n}">${n}</option>`).join('');
-    txnFilterEl.onchange = () => {
-      const val = txnFilterEl.value;
-      renderTxnRows(val ? allTxns.filter(o => (o.customer_name || 'Unknown') === val) : allTxns);
-    };
+
+    const txnSecretChip = document.getElementById('txnSecretChip');
+    const txnStaffChip = document.getElementById('txnStaffChip');
+    const isSecretCupTxn = o => !!(menuByName[o.menu_item_name] && menuByName[o.menu_item_name].omakase_only);
+
+    function applyTxnFilters() {
+      const custVal = txnFilterEl.value;
+      const secretOnly = txnSecretChip.dataset.secretOnly === '1';
+      const includeStaff = txnStaffChip.dataset.includeStaff === '1';
+      let list = allTxns;
+      if (custVal) list = list.filter(o => (o.customer_name || 'Unknown') === custVal);
+      if (secretOnly) list = list.filter(isSecretCupTxn);
+      if (!includeStaff) list = list.filter(o => o.order_type !== 'staff' && o.order_type !== 'reward');
+      renderTxnRows(list);
+    }
+
+    txnFilterEl.onchange = applyTxnFilters;
+    txnSecretChip.addEventListener('click', () => {
+      const on = txnSecretChip.dataset.secretOnly !== '1';
+      txnSecretChip.dataset.secretOnly = on ? '1' : '0';
+      txnSecretChip.classList.toggle('selected', on);
+      applyTxnFilters();
+    });
+    txnStaffChip.addEventListener('click', () => {
+      const on = txnStaffChip.dataset.includeStaff !== '1';
+      txnStaffChip.dataset.includeStaff = on ? '1' : '0';
+      txnStaffChip.classList.toggle('selected', on);
+      applyTxnFilters();
+    });
     renderTxnRows(allTxns);
 
     const staffCount = orders.filter(o => o.order_type === 'staff').length;
