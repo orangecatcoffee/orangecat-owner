@@ -145,6 +145,7 @@
   .order-row:last-child{border-bottom:none;}
   .txn-row{padding:7px 0;border-bottom:1px solid var(--border);font-size:11.5px;color:rgba(74,52,40,0.65);}
   .txn-row:last-child{border-bottom:none;}
+  .txn-scroll{max-height:810px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
   .txn-row-main{display:flex;justify-content:space-between;gap:8px;}
   .txn-row-sub{display:flex;justify-content:space-between;gap:8px;margin-top:3px;font-size:10px;color:rgba(74,52,40,0.4);}
   .txn-profit{font-weight:600;}
@@ -263,8 +264,9 @@
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
       <button type="button" class="chip range-chip" id="txnSecretChip" data-secret-only="0">🔮 Secret เท่านั้น</button>
       <button type="button" class="chip range-chip selected" id="txnStaffChip" data-include-staff="1">👥 รวม Staff</button>
+      <button type="button" class="chip range-chip" id="txnOurTreatChip" data-our-treat-only="0">🎁 Our Treat เท่านั้น</button>
     </div>
-    <div id="reportTransactionList" style="margin-top:10px;"><div class="loading">Loading...</div></div>
+    <div id="reportTransactionList" class="txn-scroll" style="margin-top:10px;"><div class="loading">Loading...</div></div>
   </div>
 
   <div class="card">
@@ -926,16 +928,19 @@ async function loadReportTab() {
 
     const txnSecretChip = document.getElementById('txnSecretChip');
     const txnStaffChip = document.getElementById('txnStaffChip');
+    const txnOurTreatChip = document.getElementById('txnOurTreatChip');
     const isSecretCupTxn = o => !!(menuByName[o.menu_item_name] && menuByName[o.menu_item_name].omakase_only);
 
     function applyTxnFilters() {
       const custVal = txnFilterEl.value;
       const secretOnly = txnSecretChip.dataset.secretOnly === '1';
       const includeStaff = txnStaffChip.dataset.includeStaff === '1';
+      const ourTreatOnly = txnOurTreatChip.dataset.ourTreatOnly === '1';
       let list = allTxns;
       if (custVal) list = list.filter(o => (o.customer_name || 'Unknown') === custVal);
       if (secretOnly) list = list.filter(isSecretCupTxn);
       if (!includeStaff) list = list.filter(o => o.order_type !== 'staff' && o.order_type !== 'reward');
+      if (ourTreatOnly) list = list.filter(o => o.order_type === 'our_treat');
       renderTxnRows(list);
     }
 
@@ -950,6 +955,12 @@ async function loadReportTab() {
       const on = txnStaffChip.dataset.includeStaff !== '1';
       txnStaffChip.dataset.includeStaff = on ? '1' : '0';
       txnStaffChip.classList.toggle('selected', on);
+      applyTxnFilters();
+    });
+    txnOurTreatChip.addEventListener('click', () => {
+      const on = txnOurTreatChip.dataset.ourTreatOnly !== '1';
+      txnOurTreatChip.dataset.ourTreatOnly = on ? '1' : '0';
+      txnOurTreatChip.classList.toggle('selected', on);
       applyTxnFilters();
     });
     renderTxnRows(allTxns);
