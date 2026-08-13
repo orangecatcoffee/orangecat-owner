@@ -257,11 +257,6 @@
   </div>
 
   <div class="card">
-    <div class="card-title">🫘 Bean Contribution (แก้ว × กำไร รวมเมล็ดในเบลนด์)</div>
-    <div id="dimBeanBreakdown"><div class="loading">Loading...</div></div>
-  </div>
-
-  <div class="card">
     <div class="card-title">All Transactions This Period</div>
     <label>Filter by Customer</label>
     <select id="reportTxnFilter"><option value="">— All —</option></select>
@@ -577,7 +572,6 @@ async function loadReportTab() {
     document.getElementById(id).innerHTML = '<div class="loading">Loading...</div>';
   });
   document.getElementById('dimMenuProfit').innerHTML = '<div class="loading">Loading...</div>';
-  document.getElementById('dimBeanBreakdown').innerHTML = '<div class="loading">Loading...</div>';
 
   try {
     const [orders, menuItems, recipes, beans, allIngredients] = await Promise.all([
@@ -866,68 +860,6 @@ async function loadReportTab() {
     renderBarChart('dimBeanRevenue',
       [...beanEntries].sort((a,b) => b[1].revenue - a[1].revenue).slice(0,5).map(([name,d]) => ({ label: name, value: d.revenue })),
       v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
-
-    // Bean contribution table — attributes cups/revenue/profit to every bean that touched a cup,
-    // including beans hidden inside a house blend (split by real gram-weight, not guessed).
-    // A plain single-origin order is just one "component" at full weight.
-    function parseBlendComponents(beanName) {
-      if (!beanName || !beanName.startsWith('เบลนด์:')) return null;
-      return beanName.replace('เบลนด์:', '').split('+').map(s => s.trim()).map(p => {
-        const m = p.match(/^(.+?)\s+([\d.]+)\s*g$/i);
-        return m ? { name: m[1].trim(), grams: Number(m[2]) } : null;
-      }).filter(Boolean);
-    }
-    const byBeanComponent = {};
-    customerOrders.forEach(o => {
-      if (o.omakase_set_id) return;
-      const menu = menuByName[o.menu_item_name];
-      if (!menu || !menu.needs_bean || !o.bean_name) return;
-      const total = orderTotal(o);
-      const cogs = computeCost(o);
-      const parts = parseBlendComponents(o.bean_name) || [{ name: o.bean_name, grams: BEAN_DOSE_G }];
-      const totalGrams = parts.reduce((s,p) => s + p.grams, 0) || 1;
-      parts.forEach(p => {
-        const frac = p.grams / totalGrams;
-        if (!byBeanComponent[p.name]) byBeanComponent[p.name] = { qty: 0, revenue: 0, cogs: 0 };
-        byBeanComponent[p.name].qty += frac;
-        byBeanComponent[p.name].revenue += total * frac;
-        byBeanComponent[p.name].cogs += cogs * frac;
-      });
-    });
-    const breakdownEntries = Object.entries(byBeanComponent)
-      .map(([name, d]) => ({ name, qty: d.qty, revenue: d.revenue, cogs: d.cogs, profit: d.revenue - d.cogs, margin: d.revenue ? ((d.revenue - d.cogs) / d.revenue * 100) : 0 }))
-      .sort((a,b) => b.qty - a.qty);
-    const breakdownEl = document.getElementById('dimBeanBreakdown');
-    if (!breakdownEntries.length) {
-      breakdownEl.innerHTML = '<div class="empty">ไม่มีออเดอร์ในช่วงนี้</div>';
-    } else {
-      breakdownEl.innerHTML = `
-        <div class="recipe-table-wrap">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
-          <thead><tr style="text-align:left;color:rgba(74,52,40,0.45);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">
-            <th style="padding:6px 8px 6px 0;">เมล็ด</th>
-            <th style="padding:6px 8px;text-align:right;">แก้ว</th>
-            <th style="padding:6px 8px;text-align:right;">รายได้</th>
-            <th style="padding:6px 8px;text-align:right;">กำไร</th>
-            <th style="padding:6px 0 6px 8px;text-align:right;">มาร์จิ้น</th>
-          </tr></thead>
-          <tbody>
-            ${breakdownEntries.map(e => `
-              <tr style="border-top:1px solid var(--border);">
-                <td style="padding:7px 8px 7px 0;font-weight:600;color:var(--cream);">${e.name}</td>
-                <td style="padding:7px 8px;text-align:right;color:var(--cream);">${e.qty.toFixed(1)}</td>
-                <td style="padding:7px 8px;text-align:right;color:var(--cream);">฿${e.revenue.toLocaleString(undefined,{maximumFractionDigits:0})}</td>
-                <td style="padding:7px 8px;text-align:right;color:${e.profit>=0?'var(--green)':'var(--red)'};">฿${e.profit.toLocaleString(undefined,{maximumFractionDigits:0})}</td>
-                <td style="padding:7px 0 7px 8px;text-align:right;color:var(--ol);font-weight:700;">${e.margin.toFixed(0)}%</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-        </div>
-        <div style="font-size:10px;color:rgba(74,52,40,0.4);margin-top:8px;line-height:1.5;">
-          * แก้วที่ใช้ House Blend จะถูกแบ่งสัดส่วนตามน้ำหนักจริง (กรัม) ของแต่ละเมล็ดในสูตรนั้น ไม่ได้นับซ้ำเป็นแก้วเต็มในหลายเมล็ดพร้อมกัน
-        </div>
-      `;
-    }
 
     // All transactions (most recent first) — includes staff/reward too, filterable by customer
     const allTxns = [...orders].sort((a,b) => new Date(b.brewed_at) - new Date(a.brewed_at));
