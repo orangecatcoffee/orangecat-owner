@@ -1114,6 +1114,8 @@ async function loadReportTab() {
     const staffCount = orders.filter(o => o.order_type === 'staff').length;
     const rewardCount = orders.filter(o => o.order_type === 'reward').length;
     const ourTreatCount = orders.filter(o => o.order_type === 'our_treat').length;
+    const discountedOrders = orders.filter(o => Number(o.discount_amount) > 0);
+    const discountTotal = discountedOrders.reduce((sum,o) => sum + Number(o.discount_amount), 0);
     const freeAndTreatOrders = orders.filter(o => o.order_type === 'staff' || o.order_type === 'reward' || o.order_type === 'our_treat');
     const freeCost = freeAndTreatOrders.reduce((sum,o) => sum + computeCost(o), 0);
     freebiesEl.innerHTML = `
@@ -1121,6 +1123,7 @@ async function loadReportTab() {
       <div class="freebie-row"><span>☕ Staff Drinks</span><span>${staffCount} cups</span></div>
       <div class="freebie-row"><span>🎁 Rewards / Free</span><span>${rewardCount} cups</span></div>
       <div class="freebie-row"><span>🧡 Our Treat</span><span>${ourTreatCount} cups</span></div>
+      <div class="freebie-row"><span>🏷️ ส่วนลดที่ให้ไป (${discountedOrders.length} แก้ว)</span><span>฿${discountTotal.toFixed(0)}</span></div>
       <div class="freebie-row"><b>Total Cost Lost</b><b>฿${freeCost.toFixed(0)}</b></div>
     `;
 
