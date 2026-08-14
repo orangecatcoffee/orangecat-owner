@@ -795,7 +795,6 @@ async function loadReportTab() {
     }
 
     const customerOrders = orders.filter(o => o.order_type === 'customer' || !o.order_type);
-    const freeOrders = orders.filter(o => o.order_type === 'staff' || o.order_type === 'reward');
 
     // ---- Omakase: นับ 230฿ ครั้งเดียวต่อ 1 เซ็ตตอนชงครบ 3 แก้ว ไม่ใช่บวกราคาแยกแก้ว ----
     const OMAKASE_TOTAL_PRICE = 230;
@@ -1111,12 +1110,17 @@ async function loadReportTab() {
     });
     renderTxnRows(allTxns);
 
+    const soldCount = customerOrders.length;
     const staffCount = orders.filter(o => o.order_type === 'staff').length;
     const rewardCount = orders.filter(o => o.order_type === 'reward').length;
-    const freeCost = freeOrders.reduce((sum,o) => sum + computeCost(o), 0);
+    const ourTreatCount = orders.filter(o => o.order_type === 'our_treat').length;
+    const freeAndTreatOrders = orders.filter(o => o.order_type === 'staff' || o.order_type === 'reward' || o.order_type === 'our_treat');
+    const freeCost = freeAndTreatOrders.reduce((sum,o) => sum + computeCost(o), 0);
     freebiesEl.innerHTML = `
+      <div class="freebie-row"><span>☕ ขายจริง</span><span>${soldCount} cups</span></div>
       <div class="freebie-row"><span>☕ Staff Drinks</span><span>${staffCount} cups</span></div>
       <div class="freebie-row"><span>🎁 Rewards / Free</span><span>${rewardCount} cups</span></div>
+      <div class="freebie-row"><span>🧡 Our Treat</span><span>${ourTreatCount} cups</span></div>
       <div class="freebie-row"><b>Total Cost Lost</b><b>฿${freeCost.toFixed(0)}</b></div>
     `;
 
