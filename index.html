@@ -821,10 +821,11 @@ async function loadReportTab() {
     const byMenu = {};
     const byCustomer = {};
     let unpaid = 0;
+    const unpaidList = [];
     customerOrders.forEach(o => {
       if (o.omakase_set_id) return;
       const cost = computeCost(o);
-      if (!o.paid) unpaid += orderTotal(o);
+      if (!o.paid) { unpaid += orderTotal(o); unpaidList.push({ name: o.customer_name, item: o.menu_item_name, amount: orderTotal(o) }); }
       if (!byMenu[o.menu_item_name]) byMenu[o.menu_item_name] = { qty: 0, revenue: 0, cogs: 0 };
       byMenu[o.menu_item_name].qty += 1;
       byMenu[o.menu_item_name].revenue += orderTotal(o);
@@ -864,7 +865,15 @@ async function loadReportTab() {
         <div class="stat-box"><div class="stat-label">Cups</div><div class="stat-val">${totalCups}</div></div>
         <div class="stat-box"><div class="stat-label">Avg / Cup</div><div class="stat-val">฿${avgPerCup.toFixed(0)}</div></div>
       </div>
-      ${unpaid > 0 ? `<div class="unpaid-note">⚠️ Unpaid: ฿${unpaid.toLocaleString(undefined,{maximumFractionDigits:0})}</div>` : ''}
+      ${unpaid > 0 ? `
+        <button type="button" class="chip" id="unpaidToggle" style="margin-top:10px;border-color:#D64545;color:#D64545;">⚠️ Unpaid: ฿${unpaid.toLocaleString(undefined,{maximumFractionDigits:0})}</button>
+        <div id="unpaidList" style="display:none;margin-top:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;">
+          ${unpaidList
+            .sort((a,b) => b.amount - a.amount)
+            .map(u => `<div class="freebie-row" style="font-size:12.5px;"><span>${u.name} — ${u.item}</span><span>฿${u.amount.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>`)
+            .join('')}
+        </div>
+      ` : ''}
       <button type="button" class="chip" id="reportFinToggle" style="margin-top:12px;">💰 Show Cost &amp; Margin</button>
       <div class="stat-grid" id="reportFinStats" style="display:none;margin-top:10px;">
         <div class="stat-box"><div class="stat-label">Cost</div><div class="stat-val">฿${cogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
@@ -879,6 +888,15 @@ async function loadReportTab() {
       finStatsEl.style.display = showing ? 'none' : 'grid';
       finToggleBtn.textContent = showing ? '💰 Show Cost & Margin' : '🙈 Hide Cost & Margin';
     });
+
+    const unpaidToggleBtn = document.getElementById('unpaidToggle');
+    if (unpaidToggleBtn) {
+      const unpaidListEl = document.getElementById('unpaidList');
+      unpaidToggleBtn.addEventListener('click', () => {
+        const showing = unpaidListEl.style.display !== 'none';
+        unpaidListEl.style.display = showing ? 'none' : 'block';
+      });
+    }
 
     // Dimension 1: Customer
     const custEntries = Object.entries(byCustomer);
