@@ -764,7 +764,7 @@ async function loadReportTab() {
 
     // ต้นทุนบรรจุภัณฑ์ — ตอนนี้บาริสต้าเลือกจริงตอนชง (ถุง/แก้วเล็ก/แก้วใหญ่) เก็บไว้ที่ preorders.packaging_type แล้ว
     // ออเดอร์เก่าก่อนมีช่องนี้ (หรือไม่ได้แตะ) จะเป็นค่า default 'bag' อัตโนมัติจากฐานข้อมูล
-    const PACKAGING_COST = { bag: 1.44, cup_small: 3.91, cup_large: 4.25 };
+    const PACKAGING_COST = { tumbler: 0, bag: 1.44, cup_small: 3.91, cup_large: 4.25 };
 
     function computeCost(order) {
       const menu = menuByName[order.menu_item_name];
