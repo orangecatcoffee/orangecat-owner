@@ -762,10 +762,14 @@ async function loadReportTab() {
       return o.bean_name.startsWith('เบลนด์:') ? 'House Blend' : o.bean_name;
     }
 
+    // ต้นทุนบรรจุภัณฑ์ — ยังไม่มีช่องบันทึกว่าแต่ละออเดอร์ใช้บรรจุภัณฑ์แบบไหน (ถุง/แก้วใหญ่/แก้วเล็ก/หลอด)
+    // เลยใช้ค่า Default (ถุงอย่างเดียว) กับทุกแก้วไปก่อน จนกว่าจะมีช่องให้บาริสต้าเลือกจริงตอนชง
+    const PACKAGING_COST_DEFAULT = 1.44; // ถุงฝาเกลียว
+
     function computeCost(order) {
       const menu = menuByName[order.menu_item_name];
       if (!menu) return 0;
-      let cost = 0;
+      let cost = PACKAGING_COST_DEFAULT;
       if (menu.needs_bean) {
         const blendCost = parseBlendCost(order.bean_name);
         if (blendCost !== null) {
