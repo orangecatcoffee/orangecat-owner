@@ -719,12 +719,14 @@ async function loadReportTab() {
   document.getElementById('dimMenuProfit').innerHTML = '<div class="loading">Loading...</div>';
 
   try {
-    const [orders, menuItems, recipes, beans, allIngredients] = await Promise.all([
+    const [orders, menuItems, recipes, beans, allIngredients, futureOrders] = await Promise.all([
       sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}`),
       sb('menu_items?select=*'),
       sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
       sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
-      sb('ingredients?select=id,name,category,stock_quantity,base_unit,cost_per_base_unit&active=eq.true')
+      sb('ingredients?select=id,name,category,stock_quantity,base_unit,cost_per_base_unit&active=eq.true'),
+      // ออเดอร์ในอนาคต — ยังไม่ได้ชงเลย (คิวรอบาริสต้า ไม่จำกัดช่วงเวลาที่เลือกไว้ด้านบน เพราะเป็นคนละสถานะกัน)
+      sb(`preorders?select=id,customer_name,menu_item_name,price,wanted_date&brewed=eq.false&or=(order_type.eq.customer,order_type.is.null)`),
     ]);
 
     currentReportOrders = orders;
@@ -805,27 +807,34 @@ async function loadReportTab() {
     const omakaseSetIds = [...new Set(customerOrders.filter(o => o.omakase_set_id).map(o => o.omakase_set_id))];
     let omakaseCupsBySet = {};
     if (omakaseSetIds.length) {
-      const allCups = await sb(`preorders?select=id,omakase_set_id,brewed,brewed_at,customer_name,menu_item_name,bean_name,sweetness,mixer_name,misc_cost_estimate&omakase_set_id=in.(${omakaseSetIds.join(',')})`);
+      const allCups = await sb(`preorders?select=id,omakase_set_id,brewed,brewed_at,paid,customer_name,menu_item_name,bean_name,sweetness,mixer_name,misc_cost_estimate&omakase_set_id=in.(${omakaseSetIds.join(',')})`);
       allCups.forEach(c => { (omakaseCupsBySet[c.omakase_set_id] = omakaseCupsBySet[c.omakase_set_id] || []).push(c); });
     }
     const completedSetIdsInRange = new Set();
-    let omakaseRevenue = 0, omakaseCogs = 0, omakaseCompletedCount = 0, omakaseCupsCounted = 0;
+    let omakaseRevenue = 0, omakaseGrossRevenue = 0, omakaseCogs = 0, omakaseCompletedCount = 0, omakaseCupsCounted = 0;
+    let unpaid = 0;
+    const unpaidList = [];
     Object.entries(omakaseCupsBySet).forEach(([setId, cups]) => {
       const complete = cups.length > 0 && cups.every(c => c.brewed);
       if (!complete) return;
       const completionDate = new Date(Math.max(...cups.map(c => new Date(c.brewed_at).getTime())));
       if (completionDate < from || completionDate > to) return;
       completedSetIdsInRange.add(setId);
-      omakaseRevenue += OMAKASE_TOTAL_PRICE;
       omakaseCompletedCount += 1;
       omakaseCupsCounted += cups.length;
       omakaseCogs += cups.reduce((s, c) => s + computeCost(c), 0);
+      const allPaid = cups.every(c => c.paid);
+      if (allPaid) {
+        omakaseRevenue += OMAKASE_TOTAL_PRICE;
+      } else {
+        unpaid += OMAKASE_TOTAL_PRICE;
+        unpaidList.push({ name: (cups[0] && cups[0].customer_name) || 'ไม่ระบุชื่อ', item: '🎴 Omakase Set', amount: OMAKASE_TOTAL_PRICE });
+      }
+      omakaseGrossRevenue += OMAKASE_TOTAL_PRICE; // ยอดขายรวม Omakase ไม่ว่าจะจ่ายแล้วหรือยัง — ใช้แค่ในกราฟ/breakdown ไม่ใช่การ์ด Revenue บนสุด
     });
 
     const byMenu = {};
     const byCustomer = {};
-    let unpaid = 0;
-    const unpaidList = [];
     customerOrders.forEach(o => {
       if (o.omakase_set_id) return;
       const cost = computeCost(o);
@@ -842,7 +851,7 @@ async function loadReportTab() {
     });
 
     if (omakaseCompletedCount > 0) {
-      byMenu['🎴 Omakase Set'] = { qty: omakaseCompletedCount, revenue: omakaseRevenue, cogs: omakaseCogs };
+      byMenu['🎴 Omakase Set'] = { qty: omakaseCompletedCount, revenue: omakaseGrossRevenue, cogs: omakaseCogs };
       completedSetIdsInRange.forEach(setId => {
         const cups = omakaseCupsBySet[setId];
         const custName = (cups[0] && cups[0].customer_name) || 'ไม่ระบุชื่อ';
@@ -853,7 +862,8 @@ async function loadReportTab() {
     }
 
     const nonOmakaseOrders = customerOrders.filter(o => !o.omakase_set_id);
-    const revenue = nonOmakaseOrders.reduce((s, o) => s + orderTotal(o), 0) + omakaseRevenue;
+    // Revenue บนสุด = เงินที่รับจริงแล้วเท่านั้น (paid=true) ให้ตรงกับยอดในบัญชีธนาคาร
+    const revenue = nonOmakaseOrders.filter(o => o.paid).reduce((s, o) => s + orderTotal(o), 0) + omakaseRevenue;
     const cogs = nonOmakaseOrders.reduce((s, o) => s + computeCost(o), 0) + omakaseCogs;
     const totalCups = nonOmakaseOrders.length + omakaseCupsCounted;
     const custCount = Object.keys(byCustomer).length;
@@ -862,6 +872,9 @@ async function loadReportTab() {
     const profit = revenue - cogs;
     const gp = revenue ? (profit / revenue * 100) : 0;
 
+    const futureTotal = futureOrders.reduce((s, o) => s + Number(o.price || 0), 0);
+    const futureList = futureOrders.map(o => ({ name: o.customer_name, item: o.menu_item_name, amount: Number(o.price || 0), date: o.wanted_date }));
+
     summaryEl.innerHTML = `
       <div class="stat-grid">
         <div class="stat-box"><div class="stat-label">Revenue</div><div class="stat-val">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
@@ -869,12 +882,22 @@ async function loadReportTab() {
         <div class="stat-box"><div class="stat-label">Cups</div><div class="stat-val">${totalCups}</div></div>
         <div class="stat-box"><div class="stat-label">Avg / Cup</div><div class="stat-val">฿${avgPerCup.toFixed(0)}</div></div>
       </div>
+      <div style="font-size:10px;color:#A8876F;margin-top:6px;">💰 Revenue = เงินที่รับจริงแล้วเท่านั้น (paid) — ตรงกับยอดในบัญชีธนาคาร</div>
       ${unpaid > 0 ? `
-        <button type="button" class="chip" id="unpaidToggle" style="margin-top:10px;border-color:#D64545;color:#D64545;">⚠️ Unpaid: ฿${unpaid.toLocaleString(undefined,{maximumFractionDigits:0})}</button>
+        <button type="button" class="chip" id="unpaidToggle" style="margin-top:10px;border-color:#D64545;color:#D64545;">🟡 รอเก็บเงิน (ชงแล้ว ยังไม่จ่าย): ฿${unpaid.toLocaleString(undefined,{maximumFractionDigits:0})}</button>
         <div id="unpaidList" style="display:none;margin-top:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;">
           ${unpaidList
             .sort((a,b) => b.amount - a.amount)
             .map(u => `<div class="freebie-row" style="font-size:12.5px;"><span>${u.name} — ${u.item}</span><span>฿${u.amount.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>`)
+            .join('')}
+        </div>
+      ` : ''}
+      ${futureTotal > 0 ? `
+        <button type="button" class="chip" id="futureToggle" style="margin-top:10px;border-color:#4A90D9;color:#4A90D9;">🔵 ออเดอร์ในอนาคต (ยังไม่ได้ชง): ฿${futureTotal.toLocaleString(undefined,{maximumFractionDigits:0})} (${futureList.length} แก้ว)</button>
+        <div id="futureList" style="display:none;margin-top:8px;background:#EAF2FB;border-radius:10px;padding:10px 12px;">
+          ${futureList
+            .sort((a,b) => new Date(a.date) - new Date(b.date))
+            .map(u => `<div class="freebie-row" style="font-size:12.5px;"><span>${u.name || 'ไม่ระบุชื่อ'} — ${u.item}${u.date ? ` (${new Date(u.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'})})` : ''}</span><span>฿${u.amount.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>`)
             .join('')}
         </div>
       ` : ''}
@@ -899,6 +922,15 @@ async function loadReportTab() {
       unpaidToggleBtn.addEventListener('click', () => {
         const showing = unpaidListEl.style.display !== 'none';
         unpaidListEl.style.display = showing ? 'none' : 'block';
+      });
+    }
+
+    const futureToggleBtn = document.getElementById('futureToggle');
+    if (futureToggleBtn) {
+      const futureListEl = document.getElementById('futureList');
+      futureToggleBtn.addEventListener('click', () => {
+        const showing = futureListEl.style.display !== 'none';
+        futureListEl.style.display = showing ? 'none' : 'block';
       });
     }
 
