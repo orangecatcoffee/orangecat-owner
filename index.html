@@ -1082,8 +1082,10 @@ async function loadReportTab() {
       const secretCups = cups.filter(isSecret);
       const regularCups = cups.filter(c => !isSecret(c));
       if (secretCups.length === 1 && regularCups.length >= 1) {
-        const regularTotal = regularCups.reduce((s, c) => s + Number((menuByName[c.menu_item_name] || {}).price || 0), 0);
-        regularCups.forEach(c => { omakaseRevenueById[c.id] = Number((menuByName[c.menu_item_name] || {}).price || 0); });
+        // ใช้ราคาที่บันทึกไว้จริงตอนสั่ง (c.price) ไม่ใช่ราคาปัจจุบันจาก menu_items —
+        // กันไม่ให้ออเดอร์เก่าถูกคำนวณย้อนหลังด้วยราคาที่เพิ่งปรับใหม่
+        const regularTotal = regularCups.reduce((s, c) => s + Number(c.price || 0), 0);
+        regularCups.forEach(c => { omakaseRevenueById[c.id] = Number(c.price || 0); });
         omakaseRevenueById[secretCups[0].id] = Math.max(0, OMAKASE_TOTAL_PRICE - regularTotal);
       }
     });
