@@ -1078,15 +1078,20 @@ async function loadReportTab() {
     // guessing — rendered as a neutral "pending" badge instead of a false profit/loss.
     const omakaseRevenueById = {};
     Object.values(omakaseCupsBySet).forEach(cups => {
+      const complete = cups.length > 0 && cups.every(c => c.brewed); // เซ็ตที่ยังไม่ครบ ห้ามคำนวณรายได้เด็ดขาด ยังไม่ถือว่าปิดยอด
+      if (!complete) return;
       const isSecret = c => !!(menuByName[c.menu_item_name] && menuByName[c.menu_item_name].omakase_only);
       const secretCups = cups.filter(isSecret);
       const regularCups = cups.filter(c => !isSecret(c));
       if (secretCups.length === 1 && regularCups.length >= 1) {
-        // ใช้ราคาที่บันทึกไว้จริงตอนสั่ง (c.price) ไม่ใช่ราคาปัจจุบันจาก menu_items —
-        // กันไม่ให้ออเดอร์เก่าถูกคำนวณย้อนหลังด้วยราคาที่เพิ่งปรับใหม่
+        // เคสปกติ: 1 Secret + 2 เมนูปกติ — Secret ได้เศษที่เหลือจาก 270 หลังหักราคาจริงของ 2 แก้วปกติ
         const regularTotal = regularCups.reduce((s, c) => s + Number(c.price || 0), 0);
         regularCups.forEach(c => { omakaseRevenueById[c.id] = Number(c.price || 0); });
         omakaseRevenueById[secretCups[0].id] = Math.max(0, OMAKASE_TOTAL_PRICE - regularTotal);
+      } else {
+        // เคสพิเศษ (เช่นให้เมนูซ้ำกันทั้ง 3 แก้ว ไม่มี Secret แยกให้หักลบ) — หาร 270 เท่ากันทุกแก้วแทน
+        const perCup = OMAKASE_TOTAL_PRICE / cups.length;
+        cups.forEach(c => { omakaseRevenueById[c.id] = perCup; });
       }
     });
 
