@@ -187,6 +187,40 @@
 </style>
 </head>
 <body>
+<div id="pinGateOverlay" style="position:fixed;inset:0;background:#FFF8F0;z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:24px;font-family:-apple-system,'Segoe UI','Mitr',sans-serif;">
+  <div style="font-size:36px;margin-bottom:8px;">🐱</div>
+  <div style="font-size:15px;color:#4A3428;font-weight:700;margin-bottom:4px;">กาแฟแมวส้ม</div>
+  <div style="font-size:12.5px;color:#A8876F;margin-bottom:18px;">ใส่ PIN เพื่อเข้าใช้งาน</div>
+  <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="pinGateInput" style="width:150px;text-align:center;font-size:26px;letter-spacing:10px;padding:12px 10px;border-radius:10px;border:2px solid #F0E4D8;margin-bottom:14px;font-family:inherit;">
+  <button type="button" id="pinGateSubmit" style="padding:11px 28px;border-radius:10px;border:none;background:#E8863A;color:#fff;font-weight:700;font-size:14px;font-family:inherit;">เข้าใช้งาน</button>
+  <div id="pinGateError" style="color:#D64545;font-size:12px;margin-top:10px;min-height:16px;"></div>
+</div>
+<script>
+(function(){
+  var PIN_OK_KEY = 'occ_pin_ok_v1';
+  var CORRECT_PIN = '3526';
+  var overlay = document.getElementById('pinGateOverlay');
+  var input = document.getElementById('pinGateInput');
+  var errEl = document.getElementById('pinGateError');
+  if (localStorage.getItem(PIN_OK_KEY) === 'true') {
+    overlay.style.display = 'none';
+  }
+  function tryUnlock() {
+    if (input.value.trim() === CORRECT_PIN) {
+      localStorage.setItem(PIN_OK_KEY, 'true');
+      overlay.style.display = 'none';
+    } else {
+      errEl.textContent = 'PIN ไม่ถูกต้อง';
+      input.value = '';
+      input.focus();
+    }
+  }
+  document.getElementById('pinGateSubmit').addEventListener('click', tryUnlock);
+  input.addEventListener('keydown', function(e){ if (e.key === 'Enter') tryUnlock(); });
+  setTimeout(function(){ input.focus(); }, 100);
+})();
+</script>
+
 
 <div class="header">
   <div class="htag">🐱 กาแฟแมวส้ม</div>
