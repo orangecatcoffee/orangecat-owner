@@ -861,7 +861,7 @@ async function loadReportTab() {
   document.getElementById('dimMenuProfit').innerHTML = '<div class="loading">Loading...</div>';
 
   try {
-    const [orders, menuItems, recipes, beans, allIngredients, futureOrders, packagingTypeItems] = await Promise.all([
+    const [orders, menuItems, recipes, beans, allIngredients, futureOrders] = await Promise.all([
       sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}`),
       sb('menu_items?select=*'),
       sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
@@ -869,7 +869,6 @@ async function loadReportTab() {
       sb('ingredients?select=id,name,category,stock_quantity,base_unit,cost_per_base_unit&active=eq.true'),
       // ออเดอร์ในอนาคต — ยังไม่ได้ชงเลย (คิวรอบาริสต้า ไม่จำกัดช่วงเวลาที่เลือกไว้ด้านบน เพราะเป็นคนละสถานะกัน)
       sb(`preorders?select=id,customer_name,menu_item_name,price,wanted_date&brewed=eq.false&or=(order_type.eq.customer,order_type.is.null)`),
-      sb('packaging_type_items?select=type_key,quantity,ingredients(cost_per_base_unit)'),
     ]);
 
     currentReportOrders = orders;
@@ -907,19 +906,14 @@ async function loadReportTab() {
       return o.bean_name.startsWith('เบลนด์:') ? 'House Blend' : o.bean_name;
     }
 
-    // ต้นทุนบรรจุภัณฑ์ — ใช้ snapshot จริงที่บาริสต้าบันทึกไว้ตอนกด "ชงแล้ว" (preorders.packaging_cost)
-    // ออเดอร์เก่าก่อนมีช่องนี้ (packaging_cost = null) fallback ไปใช้ราคาปัจจุบันจาก packaging_type_items แทน
-    const packagingCostByType = { tumbler: 0, bag: 0, cup_small: 0, cup_large: 0 };
-    packagingTypeItems.forEach(row => {
-      packagingCostByType[row.type_key] = (packagingCostByType[row.type_key] || 0) + row.quantity * (row.ingredients?.cost_per_base_unit || 0);
-    });
+    // ต้นทุนบรรจุภัณฑ์ในรายงาน — Fah ตั้งใจปัดขึ้นเป็นบัฟเฟอร์กันชนต้นทุน (ไม่ใช่ราคาจริงเป๊ะ)
+    // ราคาจริงเป๊ะ (1.44/3.91 ฯลฯ) ยังถูกบันทึกไว้ใน preorders.packaging_cost ตามปกติ แค่ตัวเลขที่โชว์ในรายงาน/กำไรใช้บัฟเฟอร์นี้แทน
+    const REPORTING_PACKAGING_COST = { tumbler: 0, bag: 1.5, cup_small: 4, cup_large: 4.25 };
 
     function computeCost(order) {
       const menu = menuByName[order.menu_item_name];
       if (!menu) return 0;
-      let cost = (order.packaging_cost !== null && order.packaging_cost !== undefined)
-        ? Number(order.packaging_cost)
-        : (packagingCostByType[order.packaging_type] !== undefined ? packagingCostByType[order.packaging_type] : packagingCostByType.bag);
+      let cost = REPORTING_PACKAGING_COST[order.packaging_type] !== undefined ? REPORTING_PACKAGING_COST[order.packaging_type] : REPORTING_PACKAGING_COST.bag;
       if (menu.needs_bean) {
         const blendCost = parseBlendCost(order.bean_name);
         if (blendCost !== null) {
