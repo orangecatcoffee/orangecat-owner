@@ -229,6 +229,7 @@
 
 <div class="tabs">
   <div class="tab active" data-tab="report">Sales & Customers</div>
+  <div class="tab" data-tab="purchasing">Purchasing</div>
   <div class="tab" data-tab="gtky">GTKY</div>
 </div>
 
@@ -341,7 +342,65 @@
 
 </div>
 
-<!-- ============ TAB 3: GTKY ============ -->
+<!-- ============ TAB: PURCHASING ============ -->
+<div class="view" id="view-purchasing">
+
+  <div class="card">
+    <div class="card-title">Date Range</div>
+    <div class="chip-row" id="purchRangeRow">
+      <button type="button" class="chip range-chip selected" data-range="all">All</button>
+      <button type="button" class="chip range-chip" data-range="today">Today</button>
+      <button type="button" class="chip range-chip" data-range="7">7 Days</button>
+      <button type="button" class="chip range-chip" data-range="30">30 Days</button>
+      <button type="button" class="chip range-chip" data-range="custom">Custom</button>
+    </div>
+    <div class="row2" id="purchCustomRange" style="display:none;margin-top:10px;">
+      <div>
+        <label>From</label>
+        <input type="date" id="purchFrom">
+      </div>
+      <div>
+        <label>To</label>
+        <input type="date" id="purchTo">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" id="purchPeriodLabel">Overview</div>
+    <div id="purchSummary"><div class="loading">Loading...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 ยอดซื้อเข้าร้านตามช่วงเวลา</div>
+    <div class="chip-row" id="purchGranularityRow">
+      <button type="button" class="chip range-chip selected" data-granularity="day">รายวัน</button>
+      <button type="button" class="chip range-chip" data-granularity="week">รายอาทิตย์</button>
+      <button type="button" class="chip range-chip" data-granularity="month">รายเดือน</button>
+    </div>
+    <div id="purchTrendChart" style="margin-top:14px;"><div class="loading">Loading...</div></div>
+  </div>
+
+  <div class="card-title" style="padding-left:2px;color:var(--orange);">📦 Category & Supplier Dimension</div>
+  <div class="row2" style="align-items:start;">
+    <div class="card">
+      <div class="card-title">Top 5 — หมวดหมู่ (ยอดซื้อ)</div>
+      <div id="dimPurchCategory"><div class="loading">Loading...</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top 5 — ซัพพลายเออร์ (ยอดซื้อ)</div>
+      <div id="dimPurchSupplier"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">All Purchases This Period</div>
+    <label>Filter by Supplier</label>
+    <select id="purchTxnFilter"><option value="">— All —</option></select>
+    <div id="purchTransactionList" class="txn-scroll" style="margin-top:10px;"><div class="loading">Loading...</div></div>
+  </div>
+
+</div>
 <div class="view" id="view-gtky">
 
   <div class="gtky-subtabs">
@@ -544,6 +603,7 @@ document.querySelectorAll(".tab").forEach(tab => {
       loadReportTab();
       loadCustomerTab();
     }
+    if (tab.dataset.tab === "purchasing" && !purchLoaded) { purchLoaded = true; loadPurchasingTab(); }
     if (tab.dataset.tab === "gtky" && !gtkyLoaded) { gtkyLoaded = true; loadGtkyTab(); }
   });
 });
@@ -562,6 +622,7 @@ let reportRange = 'all';
 let earliestDateCache = null;
 let reportLoaded = false;
 let gtkyLoaded = false;
+let purchLoaded = false;
 reportLoaded = true;
 loadReportTab();
 loadCustomerTab();
@@ -600,6 +661,53 @@ async function getReportDateRange() {
   }
   return { from, to };
 }
+
+let purchRange = 'all';
+let earliestPurchDateCache = null;
+async function resolveEarliestPurchDate() {
+  if (earliestPurchDateCache) return earliestPurchDateCache;
+  try {
+    const rows = await sb('purchase_log?select=purchase_date&order=purchase_date.asc&limit=1');
+    if (rows && rows.length) {
+      earliestPurchDateCache = new Date(rows[0].purchase_date + 'T00:00:00');
+      return earliestPurchDateCache;
+    }
+  } catch (e) { /* fall through */ }
+  earliestPurchDateCache = new Date();
+  return earliestPurchDateCache;
+}
+async function getPurchDateRange() {
+  const now = new Date();
+  let from, to;
+  if (purchRange === 'all') {
+    from = await resolveEarliestPurchDate();
+    to = new Date(now); to.setHours(23,59,59,999);
+  } else if (purchRange === 'today') {
+    from = new Date(now); from.setHours(0,0,0,0);
+    to = new Date(now); to.setHours(23,59,59,999);
+  } else if (purchRange === 'custom') {
+    const fromVal = document.getElementById('purchFrom').value;
+    const toVal = document.getElementById('purchTo').value;
+    from = fromVal ? new Date(fromVal + 'T00:00:00') : await resolveEarliestPurchDate();
+    to = toVal ? new Date(toVal + 'T23:59:59') : new Date();
+  } else {
+    const days = Number(purchRange);
+    to = new Date(now); to.setHours(23,59,59,999);
+    from = new Date(now); from.setDate(from.getDate() - (days - 1)); from.setHours(0,0,0,0);
+  }
+  return { from, to };
+}
+document.getElementById('purchRangeRow').addEventListener('click', (e) => {
+  const btn = e.target.closest('.range-chip');
+  if (!btn) return;
+  purchRange = btn.dataset.range;
+  document.querySelectorAll('#purchRangeRow .range-chip').forEach(b => b.classList.toggle('selected', b === btn));
+  document.getElementById('purchCustomRange').style.display = purchRange === 'custom' ? 'grid' : 'none';
+  if (purchRange !== 'custom') loadPurchasingTab();
+});
+document.getElementById('purchFrom').addEventListener('change', loadPurchasingTab);
+document.getElementById('purchTo').addEventListener('change', loadPurchasingTab);
+
 
 document.getElementById('reportRangeRow').addEventListener('click', (e) => {
   const btn = e.target.closest('.range-chip');
@@ -753,7 +861,7 @@ async function loadReportTab() {
   document.getElementById('dimMenuProfit').innerHTML = '<div class="loading">Loading...</div>';
 
   try {
-    const [orders, menuItems, recipes, beans, allIngredients, futureOrders] = await Promise.all([
+    const [orders, menuItems, recipes, beans, allIngredients, futureOrders, packagingTypeItems] = await Promise.all([
       sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}`),
       sb('menu_items?select=*'),
       sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
@@ -761,6 +869,7 @@ async function loadReportTab() {
       sb('ingredients?select=id,name,category,stock_quantity,base_unit,cost_per_base_unit&active=eq.true'),
       // ออเดอร์ในอนาคต — ยังไม่ได้ชงเลย (คิวรอบาริสต้า ไม่จำกัดช่วงเวลาที่เลือกไว้ด้านบน เพราะเป็นคนละสถานะกัน)
       sb(`preorders?select=id,customer_name,menu_item_name,price,wanted_date&brewed=eq.false&or=(order_type.eq.customer,order_type.is.null)`),
+      sb('packaging_type_items?select=type_key,quantity,ingredients(cost_per_base_unit)'),
     ]);
 
     currentReportOrders = orders;
@@ -798,14 +907,19 @@ async function loadReportTab() {
       return o.bean_name.startsWith('เบลนด์:') ? 'House Blend' : o.bean_name;
     }
 
-    // ต้นทุนบรรจุภัณฑ์ — ตอนนี้บาริสต้าเลือกจริงตอนชง (ถุง/แก้วเล็ก/แก้วใหญ่) เก็บไว้ที่ preorders.packaging_type แล้ว
-    // ออเดอร์เก่าก่อนมีช่องนี้ (หรือไม่ได้แตะ) จะเป็นค่า default 'bag' อัตโนมัติจากฐานข้อมูล
-    const PACKAGING_COST = { tumbler: 0, bag: 1.5, cup_small: 4, cup_large: 4.25 };
+    // ต้นทุนบรรจุภัณฑ์ — ใช้ snapshot จริงที่บาริสต้าบันทึกไว้ตอนกด "ชงแล้ว" (preorders.packaging_cost)
+    // ออเดอร์เก่าก่อนมีช่องนี้ (packaging_cost = null) fallback ไปใช้ราคาปัจจุบันจาก packaging_type_items แทน
+    const packagingCostByType = { tumbler: 0, bag: 0, cup_small: 0, cup_large: 0 };
+    packagingTypeItems.forEach(row => {
+      packagingCostByType[row.type_key] = (packagingCostByType[row.type_key] || 0) + row.quantity * (row.ingredients?.cost_per_base_unit || 0);
+    });
 
     function computeCost(order) {
       const menu = menuByName[order.menu_item_name];
       if (!menu) return 0;
-      let cost = PACKAGING_COST[order.packaging_type] !== undefined ? PACKAGING_COST[order.packaging_type] : PACKAGING_COST.bag;
+      let cost = (order.packaging_cost !== null && order.packaging_cost !== undefined)
+        ? Number(order.packaging_cost)
+        : (packagingCostByType[order.packaging_type] !== undefined ? packagingCostByType[order.packaging_type] : packagingCostByType.bag);
       if (menu.needs_bean) {
         const blendCost = parseBlendCost(order.bean_name);
         if (blendCost !== null) {
@@ -1446,6 +1560,203 @@ function setupManualFeedbackForm() {
   });
 }
 setupManualFeedbackForm();
+
+// ---------- PURCHASING TAB ----------
+let currentPurchLogs = [];
+let purchTrendState = { granularity: 'day' };
+
+function purchBucketKey(dateStr, granularity) {
+  const d = new Date(dateStr + 'T00:00:00');
+  if (granularity === 'day') return dateStr;
+  if (granularity === 'week') {
+    const day = d.getDay();
+    const diff = (day === 0 ? -6 : 1) - day;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + diff);
+    return monday.toISOString().slice(0, 10);
+  }
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function renderPurchTrend() {
+  const el = document.getElementById('purchTrendChart');
+  if (!el) return;
+  const { granularity } = purchTrendState;
+  const buckets = {};
+  currentPurchLogs.forEach(p => {
+    const key = purchBucketKey(p.purchase_date, granularity);
+    if (!buckets[key]) buckets[key] = { total: 0, _ts: new Date(p.purchase_date + 'T00:00:00').getTime() };
+    buckets[key].total += Number(p.total_cost || 0);
+  });
+  const keys = Object.keys(buckets).sort((a, b) => buckets[a]._ts - buckets[b]._ts);
+  if (!keys.length) { el.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>'; return; }
+  const maxVal = Math.max(1, ...keys.map(k => buckets[k].total));
+
+  el.innerHTML = `
+    <div class="trend-chart-scroll">
+      <div class="trend-chart-bars">
+        ${keys.map(k => {
+          const b = buckets[k];
+          const pct = (b.total / maxVal * 100).toFixed(1);
+          return `
+            <div class="trend-bar-col">
+              <div class="trend-bar-total">฿${b.total.toFixed(0)}</div>
+              <div class="trend-bar-track"><div class="trend-seg" style="height:${pct}%;background:#E8863A;" title="฿${b.total.toFixed(0)}"></div></div>
+              <div class="trend-bar-label">${trendBucketLabel(k, granularity)}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+document.querySelectorAll('#purchGranularityRow .chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    purchTrendState.granularity = btn.dataset.granularity;
+    document.querySelectorAll('#purchGranularityRow .chip').forEach(b => b.classList.toggle('selected', b === btn));
+    renderPurchTrend();
+  });
+});
+
+async function loadPurchasingTab() {
+  const { from, to } = await getPurchDateRange();
+  document.getElementById('purchPeriodLabel').textContent =
+    `Overview (${from.toLocaleDateString('en-GB',{day:'numeric',month:'short'})} - ${to.toLocaleDateString('en-GB',{day:'numeric',month:'short'})})`;
+
+  const summaryEl = document.getElementById('purchSummary');
+  const txnEl = document.getElementById('purchTransactionList');
+  summaryEl.innerHTML = '<div class="loading">Loading...</div>';
+  txnEl.innerHTML = '<div class="loading">Loading...</div>';
+  document.getElementById('purchTrendChart').innerHTML = '<div class="loading">Loading...</div>';
+  ['dimPurchCategory','dimPurchSupplier'].forEach(id => {
+    document.getElementById(id).innerHTML = '<div class="loading">Loading...</div>';
+  });
+
+  try {
+    const fromDateStr = from.toISOString().slice(0, 10);
+    const toDateStr = to.toISOString().slice(0, 10);
+    const [purchLogs, brewedOrders, menuItems, recipes, beans, packagingTypeItems] = await Promise.all([
+      sb(`purchase_log?select=*&purchase_date=gte.${fromDateStr}&purchase_date=lte.${toDateStr}&order=purchase_date.desc`),
+      // ต้นทุนที่ "ใช้ไปจริง" (COGS) มาจากออเดอร์ที่ชงในช่วงเดียวกัน — คนละก้อนกับยอดซื้อเข้าร้าน (ซื้อ vs ใช้ คนละจังหวะเวลา)
+      sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}&or=(order_type.eq.customer,order_type.is.null)`),
+      sb('menu_items?select=id,name,needs_bean'),
+      sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
+      sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
+      sb('packaging_type_items?select=type_key,quantity,ingredients(cost_per_base_unit)'),
+    ]);
+
+    currentPurchLogs = purchLogs;
+    renderPurchTrend();
+
+    // ---- ยอดซื้อเข้าร้านรวม ----
+    const totalPurchased = purchLogs.reduce((s, p) => s + Number(p.total_cost || 0), 0);
+
+    // ---- ต้นทุนที่ใช้ไปจริง (layer 1 + layer 2) จากออเดอร์ที่ชงในช่วงนี้ ----
+    const menuByName = {}; menuItems.forEach(m => menuByName[m.name] = m);
+    const recipeByMenuId = {};
+    recipes.forEach(r => { (recipeByMenuId[r.menu_item_id] = recipeByMenuId[r.menu_item_id] || []).push(r); });
+    const beanCost = {}; beans.forEach(b => beanCost[b.name] = Number(b.cost_per_base_unit));
+    const packagingCostByType = { tumbler: 0, bag: 0, cup_small: 0, cup_large: 0 };
+    packagingTypeItems.forEach(row => {
+      packagingCostByType[row.type_key] = (packagingCostByType[row.type_key] || 0) + row.quantity * (row.ingredients?.cost_per_base_unit || 0);
+    });
+    const FLAT_BEAN_COST_P = 20;
+    const BEAN_DOSE_G_P = 20;
+
+    function parseBlendCostP(beanName) {
+      if (!beanName || !beanName.startsWith('เบลนด์:')) return null;
+      const parts = beanName.replace('เบลนด์:', '').split('+').map(s => s.trim());
+      let cost = 0;
+      parts.forEach(p => {
+        const m = p.match(/^(.+?)\s+([\d.]+)\s*g$/i);
+        if (m) cost += (beanCost[m[1].trim()] !== undefined ? beanCost[m[1].trim()] : 0) * Number(m[2]);
+      });
+      return cost;
+    }
+
+    let recipeCogs = 0, packagingCogs = 0;
+    brewedOrders.forEach(o => {
+      const menu = menuByName[o.menu_item_name];
+      const pkgCost = (o.packaging_cost !== null && o.packaging_cost !== undefined)
+        ? Number(o.packaging_cost)
+        : (packagingCostByType[o.packaging_type] !== undefined ? packagingCostByType[o.packaging_type] : packagingCostByType.bag);
+      packagingCogs += pkgCost;
+      if (!menu) return;
+      let rCost = 0;
+      if (menu.needs_bean) {
+        const blendCost = parseBlendCostP(o.bean_name);
+        rCost += blendCost !== null ? blendCost : ((o.bean_name && beanCost[o.bean_name] !== undefined) ? beanCost[o.bean_name] * BEAN_DOSE_G_P : FLAT_BEAN_COST_P);
+      }
+      (recipeByMenuId[menu.id] || []).forEach(r => {
+        if (!r.ingredients || r.ingredients.category === 'coffee_bean') return;
+        rCost += Number(r.quantity) * Number(r.ingredients.cost_per_base_unit || 0);
+      });
+      if (o.misc_cost_estimate) rCost += Number(o.misc_cost_estimate);
+      recipeCogs += rCost;
+    });
+
+    // ---- Revenue ในช่วงเดียวกัน (เงินที่รับจริงแล้ว) เพื่อคำนวณกำไรสุทธิจริง ----
+    const revenueForProfit = brewedOrders.filter(o => o.paid).reduce((s, o) => s + Number(o.price || 0) + Number(o.bean_surcharge || 0), 0);
+    const netProfit = revenueForProfit - recipeCogs - packagingCogs;
+
+    summaryEl.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-label">ยอดซื้อเข้าร้านรวม</div><div class="stat-val">฿${totalPurchased.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">ต้นทุนสูตรที่ใช้จริง</div><div class="stat-val">฿${recipeCogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">ต้นทุนบรรจุภัณฑ์ที่ใช้จริง</div><div class="stat-val">฿${packagingCogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">กำไรสุทธิจริง</div><div class="stat-val ${netProfit>=0?'good':'bad'}">฿${netProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+      </div>
+      <div style="font-size:10px;color:#A8876F;margin-top:6px;">
+        💡 "ยอดซื้อเข้าร้าน" = เงินที่จ่ายซื้อของเข้าสต็อกช่วงนี้ (ไม่ตรงกับต้นทุนที่ใช้จริงเป๊ะ เพราะซื้อไว้ก่อนอาจยังไม่ได้ใช้หมด) ส่วน "ต้นทุนที่ใช้จริง" มาจากแก้วที่ชงจริงในช่วงเดียวกัน
+      </div>
+    `;
+
+    // ---- Top 5: หมวดหมู่ / ซัพพลายเออร์ ----
+    const byCategory = {}, bySupplier = {};
+    purchLogs.forEach(p => {
+      const cat = p.category || 'อื่นๆ';
+      byCategory[cat] = (byCategory[cat] || 0) + Number(p.total_cost || 0);
+      const sup = p.supplier || 'ไม่ระบุ';
+      bySupplier[sup] = (bySupplier[sup] || 0) + Number(p.total_cost || 0);
+    });
+    renderBarChart('dimPurchCategory',
+      Object.entries(byCategory).sort((a,b) => b[1]-a[1]).slice(0,5).map(([label,value]) => ({label,value})),
+      v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
+    renderBarChart('dimPurchSupplier',
+      Object.entries(bySupplier).sort((a,b) => b[1]-a[1]).slice(0,5).map(([label,value]) => ({label,value})),
+      v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
+
+    // ---- Supplier filter dropdown ----
+    const filterEl = document.getElementById('purchTxnFilter');
+    const suppliers = [...new Set(purchLogs.map(p => p.supplier).filter(Boolean))].sort();
+    filterEl.innerHTML = '<option value="">— All —</option>' + suppliers.map(s => `<option value="${s}">${s}</option>`).join('');
+
+    function renderPurchRows(list) {
+      txnEl.innerHTML = list.length
+        ? list.map(p => `
+            <div class="txn-row">
+              <div class="txn-row-main">
+                <span>${p.item_name}${p.supplier ? ' · ' + p.supplier : ''}</span>
+                <span>฿${Number(p.total_cost).toFixed(0)} · ${new Date(p.purchase_date + 'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
+              </div>
+              <div class="txn-row-sub">
+                <span>${p.quantity} ${p.unit}${p.category ? ' · ' + p.category : ''}</span>
+                ${p.notes ? `<span>${p.notes}</span>` : ''}
+              </div>
+            </div>
+          `).join('')
+        : '<div class="empty">No purchases this period</div>';
+    }
+    renderPurchRows(purchLogs);
+    filterEl.addEventListener('change', () => {
+      const val = filterEl.value;
+      renderPurchRows(val ? purchLogs.filter(p => p.supplier === val) : purchLogs);
+    });
+
+  } catch (e) {
+    summaryEl.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+  }
+}
 
 // ---------- GTKY TAB ----------
 const GTKY_SEND_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/gtky-send";
