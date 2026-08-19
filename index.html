@@ -1019,6 +1019,7 @@ async function loadReportTab() {
 
     const profit = revenue - cogs;
     const gp = revenue ? (profit / revenue * 100) : 0;
+    const avgProfitPerCup = totalCups ? (profit / totalCups) : 0;
 
     const futureTotal = futureOrders.reduce((s, o) => s + Number(o.price || 0), 0);
     const futureList = futureOrders.map(o => ({ name: o.customer_name, item: o.menu_item_name, amount: Number(o.price || 0), date: o.wanted_date }));
@@ -1054,6 +1055,7 @@ async function loadReportTab() {
         <div class="stat-box"><div class="stat-label">Cost</div><div class="stat-val">฿${cogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
         <div class="stat-box"><div class="stat-label">Net Profit</div><div class="stat-val ${profit>=0?'good':'bad'}">฿${profit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
         <div class="stat-box"><div class="stat-label">Margin (GP%)</div><div class="stat-val ${gp>=0?'good':'bad'}">${gp.toFixed(1)}%</div></div>
+        <div class="stat-box"><div class="stat-label">Avg Profit / Cup</div><div class="stat-val ${avgProfitPerCup>=0?'good':'bad'}">฿${avgProfitPerCup.toFixed(1)}</div></div>
       </div>
     `;
     const finToggleBtn = document.getElementById('reportFinToggle');
