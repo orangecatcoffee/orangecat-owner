@@ -914,7 +914,7 @@ async function loadReportTab() {
       const menu = menuByName[order.menu_item_name];
       if (!menu) return 0;
       let cost = REPORTING_PACKAGING_COST[order.packaging_type] !== undefined ? REPORTING_PACKAGING_COST[order.packaging_type] : REPORTING_PACKAGING_COST.bag;
-      if (menu.needs_bean) {
+      if (menu.needs_bean && !order.no_coffee) {
         const blendCost = parseBlendCost(order.bean_name);
         if (blendCost !== null) {
           cost += blendCost;
