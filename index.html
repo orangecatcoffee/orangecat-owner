@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="เจ้าของร้าน">
 <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <style>
   :root {
     --bg:#FFF8F0; --card:#FFFFFF; --orange:#E8863A; --ol:#A8876F;
@@ -231,6 +232,7 @@
   <div class="tab active" data-tab="report">Sales & Customers</div>
   <div class="tab" data-tab="purchasing">Purchasing</div>
   <div class="tab" data-tab="gtky">GTKY</div>
+  <div class="tab" data-tab="settings">Settings</div>
 </div>
 
 <!-- ============ TAB 1: SALES & CUSTOMER PERFORMANCE ============ -->
@@ -545,6 +547,35 @@
 
 </div>
 
+<!-- ============ TAB 4: SETTINGS ============ -->
+<div class="view" id="view-settings">
+
+  <div class="card">
+    <div class="card-title">💳 QR รับเงิน (PromptPay)</div>
+    <div style="font-size:12px;color:#8a6a4a;margin-bottom:12px;line-height:1.6;">
+      QR นี้ใช้กับหน้า "ชำระเงิน" ที่ลูกค้าสแกนจ่ายทั้งหมด — เปลี่ยนที่นี่ที่เดียว มีผลทันทีทุกจุด ไม่ต้องรอ Claude แก้โค้ด
+    </div>
+    <div id="qrCurrentInfo" style="background:#FFF3E8;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:#4A3428;">
+      <div class="loading">กำลังโหลด...</div>
+    </div>
+
+    <label style="font-size:12px;color:#8a6a4a;display:block;margin-bottom:6px;">อัปโหลดรูป QR ใหม่ (จากแอปธนาคาร) — ระบบจะอ่านรหัสในรูปให้อัตโนมัติ</label>
+    <input type="file" accept="image/*" id="qrUploadInput" style="margin-bottom:10px;">
+    <canvas id="qrDecodeCanvas" style="display:none;"></canvas>
+
+    <div id="qrDecodeResult" style="display:none;background:#fff;border:2px solid #4A9B5C;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+      <div style="font-size:12px;color:#4A9B5C;font-weight:700;margin-bottom:6px;">✅ อ่าน QR สำเร็จ</div>
+      <div style="font-size:11.5px;color:#4A3428;" id="qrDecodeSummary"></div>
+      <label style="font-size:11px;color:#8a6a4a;display:block;margin-top:10px;margin-bottom:4px;">ชื่อกำกับ (โชว์ให้ลูกค้าเห็นแทนเลขอ้างอิง เช่น ชื่อบัญชี)</label>
+      <input type="text" id="qrLabelInput" placeholder="เช่น Make by KBank - MS. MORAKOT HONGWORAWAT" style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;margin-bottom:10px;">
+      <button type="button" class="btn" id="qrSaveBtn" style="width:100%;">บันทึกใช้ QR นี้แทน</button>
+    </div>
+    <div id="qrDecodeError" style="display:none;background:#FDECEC;border:2px solid #D64545;border-radius:10px;padding:12px 14px;color:#D64545;font-size:12px;"></div>
+    <div class="status" id="qrSettingsStatus"></div>
+  </div>
+
+</div>
+
 <script>
 
 const SUPABASE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co";
@@ -568,6 +599,130 @@ async function sb(path, opts = {}) {
   const text = await res.text();
   return text ? JSON.parse(text) : null;
 }
+
+// ---------- SETTINGS TAB: QR รับเงิน (PromptPay) ----------
+function parseEMVCoPromptPay(payload) {
+  let i = 0;
+  const fields = {};
+  while (i < payload.length - 4) { // เว้น CRC 4 ตัวท้าย
+    const tag = payload.substr(i, 2); i += 2;
+    const lenStr = payload.substr(i, 2); i += 2;
+    const len = parseInt(lenStr, 10);
+    if (isNaN(len)) break;
+    const value = payload.substr(i, len); i += len;
+    fields[tag] = value;
+  }
+  const merchantInfo = fields['29'];
+  if (!merchantInfo) return null;
+  let j = 0;
+  let idTag = null, idValue = null;
+  while (j < merchantInfo.length) {
+    const subTag = merchantInfo.substr(j, 2); j += 2;
+    const subLen = parseInt(merchantInfo.substr(j, 2), 10); j += 2;
+    const subVal = merchantInfo.substr(j, subLen); j += subLen;
+    if (subTag === '01' || subTag === '02' || subTag === '03') {
+      idTag = subTag;
+      idValue = subVal;
+    }
+  }
+  if (!idTag) return null;
+  return { idTag, idValue };
+}
+
+const ID_TAG_LABEL = { '01': 'เบอร์มือถือ', '02': 'เลขผู้เสียภาษี', '03': 'รหัสอ้างอิง e-Wallet (เช่น Make by KBank)' };
+
+async function loadSettingsTab() {
+  const infoEl = document.getElementById('qrCurrentInfo');
+  try {
+    const rows = await sb('payment_settings?id=eq.1&select=promptpay_id,promptpay_id_tag,label,updated_at');
+    const row = rows && rows[0];
+    if (!row) {
+      infoEl.innerHTML = 'ยังไม่มีการตั้งค่า QR เลยครับ';
+    } else {
+      const updated = new Date(row.updated_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+      infoEl.innerHTML = `
+        <div><b>ปัจจุบัน:</b> ${row.label || '(ไม่มีชื่อกำกับ)'}</div>
+        <div style="margin-top:4px;color:#8a6a4a;">ประเภท: ${ID_TAG_LABEL[row.promptpay_id_tag] || row.promptpay_id_tag} · แก้ไขล่าสุด ${updated}</div>
+      `;
+    }
+  } catch (e) {
+    infoEl.innerHTML = 'โหลดไม่สำเร็จ: ' + e.message;
+  }
+}
+
+let qrDecodedResult = null;
+
+document.getElementById('qrUploadInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const resultEl = document.getElementById('qrDecodeResult');
+  const errorEl = document.getElementById('qrDecodeError');
+  resultEl.style.display = 'none';
+  errorEl.style.display = 'none';
+  qrDecodedResult = null;
+
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.getElementById('qrDecodeCanvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = window.jsQR ? jsQR(imageData.data, imageData.width, imageData.height) : null;
+    if (!code) {
+      errorEl.style.display = 'block';
+      errorEl.textContent = 'อ่าน QR ในรูปนี้ไม่ได้ครับ ลองถ่าย/แคปใหม่ให้ชัดขึ้น หรือครอปให้เห็นแค่ QR';
+      return;
+    }
+    const parsed = parseEMVCoPromptPay(code.data);
+    if (!parsed) {
+      errorEl.style.display = 'block';
+      errorEl.textContent = 'อ่าน QR ได้ แต่ไม่ใช่รูปแบบ PromptPay ที่รู้จักครับ (ลองเช็คว่าเป็น QR รับเงินจากแอปธนาคารจริงไหม)';
+      return;
+    }
+    qrDecodedResult = parsed;
+    document.getElementById('qrDecodeSummary').textContent =
+      `ประเภท: ${ID_TAG_LABEL[parsed.idTag] || parsed.idTag} · รหัส: ${parsed.idValue}`;
+    resultEl.style.display = 'block';
+  };
+  img.onerror = () => {
+    errorEl.style.display = 'block';
+    errorEl.textContent = 'เปิดไฟล์รูปนี้ไม่ได้ครับ';
+  };
+  img.src = URL.createObjectURL(file);
+});
+
+document.getElementById('qrSaveBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('qrSettingsStatus');
+  if (!qrDecodedResult) return;
+  const label = document.getElementById('qrLabelInput').value.trim() || null;
+  const btn = document.getElementById('qrSaveBtn');
+  btn.disabled = true;
+  btn.textContent = 'กำลังบันทึก...';
+  try {
+    await sb('payment_settings?id=eq.1', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        promptpay_id: qrDecodedResult.idValue,
+        promptpay_id_tag: qrDecodedResult.idTag,
+        label,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+    statusEl.className = 'status ok';
+    statusEl.textContent = '✅ บันทึกแล้ว มีผลกับหน้าชำระเงินของลูกค้าทันที';
+    document.getElementById('qrDecodeResult').style.display = 'none';
+    document.getElementById('qrUploadInput').value = '';
+    qrDecodedResult = null;
+    loadSettingsTab();
+  } catch (e) {
+    statusEl.className = 'status err';
+    statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + e.message;
+  }
+  btn.disabled = false;
+  btn.textContent = 'บันทึกใช้ QR นี้แทน';
+});
 
 async function computeCupsRemainingMap(ingredients) {
   const recipeRows = await sb('menu_recipes?select=ingredient_id,quantity');
@@ -605,6 +760,7 @@ document.querySelectorAll(".tab").forEach(tab => {
     }
     if (tab.dataset.tab === "purchasing" && !purchLoaded) { purchLoaded = true; loadPurchasingTab(); }
     if (tab.dataset.tab === "gtky" && !gtkyLoaded) { gtkyLoaded = true; loadGtkyTab(); }
+    if (tab.dataset.tab === "settings" && !settingsLoaded) { settingsLoaded = true; loadSettingsTab(); }
   });
 });
 
@@ -623,6 +779,7 @@ let earliestDateCache = null;
 let reportLoaded = false;
 let gtkyLoaded = false;
 let purchLoaded = false;
+let settingsLoaded = false;
 reportLoaded = true;
 loadReportTab();
 loadCustomerTab();
