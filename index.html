@@ -277,9 +277,9 @@
     </div>
     <div class="chip-row" id="trendTypeRow" style="margin-top:8px;">
       <button type="button" class="chip trend-type-chip selected" data-type="sold"><span class="type-dot" style="background:#E8863A;"></span>ขายลูกค้า</button>
-      <button type="button" class="chip trend-type-chip selected" data-type="our_treat"><span class="type-dot" style="background:#4A9B5C;"></span>Our Treat</button>
-      <button type="button" class="chip trend-type-chip selected" data-type="staff"><span class="type-dot" style="background:#A8876F;"></span>Staff กินเอง</button>
-      <button type="button" class="chip trend-type-chip selected" data-type="reward"><span class="type-dot" style="background:#D9A544;"></span>แจกฟรี/รางวัล</button>
+      <button type="button" class="chip trend-type-chip" data-type="our_treat"><span class="type-dot" style="background:#4A9B5C;"></span>Our Treat</button>
+      <button type="button" class="chip trend-type-chip" data-type="staff"><span class="type-dot" style="background:#A8876F;"></span>Staff กินเอง</button>
+      <button type="button" class="chip trend-type-chip" data-type="reward"><span class="type-dot" style="background:#D9A544;"></span>แจกฟรี/รางวัล</button>
     </div>
     <div id="salesTrendChart" style="margin-top:14px;"><div class="loading">Loading...</div></div>
   </div>
@@ -879,7 +879,7 @@ document.getElementById('reportTo').addEventListener('change', loadReportTab);
 
 // ============ Sales Trend (stacked bar: day/week/month × cups/revenue × cup type) ============
 let currentReportOrders = [];
-let trendState = { granularity: 'day', metric: 'cups', types: new Set(['sold','our_treat','staff','reward']) };
+let trendState = { granularity: 'day', metric: 'cups', types: new Set(['sold']) };
 const TREND_CAT_LIST = ['sold','our_treat','staff','reward'];
 const TREND_COLORS = { sold:'#E8863A', our_treat:'#4A9B5C', staff:'#A8876F', reward:'#D9A544' };
 const TREND_LABELS = { sold:'ขายลูกค้า', our_treat:'Our Treat', staff:'Staff กินเอง', reward:'แจกฟรี/รางวัล' };
