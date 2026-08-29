@@ -144,6 +144,23 @@
   .fb-comment{font-size:11.5px;color:rgba(74,52,40,0.75);margin-top:6px;line-height:1.6;white-space:pre-wrap;}
   .order-row{display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0;border-bottom:1px solid var(--border);color:rgba(74,52,40,0.65);}
   .order-row:last-child{border-bottom:none;}
+  .allergy-list{margin-bottom:8px;}
+  .allergy-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;margin-bottom:6px;border:1px solid;}
+  .allergy-item.severe{background:rgba(214,69,69,0.1);border-color:rgba(214,69,69,0.35);}
+  .allergy-item.mild{background:rgba(232,134,58,0.1);border-color:rgba(232,134,58,0.3);}
+  .allergy-item-label{font-size:12px;font-weight:600;color:var(--cream);}
+  .allergy-item-sev{font-size:10px;font-weight:400;color:rgba(74,52,40,0.45);margin-left:4px;}
+  .allergy-item-note{font-size:10.5px;color:rgba(74,52,40,0.55);margin-top:2px;font-style:italic;}
+  .allergy-del-btn{background:none;border:none;color:var(--red);font-size:14px;padding:2px 6px;cursor:pointer;flex-shrink:0;}
+  .allergy-empty{font-size:11px;color:rgba(74,52,40,0.35);margin-bottom:8px;}
+  .allergy-add-block{border-top:1px dashed var(--border);padding-top:10px;margin-top:2px;}
+  .allergy-ing-select{width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;font-family:'Mitr',sans-serif;color:var(--cream);background:#fff;margin-bottom:8px;}
+  .allergy-sev-picker{display:none;gap:6px;margin-bottom:8px;}
+  .allergy-sev-btn{flex:1;padding:8px 6px;border-radius:8px;border:1px solid var(--border);font-size:11.5px;font-weight:700;font-family:'Mitr',sans-serif;cursor:pointer;background:#fff;}
+  .allergy-sev-btn.severe{color:var(--red);border-color:rgba(214,69,69,0.4);}
+  .allergy-sev-btn.mild{color:var(--orange);border-color:rgba(232,134,58,0.4);}
+  .allergy-sev-cancel{padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:11.5px;background:#fff;color:rgba(74,52,40,0.5);font-family:'Mitr',sans-serif;cursor:pointer;}
+  .allergy-nocoffee-btn{width:100%;padding:9px;border-radius:8px;border:1px solid rgba(214,69,69,0.35);background:rgba(214,69,69,0.05);color:var(--red);font-size:11.5px;font-weight:700;font-family:'Mitr',sans-serif;cursor:pointer;}
   .txn-row{padding:7px 0;border-bottom:1px solid var(--border);font-size:11.5px;color:rgba(74,52,40,0.65);}
   .txn-row:last-child{border-bottom:none;}
   .txn-scroll{max-height:270px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
@@ -1511,13 +1528,27 @@ async function loadCustomerTab() {
   listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
   try {
-    const [members, orders, feedback, gtkyAnswers, manualNotes] = await Promise.all([
+    const [members, orders, feedback, gtkyAnswers, manualNotes, allergyRows, ingredientRows] = await Promise.all([
       sb('members?select=id,line_user_id,display_name,member_type,created_at&order=created_at.asc'),
       sb('preorders?select=line_user_id,menu_item_name,bean_name,brewed_at,price,bean_surcharge,order_type,omakase_set_id&brewed=eq.true&line_user_id=not.is.null'),
       sb('feedback_requests?select=*&rating=not.is.null&order=responded_at.desc'),
       sb('gtky_sends?select=*,gtky_questions(question_text,gtky_categories(name))&answer_text=not.is.null&order=responded_at.desc'),
       sb('manual_feedback_notes?select=*&order=noted_at.desc'),
+      sb('customer_allergies?select=*&order=created_at.asc'),
+      sb('ingredients?select=id,name,category&active=eq.true&order=category.asc,name.asc'),
     ]);
+
+    // ⚠️ แพ้/ไม่กิน — เตรียม dropdown ตัวเลือกส่วนผสม (ใช้ร่วมกันทุกการ์ดลูกค้า) + map ชื่อส่วนผสม
+    const ALLERGY_CAT_LABEL = { coffee_bean: 'เมล็ดกาแฟ', base: 'เบส', milk: 'นม/มิกเซอร์', syrup: 'ไซรัป', topping: 'ท็อปปิ้ง', other: 'อื่นๆ' };
+    const ingredientNameById = {};
+    const ingredientsByCat = {};
+    ingredientRows.forEach(i => {
+      ingredientNameById[i.id] = i.name;
+      (ingredientsByCat[i.category] = ingredientsByCat[i.category] || []).push(i);
+    });
+    const allergyIngredientOptionsHtml = Object.entries(ingredientsByCat).map(([cat, items]) =>
+      `<optgroup label="${ALLERGY_CAT_LABEL[cat] || cat}">${items.map(i => `<option value="${i.id}">${i.name}</option>`).join('')}</optgroup>`
+    ).join('');
 
     if (!members.length) {
       listEl.innerHTML = '<div class="empty">No registered customers yet</div>';
@@ -1602,6 +1633,49 @@ async function loadCustomerTab() {
           `).join('')}
       ` : '';
 
+      const myAllergies = allergyRows.filter(a => a.line_user_id === m.line_user_id);
+      const noCoffeeRow = myAllergies.find(a => a.kind === 'no_coffee');
+      const ingredientAllergyRows = myAllergies.filter(a => a.kind === 'ingredient');
+      const allergyItemsHtml = [
+        noCoffeeRow ? `
+          <div class="allergy-item severe">
+            <span class="allergy-item-label">🚫 ไม่กินกาแฟเลย</span>
+            <button class="allergy-del-btn" data-allergy-id="${noCoffeeRow.id}">✕</button>
+          </div>` : '',
+        ...ingredientAllergyRows.map(a => {
+          const sevClass = a.severity === 'แพ้' ? 'severe' : 'mild';
+          const sevIcon = a.severity === 'แพ้' ? '🔴' : '🟠';
+          const ingName = ingredientNameById[a.ingredient_id] || '(ไม่ทราบชื่อส่วนผสม)';
+          return `
+          <div class="allergy-item ${sevClass}">
+            <div>
+              <span class="allergy-item-label">${sevIcon} ${ingName}<span class="allergy-item-sev">${a.severity}</span></span>
+              ${a.note ? `<div class="allergy-item-note">${a.note}</div>` : ''}
+            </div>
+            <button class="allergy-del-btn" data-allergy-id="${a.id}">✕</button>
+          </div>`;
+        }),
+      ].join('');
+
+      const allergyHtml = `
+        <div class="cust-subhead">⚠️ แพ้ / ไม่กิน</div>
+        <div class="allergy-list">
+          ${allergyItemsHtml || '<div class="allergy-empty">ยังไม่มีข้อมูล</div>'}
+        </div>
+        <div class="allergy-add-block">
+          <select class="allergy-ing-select" data-line="${m.line_user_id}">
+            <option value="">+ เพิ่มส่วนผสมที่แพ้/ไม่กิน...</option>
+            ${allergyIngredientOptionsHtml}
+          </select>
+          <div class="allergy-sev-picker" data-line="${m.line_user_id}">
+            <button class="allergy-sev-btn severe" data-sev="แพ้">🔴 แพ้</button>
+            <button class="allergy-sev-btn mild" data-sev="ไม่ชอบ">🟠 ไม่ชอบ</button>
+            <button class="allergy-sev-cancel">ยกเลิก</button>
+          </div>
+          ${!noCoffeeRow ? `<button class="allergy-nocoffee-btn" data-line="${m.line_user_id}">🚫 ทำเครื่องหมาย "ไม่กินกาแฟเลย"</button>` : ''}
+        </div>
+      `;
+
       const manualNotesHtml = myManualNotes.length ? `
         <div class="cust-subhead">📝 Barista Feedback</div>
         ${myManualNotes.map(n => `
@@ -1634,6 +1708,7 @@ async function loadCustomerTab() {
           </div>
           <div class="cust-detail">
             <div class="cust-insight">💡 ${insight}</div>
+            ${allergyHtml}
             ${manualNotesHtml}
             ${feedbackHtml}
             ${gtkyHtml}
@@ -1647,6 +1722,91 @@ async function loadCustomerTab() {
       card.addEventListener('click', (e) => {
         const detail = card.querySelector('.cust-detail');
         detail.classList.toggle('open');
+      });
+    });
+
+    // ⚠️ แพ้/ไม่กิน — interactive widget wiring (stopPropagation กันไม่ให้ toggle การ์ดปิดตอนกด)
+    listEl.querySelectorAll('.allergy-ing-select, .allergy-sev-picker, .allergy-del-btn, .allergy-nocoffee-btn, .allergy-add-block').forEach(el => {
+      el.addEventListener('click', (e) => e.stopPropagation());
+    });
+
+    listEl.querySelectorAll('.allergy-ing-select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const line = sel.dataset.line;
+        const picker = sel.closest('.allergy-add-block').querySelector('.allergy-sev-picker');
+        if (sel.value) {
+          picker.classList.add('open');
+          picker.style.display = 'flex';
+          picker.dataset.ingredientId = sel.value;
+        } else {
+          picker.style.display = 'none';
+        }
+      });
+    });
+
+    listEl.querySelectorAll('.allergy-sev-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const picker = btn.closest('.allergy-sev-picker');
+        const line = picker.dataset.line;
+        const ingredientId = picker.dataset.ingredientId;
+        const severity = btn.dataset.sev;
+        if (!ingredientId) return;
+        btn.disabled = true;
+        try {
+          await sb('customer_allergies', {
+            method: 'POST',
+            body: JSON.stringify([{ line_user_id: line, kind: 'ingredient', ingredient_id: ingredientId, severity }]),
+          });
+          loadCustomerTab();
+        } catch (err) {
+          alert('เพิ่มไม่สำเร็จ: ' + err.message);
+          btn.disabled = false;
+        }
+      });
+    });
+
+    listEl.querySelectorAll('.allergy-sev-cancel').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const picker = btn.closest('.allergy-sev-picker');
+        picker.style.display = 'none';
+        const sel = picker.closest('.allergy-add-block').querySelector('.allergy-ing-select');
+        if (sel) sel.value = '';
+      });
+    });
+
+    listEl.querySelectorAll('.allergy-del-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.allergyId;
+        btn.disabled = true;
+        try {
+          await sb(`customer_allergies?id=eq.${id}`, { method: 'DELETE' });
+          loadCustomerTab();
+        } catch (err) {
+          alert('ลบไม่สำเร็จ: ' + err.message);
+          btn.disabled = false;
+        }
+      });
+    });
+
+    listEl.querySelectorAll('.allergy-nocoffee-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const line = btn.dataset.line;
+        btn.disabled = true;
+        try {
+          await sb('customer_allergies', {
+            method: 'POST',
+            body: JSON.stringify([{ line_user_id: line, kind: 'no_coffee', severity: 'แพ้' }]),
+          });
+          loadCustomerTab();
+        } catch (err) {
+          alert('เพิ่มไม่สำเร็จ: ' + err.message);
+          btn.disabled = false;
+        }
       });
     });
 
