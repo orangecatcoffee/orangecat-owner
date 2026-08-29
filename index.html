@@ -148,6 +148,7 @@
   .allergy-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;margin-bottom:6px;border:1px solid;}
   .allergy-item.severe{background:rgba(214,69,69,0.1);border-color:rgba(214,69,69,0.35);}
   .allergy-item.mild{background:rgba(232,134,58,0.1);border-color:rgba(232,134,58,0.3);}
+  .allergy-item.tolerate{background:rgba(74,134,214,0.1);border-color:rgba(74,134,214,0.3);}
   .allergy-item-label{font-size:12px;font-weight:600;color:var(--cream);}
   .allergy-item-sev{font-size:10px;font-weight:400;color:rgba(74,52,40,0.45);margin-left:4px;}
   .allergy-item-note{font-size:10.5px;color:rgba(74,52,40,0.55);margin-top:2px;font-style:italic;}
@@ -159,6 +160,7 @@
   .allergy-sev-btn{flex:1;padding:8px 6px;border-radius:8px;border:1px solid var(--border);font-size:11.5px;font-weight:700;font-family:'Mitr',sans-serif;cursor:pointer;background:#fff;}
   .allergy-sev-btn.severe{color:var(--red);border-color:rgba(214,69,69,0.4);}
   .allergy-sev-btn.mild{color:var(--orange);border-color:rgba(232,134,58,0.4);}
+  .allergy-sev-btn.tolerate{color:#4A86D6;border-color:rgba(74,134,214,0.4);}
   .allergy-sev-cancel{padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:11.5px;background:#fff;color:rgba(74,52,40,0.5);font-family:'Mitr',sans-serif;cursor:pointer;}
   .allergy-nocoffee-btn{width:100%;padding:9px;border-radius:8px;border:1px solid rgba(214,69,69,0.35);background:rgba(214,69,69,0.05);color:var(--red);font-size:11.5px;font-weight:700;font-family:'Mitr',sans-serif;cursor:pointer;}
   .txn-row{padding:7px 0;border-bottom:1px solid var(--border);font-size:11.5px;color:rgba(74,52,40,0.65);}
@@ -1643,8 +1645,8 @@ async function loadCustomerTab() {
             <button class="allergy-del-btn" data-allergy-id="${noCoffeeRow.id}">✕</button>
           </div>` : '',
         ...ingredientAllergyRows.map(a => {
-          const sevClass = a.severity === 'แพ้' ? 'severe' : 'mild';
-          const sevIcon = a.severity === 'แพ้' ? '🔴' : '🟠';
+          const sevClass = a.severity === 'แพ้' ? 'severe' : a.severity === 'ไม่ชอบ' ? 'mild' : 'tolerate';
+          const sevIcon = a.severity === 'แพ้' ? '🔴' : a.severity === 'ไม่ชอบ' ? '🟠' : 'ℹ️';
           const ingName = ingredientNameById[a.ingredient_id] || '(ไม่ทราบชื่อส่วนผสม)';
           return `
           <div class="allergy-item ${sevClass}">
@@ -1670,6 +1672,7 @@ async function loadCustomerTab() {
           <div class="allergy-sev-picker" data-line="${m.line_user_id}">
             <button class="allergy-sev-btn severe" data-sev="แพ้">🔴 แพ้</button>
             <button class="allergy-sev-btn mild" data-sev="ไม่ชอบ">🟠 ไม่ชอบ</button>
+            <button class="allergy-sev-btn tolerate" data-sev="ทานได้น้อย">ℹ️ ทานได้น้อย</button>
             <button class="allergy-sev-cancel">ยกเลิก</button>
           </div>
           ${!noCoffeeRow ? `<button class="allergy-nocoffee-btn" data-line="${m.line_user_id}">🚫 ทำเครื่องหมาย "ไม่กินกาแฟเลย"</button>` : ''}
@@ -1753,11 +1756,15 @@ async function loadCustomerTab() {
         const ingredientId = picker.dataset.ingredientId;
         const severity = btn.dataset.sev;
         if (!ingredientId) return;
+        const notePromptLabel = severity === 'ทานได้น้อย'
+          ? 'บันทึกเพิ่มเติม (ไม่บังคับ) — เช่น "ขอนมน้อยกว่าปกติ"'
+          : 'บันทึกเพิ่มเติม (ไม่บังคับ)';
+        const note = prompt(notePromptLabel, '');
         btn.disabled = true;
         try {
           await sb('customer_allergies', {
             method: 'POST',
-            body: JSON.stringify([{ line_user_id: line, kind: 'ingredient', ingredient_id: ingredientId, severity }]),
+            body: JSON.stringify([{ line_user_id: line, kind: 'ingredient', ingredient_id: ingredientId, severity, note: (note && note.trim()) ? note.trim() : null }]),
           });
           loadCustomerTab();
         } catch (err) {
