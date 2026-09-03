@@ -250,6 +250,7 @@
 <div class="tabs">
   <div class="tab active" data-tab="report">Sales & Customers</div>
   <div class="tab" data-tab="purchasing">Purchasing</div>
+  <div class="tab" data-tab="financials">งบการเงิน</div>
   <div class="tab" data-tab="gtky">GTKY</div>
   <div class="tab" data-tab="settings">Settings</div>
 </div>
@@ -419,6 +420,76 @@
     <label>Filter by Supplier</label>
     <select id="purchTxnFilter"><option value="">— All —</option></select>
     <div id="purchTransactionList" class="txn-scroll" style="margin-top:10px;"><div class="loading">Loading...</div></div>
+  </div>
+
+</div>
+
+<!-- ============ TAB: งบการเงิน (บัญชีรายรับ-รายจ่ายจำลองของเจ้าของร้าน — แยกขาดจากต้นทุนต่อแก้ว) ============ -->
+<div class="view" id="view-financials">
+
+  <div class="card">
+    <div class="card-title">ช่วงเวลา</div>
+    <div class="row2">
+      <div><label>จาก</label><input type="date" id="fin-from"></div>
+      <div><label>ถึง</label><input type="date" id="fin-to"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">งบกำไรขาดทุนแบบง่าย</div>
+    <div id="fin-statement"><div class="loading">กำลังโหลด...</div></div>
+    <div style="font-size:10px;color:#A8876F;margin-top:8px;">
+      💡 รายได้/ต้นทุนขาย/กำไรขั้นต้น อ้างอิงจากสูตรจริงเหมือนแท็บ Sales & Customers ทุกอย่าง ไม่เปลี่ยน — ส่วน "ค่าใช้จ่ายคงที่" ด้านล่างนับเฉพาะรายการที่ติ๊ก "รวมในงบ" เท่านั้น
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">เพิ่มรายการค่าใช้จ่ายคงที่ (พิมพ์เอง)</div>
+    <label>ชื่อรายการ</label>
+    <input id="fin-name" type="text" placeholder="เช่น เครื่องปั่นน้ำผลไม้">
+    <div class="row2">
+      <div>
+        <label>หมวดหมู่</label>
+        <select id="fin-category">
+          <option value="equipment">อุปกรณ์</option>
+          <option value="renovation">รีโนเวท</option>
+          <option value="rent">ค่าเช่า</option>
+          <option value="utilities">ค่าน้ำ-ไฟ-เน็ต</option>
+          <option value="marketing">การตลาด-โฆษณา</option>
+          <option value="labor">ค่าแรง</option>
+          <option value="subscription">ซอฟต์แวร์-สมัครสมาชิก</option>
+          <option value="other">อื่นๆ</option>
+        </select>
+      </div>
+      <div>
+        <label>จำนวนเงิน (บาท)</label>
+        <input id="fin-amount" type="number" step="any" placeholder="15000">
+      </div>
+    </div>
+    <div class="row2">
+      <div>
+        <label>ซัพพลายเออร์ / จ่ายให้ใคร</label>
+        <input id="fin-supplier" type="text" placeholder="ไม่บังคับ">
+      </div>
+      <div>
+        <label>วันที่</label>
+        <input id="fin-date" type="date">
+      </div>
+    </div>
+    <label>หมายเหตุ</label>
+    <input id="fin-notes" type="text" placeholder="ไม่บังคับ">
+    <div class="checkrow">
+      <input type="checkbox" id="fin-include" checked>
+      <span>รวมในงบการเงิน (ยกเลิกติ๊กถ้าไม่อยากให้กระทบภาพรวม เช่น รีโนเวทก้อนใหญ่)</span>
+    </div>
+    <button class="btn" id="fin-submit">บันทึกรายการ</button>
+    <div class="status" id="fin-status"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">รายการค่าใช้จ่ายคงที่ทั้งหมด</div>
+    <div class="field-hint">ติ๊ก/ยกเลิกติ๊กได้ทุกเมื่อ — มีผลกับงบด้านบนทันที</div>
+    <div id="fin-list" style="margin-top:10px;"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
 </div>
@@ -778,6 +849,7 @@ document.querySelectorAll(".tab").forEach(tab => {
       loadCustomerTab();
     }
     if (tab.dataset.tab === "purchasing" && !purchLoaded) { purchLoaded = true; loadPurchasingTab(); }
+    if (tab.dataset.tab === "financials" && !finLoaded) { finLoaded = true; loadFinancialsTab(); }
     if (tab.dataset.tab === "gtky" && !gtkyLoaded) { gtkyLoaded = true; loadGtkyTab(); }
     if (tab.dataset.tab === "settings" && !settingsLoaded) { settingsLoaded = true; loadSettingsTab(); }
   });
@@ -798,6 +870,7 @@ let earliestDateCache = null;
 let reportLoaded = false;
 let gtkyLoaded = false;
 let purchLoaded = false;
+let finLoaded = false;
 let settingsLoaded = false;
 reportLoaded = true;
 loadReportTab();
@@ -2081,6 +2154,166 @@ async function loadPurchasingTab() {
     summaryEl.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
   }
 }
+
+// ---------- FINANCIAL STATEMENT TAB (บัญชีรายรับ-รายจ่ายจำลองของเจ้าของร้าน) ----------
+const FIN_CAT_LABEL_OWNER = { equipment: "อุปกรณ์", renovation: "รีโนเวท", rent: "ค่าเช่า", utilities: "ค่าน้ำ-ไฟ-เน็ต", marketing: "การตลาด-โฆษณา", labor: "ค่าแรง", subscription: "ซอฟต์แวร์-สมัครสมาชิก", other: "อื่นๆ" };
+
+function finDateRange() {
+  const fromEl = document.getElementById('fin-from');
+  const toEl = document.getElementById('fin-to');
+  if (!fromEl.value) {
+    const now = new Date();
+    fromEl.value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    toEl.value = now.toISOString().slice(0, 10);
+  }
+  return { from: new Date(fromEl.value + 'T00:00:00'), to: new Date(toEl.value + 'T23:59:59') };
+}
+
+async function loadFinancialsTab() {
+  const { from, to } = finDateRange();
+  const statementEl = document.getElementById('fin-statement');
+  const listEl = document.getElementById('fin-list');
+  statementEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+
+  try {
+    const fromDateStr = from.toISOString().slice(0, 10);
+    const toDateStr = to.toISOString().slice(0, 10);
+
+    // ---- รายได้/ต้นทุนขาย/กำไรขั้นต้น: ใช้สูตรเดียวกับแท็บ Purchasing เป๊ะ ไม่เปลี่ยนอะไร ----
+    const [brewedOrders, menuItems, recipes, beans, packagingTypeItems, finEntries] = await Promise.all([
+      sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}&or=(order_type.eq.customer,order_type.is.null)`),
+      sb('menu_items?select=id,name,needs_bean'),
+      sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
+      sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
+      sb('packaging_type_items?select=type_key,quantity,ingredients(cost_per_base_unit)'),
+      sb(`shop_financial_entries?select=*&entry_date=gte.${fromDateStr}&entry_date=lte.${toDateStr}&order=entry_date.desc`),
+    ]);
+
+    const menuByName = {}; menuItems.forEach(m => menuByName[m.name] = m);
+    const recipeByMenuId = {};
+    recipes.forEach(r => { (recipeByMenuId[r.menu_item_id] = recipeByMenuId[r.menu_item_id] || []).push(r); });
+    const beanCost = {}; beans.forEach(b => beanCost[b.name] = Number(b.cost_per_base_unit));
+    const packagingCostByType = { tumbler: 0, bag: 0, cup_small: 0, cup_large: 0 };
+    packagingTypeItems.forEach(row => {
+      packagingCostByType[row.type_key] = (packagingCostByType[row.type_key] || 0) + row.quantity * (row.ingredients?.cost_per_base_unit || 0);
+    });
+    const FLAT_BEAN_COST_F = 20, BEAN_DOSE_G_F = 20;
+    function parseBlendCostF(beanName) {
+      if (!beanName || !beanName.startsWith('เบลนด์:')) return null;
+      const parts = beanName.replace('เบลนด์:', '').split('+').map(s => s.trim());
+      let cost = 0;
+      parts.forEach(p => {
+        const m = p.match(/^(.+?)\s+([\d.]+)\s*g$/i);
+        if (m) cost += (beanCost[m[1].trim()] !== undefined ? beanCost[m[1].trim()] : 0) * Number(m[2]);
+      });
+      return cost;
+    }
+    let recipeCogsF = 0, packagingCogsF = 0;
+    brewedOrders.forEach(o => {
+      const menu = menuByName[o.menu_item_name];
+      const pkgCost = (o.packaging_cost !== null && o.packaging_cost !== undefined)
+        ? Number(o.packaging_cost)
+        : (packagingCostByType[o.packaging_type] !== undefined ? packagingCostByType[o.packaging_type] : packagingCostByType.bag);
+      packagingCogsF += pkgCost;
+      if (!menu) return;
+      let rCost = 0;
+      if (menu.needs_bean) {
+        const blendCost = parseBlendCostF(o.bean_name);
+        rCost += blendCost !== null ? blendCost : ((o.bean_name && beanCost[o.bean_name] !== undefined) ? beanCost[o.bean_name] * BEAN_DOSE_G_F : FLAT_BEAN_COST_F);
+      }
+      (recipeByMenuId[menu.id] || []).forEach(r => {
+        if (!r.ingredients || r.ingredients.category === 'coffee_bean') return;
+        rCost += Number(r.quantity) * Number(r.ingredients.cost_per_base_unit || 0);
+      });
+      if (o.misc_cost_estimate) rCost += Number(o.misc_cost_estimate);
+      recipeCogsF += rCost;
+    });
+    const revenueF = brewedOrders.filter(o => o.paid).reduce((s, o) => s + Number(o.price || 0) + Number(o.bean_surcharge || 0), 0);
+    const cogsF = recipeCogsF + packagingCogsF;
+    const grossProfit = revenueF - cogsF;
+
+    // ---- ค่าใช้จ่ายคงที่: เฉพาะรายการที่ติ๊ก include_in_statement ----
+    const includedEntries = finEntries.filter(e => e.include_in_statement);
+    const totalFixed = includedEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const netProfit = grossProfit - totalFixed;
+
+    const byCat = {};
+    includedEntries.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + Number(e.amount || 0); });
+    const catRows = Object.entries(byCat).sort((a, b) => b[1] - a[1])
+      .map(([cat, amt]) => `<div style="display:flex;justify-content:space-between;font-size:11.5px;padding:4px 0;color:#8a6a4a;"><span>${FIN_CAT_LABEL_OWNER[cat] || cat}</span><span>฿${amt.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>`)
+      .join('');
+
+    statementEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;"><span>รายได้</span><span style="font-weight:700;">฿${revenueF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;"><span>− ต้นทุนขาย (COGS)</span><span>฿${cogsF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:700;border-top:1px solid #E4DCC8;border-bottom:2px solid #4A3428;margin:4px 0;"><span>= กำไรขั้นต้น</span><span class="${grossProfit>=0?'good':'bad'}">฿${grossProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+      <div style="padding:8px 0 2px;font-size:11px;color:#A8876F;font-weight:600;">− ค่าใช้จ่ายคงที่ (เฉพาะที่ติ๊ก "รวมในงบ")</div>
+      ${catRows || '<div style="font-size:11.5px;color:#C4B39E;padding:4px 0;">ไม่มีรายการในช่วงนี้</div>'}
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;border-top:1px solid #E4DCC8;"><span>รวมค่าใช้จ่ายคงที่</span><span>฿${totalFixed.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:15px;font-weight:700;border-top:2px solid #4A3428;margin-top:4px;"><span>= กำไรสุทธิ</span><span class="${netProfit>=0?'good':'bad'}">฿${netProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+    `;
+
+    if (!finEntries.length) {
+      listEl.innerHTML = '<div class="empty">ยังไม่มีรายการค่าใช้จ่ายคงที่ในช่วงนี้</div>';
+    } else {
+      listEl.innerHTML = finEntries.map(e => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F0E4D8;">
+          <input type="checkbox" class="fin-toggle" data-id="${e.id}" ${e.include_in_statement ? 'checked' : ''}>
+          <div style="flex:1;">
+            <div style="font-size:12.5px;font-weight:500;">${e.item_name} <span style="font-size:9.5px;color:#A8876F;">${e.source === 'receipt' ? '📷' : '⌨️'}</span></div>
+            <div style="font-size:10px;color:#A8876F;">${FIN_CAT_LABEL_OWNER[e.category] || e.category} · ${e.entry_date}${e.supplier ? ' · ' + e.supplier : ''}</div>
+          </div>
+          <div style="font-weight:700;font-size:12.5px;color:${e.include_in_statement ? '#4A3428' : '#C4B39E'};">฿${Number(e.amount).toLocaleString()}</div>
+        </div>
+      `).join('');
+      listEl.querySelectorAll('.fin-toggle').forEach(cb => {
+        cb.addEventListener('change', async () => {
+          await sb(`shop_financial_entries?id=eq.${cb.dataset.id}`, { method: 'PATCH', body: JSON.stringify({ include_in_statement: cb.checked }) });
+          loadFinancialsTab();
+        });
+      });
+    }
+  } catch (e) {
+    statementEl.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+  }
+}
+document.getElementById('fin-from').addEventListener('change', loadFinancialsTab);
+document.getElementById('fin-to').addEventListener('change', loadFinancialsTab);
+
+document.getElementById('fin-submit').addEventListener('click', async () => {
+  const status = document.getElementById('fin-status');
+  const name = document.getElementById('fin-name').value.trim();
+  const category = document.getElementById('fin-category').value;
+  const amount = parseFloat(document.getElementById('fin-amount').value);
+  const supplier = document.getElementById('fin-supplier').value.trim() || null;
+  const date = document.getElementById('fin-date').value || new Date().toISOString().slice(0, 10);
+  const notes = document.getElementById('fin-notes').value.trim() || null;
+  const include = document.getElementById('fin-include').checked;
+
+  if (!name || !amount) {
+    status.textContent = 'กรอกชื่อรายการและจำนวนเงินให้ครบก่อนนะ';
+    status.className = 'status err'; status.style.display = 'block';
+    return;
+  }
+  try {
+    await sb('shop_financial_entries', {
+      method: 'POST',
+      body: JSON.stringify([{ item_name: name, category, amount, entry_date: date, supplier, notes, include_in_statement: include, source: 'manual' }])
+    });
+    status.textContent = 'บันทึกแล้ว ✓';
+    status.className = 'status ok'; status.style.display = 'block';
+    document.getElementById('fin-name').value = '';
+    document.getElementById('fin-amount').value = '';
+    document.getElementById('fin-supplier').value = '';
+    document.getElementById('fin-notes').value = '';
+    loadFinancialsTab();
+  } catch (e) {
+    status.textContent = 'บันทึกไม่สำเร็จ: ' + e.message;
+    status.className = 'status err'; status.style.display = 'block';
+  }
+});
+
 
 // ---------- GTKY TAB ----------
 const GTKY_SEND_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/gtky-send";
