@@ -368,6 +368,14 @@
 <div class="view" id="view-purchasing">
 
   <div class="card">
+    <div class="card-title">มุมมอง</div>
+    <div class="chip-row" id="purchCostTypeRow">
+      <button type="button" class="chip range-chip selected" data-costtype="variable">💧 COGS (วัตถุดิบ)</button>
+      <button type="button" class="chip range-chip" data-costtype="fixed">📌 Fixed Cost (ของใหญ่/คงที่)</button>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-title">Date Range</div>
     <div class="chip-row" id="purchRangeRow">
       <button type="button" class="chip range-chip selected" data-range="all">All</button>
@@ -1913,6 +1921,19 @@ setupManualFeedbackForm();
 
 // ---------- PURCHASING TAB ----------
 let currentPurchLogs = [];
+const PURCH_CAT_LABEL = { coffee_bean: "Coffee Beans", milk: "Milk/Cream", syrup: "Syrup/Powder", base: "Base", packaging: "Packaging", other: "Other",
+  equipment: "Equipment", new_menu_trial: "New Menu Trial", marketing_subscription: "Marketing & Subscriptions", renovation: "Renovation", other_fixed: "Other" };
+const PURCH_CAT_COLORS = { coffee_bean: "#6B4423", milk: "#D9A544", syrup: "#E8863A", base: "#7B4F9E", packaging: "#4A9B5C", other: "#A8876F",
+  equipment: "#3A6B8C", new_menu_trial: "#C9546B", marketing_subscription: "#5C8A6B", renovation: "#B08442", other_fixed: "#8A7F9E" };
+const PURCH_CATS_BY_TYPE = { variable: ["coffee_bean","milk","syrup","base","packaging","other"], fixed: ["equipment","new_menu_trial","marketing_subscription","renovation","other_fixed"] };
+let purchViewState = { costType: 'variable' };
+document.querySelectorAll('#purchCostTypeRow .chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    purchViewState.costType = btn.dataset.costtype;
+    document.querySelectorAll('#purchCostTypeRow .chip').forEach(b => b.classList.toggle('selected', b === btn));
+    loadPurchasingTab();
+  });
+});
 let purchTrendState = { granularity: 'day' };
 
 function purchBucketKey(dateStr, granularity) {
@@ -1932,31 +1953,39 @@ function renderPurchTrend() {
   const el = document.getElementById('purchTrendChart');
   if (!el) return;
   const { granularity } = purchTrendState;
+  const activeCats = PURCH_CATS_BY_TYPE[purchViewState.costType];
   const buckets = {};
   currentPurchLogs.forEach(p => {
     const key = purchBucketKey(p.purchase_date, granularity);
-    if (!buckets[key]) buckets[key] = { total: 0, _ts: new Date(p.purchase_date + 'T00:00:00').getTime() };
-    buckets[key].total += Number(p.total_cost || 0);
+    if (!buckets[key]) buckets[key] = { _ts: new Date(p.purchase_date + 'T00:00:00').getTime() };
+    buckets[key][p.category] = (buckets[key][p.category] || 0) + Number(p.total_cost || 0);
   });
   const keys = Object.keys(buckets).sort((a, b) => buckets[a]._ts - buckets[b]._ts);
   if (!keys.length) { el.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>'; return; }
-  const maxVal = Math.max(1, ...keys.map(k => buckets[k].total));
+  const maxVal = Math.max(1, ...keys.map(k => activeCats.reduce((s, c) => s + (buckets[k][c] || 0), 0)));
 
   el.innerHTML = `
     <div class="trend-chart-scroll">
       <div class="trend-chart-bars">
         ${keys.map(k => {
           const b = buckets[k];
-          const pct = (b.total / maxVal * 100).toFixed(1);
+          const total = activeCats.reduce((s, c) => s + (b[c] || 0), 0);
+          const segs = activeCats.filter(c => b[c] > 0).map(c => {
+            const pct = (b[c] / maxVal * 100).toFixed(1);
+            return `<div class="trend-seg" style="height:${pct}%;background:${PURCH_CAT_COLORS[c]};" title="${PURCH_CAT_LABEL[c]}: ฿${b[c].toFixed(0)}"></div>`;
+          }).join('');
           return `
             <div class="trend-bar-col">
-              <div class="trend-bar-total">฿${b.total.toFixed(0)}</div>
-              <div class="trend-bar-track"><div class="trend-seg" style="height:${pct}%;background:#E8863A;" title="฿${b.total.toFixed(0)}"></div></div>
+              <div class="trend-bar-total">฿${total.toFixed(0)}</div>
+              <div class="trend-bar-track">${segs}</div>
               <div class="trend-bar-label">${trendBucketLabel(k, granularity)}</div>
             </div>
           `;
         }).join('')}
       </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;">
+      ${activeCats.map(c => `<div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:#8a6a4a;"><span style="width:9px;height:9px;border-radius:2px;background:${PURCH_CAT_COLORS[c]};display:inline-block;"></span>${PURCH_CAT_LABEL[c]}</div>`).join('')}
     </div>
   `;
 }
@@ -1986,7 +2015,7 @@ async function loadPurchasingTab() {
     const fromDateStr = from.toISOString().slice(0, 10);
     const toDateStr = to.toISOString().slice(0, 10);
     const [purchLogs, brewedOrders, menuItems, recipes, beans, packagingTypeItems] = await Promise.all([
-      sb(`purchase_log?select=*&cost_type=eq.variable&purchase_date=gte.${fromDateStr}&purchase_date=lte.${toDateStr}&order=purchase_date.desc`),
+      sb(`purchase_log?select=*&cost_type=eq.${purchViewState.costType}&purchase_date=gte.${fromDateStr}&purchase_date=lte.${toDateStr}&order=purchase_date.desc`),
       // ต้นทุนที่ "ใช้ไปจริง" (COGS) มาจากออเดอร์ที่ชงในช่วงเดียวกัน — คนละก้อนกับยอดซื้อเข้าร้าน (ซื้อ vs ใช้ คนละจังหวะเวลา)
       sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}&or=(order_type.eq.customer,order_type.is.null)`),
       sb('menu_items?select=id,name,needs_bean'),
@@ -2045,24 +2074,36 @@ async function loadPurchasingTab() {
       recipeCogs += rCost;
     });
 
-    // ---- Revenue ในช่วงเดียวกัน (เงินที่รับจริงแล้ว) เพื่อคำนวณกำไรสุทธิจริง ----
+    // ---- Revenue ในช่วงเดียวกัน (เงินที่รับจริงแล้ว) เพื่อคำนวณกำไรสุทธิจริง — ใช้เฉพาะโหมด COGS ----
     const revenueForProfit = brewedOrders.filter(o => o.paid).reduce((s, o) => s + Number(o.price || 0) + Number(o.bean_surcharge || 0), 0);
     const netProfit = revenueForProfit - recipeCogs - packagingCogs;
 
-    summaryEl.innerHTML = `
-      <div class="stat-grid">
-        <div class="stat-box"><div class="stat-label">ยอดซื้อเข้าร้านรวม</div><div class="stat-val">฿${totalPurchased.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-        <div class="stat-box"><div class="stat-label">ต้นทุนสูตรที่ใช้จริง</div><div class="stat-val">฿${recipeCogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-        <div class="stat-box"><div class="stat-label">ต้นทุนบรรจุภัณฑ์ที่ใช้จริง</div><div class="stat-val">฿${packagingCogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-        <div class="stat-box"><div class="stat-label">กำไรสุทธิจริง</div><div class="stat-val ${netProfit>=0?'good':'bad'}">฿${netProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-      </div>
-      <div style="font-size:10px;color:#A8876F;margin-top:6px;">
-        💡 "ยอดซื้อเข้าร้าน" = เงินที่จ่ายซื้อของเข้าสต็อกช่วงนี้ (ไม่ตรงกับต้นทุนที่ใช้จริงเป๊ะ เพราะซื้อไว้ก่อนอาจยังไม่ได้ใช้หมด) ส่วน "ต้นทุนที่ใช้จริง" มาจากแก้วที่ชงจริงในช่วงเดียวกัน · รายจ่ายคงที่ (อุปกรณ์/ค่าเช่า ฯลฯ) ดูได้ที่แท็บ "งบการเงิน" แทน ไม่ได้อยู่ในนี้แล้ว
-      </div>
+    if (purchViewState.costType === 'variable') {
+      summaryEl.innerHTML = `
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-label">ยอดซื้อเข้าร้านรวม</div><div class="stat-val">฿${totalPurchased.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+          <div class="stat-box"><div class="stat-label">ต้นทุนสูตรที่ใช้จริง</div><div class="stat-val">฿${recipeCogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+          <div class="stat-box"><div class="stat-label">ต้นทุนบรรจุภัณฑ์ที่ใช้จริง</div><div class="stat-val">฿${packagingCogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+          <div class="stat-box"><div class="stat-label">กำไรสุทธิจริง</div><div class="stat-val ${netProfit>=0?'good':'bad'}">฿${netProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        </div>
+        <div style="font-size:10px;color:#A8876F;margin-top:6px;">
+          💡 "ยอดซื้อเข้าร้าน" = เงินที่จ่ายซื้อของเข้าสต็อกช่วงนี้ (ไม่ตรงกับต้นทุนที่ใช้จริงเป๊ะ เพราะซื้อไว้ก่อนอาจยังไม่ได้ใช้หมด) ส่วน "ต้นทุนที่ใช้จริง" มาจากแก้วที่ชงจริงในช่วงเดียวกัน
+        </div>
     `;
+    } else {
+      const itemCount = purchLogs.length;
+      summaryEl.innerHTML = `
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-label">ยอดของใหญ่/คงที่รวม</div><div class="stat-val">฿${totalPurchased.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+          <div class="stat-box"><div class="stat-label">จำนวนรายการ</div><div class="stat-val">${itemCount.toLocaleString()}</div></div>
+        </div>
+        <div style="font-size:10px;color:#A8876F;margin-top:6px;">
+          💡 ของใหญ่/คงที่ (อุปกรณ์, รีโนเวท ฯลฯ) ไม่กระทบต้นทุนต่อแก้วหรือกำไรสุทธิ — ดูผลกระทบต่อกำไรสุทธิจริงได้ที่แท็บ "งบการเงิน" แทน (เฉพาะรายการที่ติ๊ก "รวมในงบ")
+        </div>
+      `;
+    }
 
     // ---- Top 5: หมวดหมู่ / ซัพพลายเออร์ ----
-    const PURCH_CAT_LABEL = { coffee_bean: "Coffee Beans", milk: "Milk/Cream", syrup: "Syrup/Powder", base: "Base", packaging: "Packaging", other: "Other" };
     const byCategory = {}, bySupplier = {};
     purchLogs.forEach(p => {
       const cat = PURCH_CAT_LABEL[p.category] || p.category || 'อื่นๆ';
