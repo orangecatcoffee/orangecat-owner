@@ -1986,7 +1986,7 @@ async function loadPurchasingTab() {
     const fromDateStr = from.toISOString().slice(0, 10);
     const toDateStr = to.toISOString().slice(0, 10);
     const [purchLogs, brewedOrders, menuItems, recipes, beans, packagingTypeItems] = await Promise.all([
-      sb(`purchase_log?select=*&purchase_date=gte.${fromDateStr}&purchase_date=lte.${toDateStr}&order=purchase_date.desc`),
+      sb(`purchase_log?select=*&cost_type=eq.variable&purchase_date=gte.${fromDateStr}&purchase_date=lte.${toDateStr}&order=purchase_date.desc`),
       // ต้นทุนที่ "ใช้ไปจริง" (COGS) มาจากออเดอร์ที่ชงในช่วงเดียวกัน — คนละก้อนกับยอดซื้อเข้าร้าน (ซื้อ vs ใช้ คนละจังหวะเวลา)
       sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}&or=(order_type.eq.customer,order_type.is.null)`),
       sb('menu_items?select=id,name,needs_bean'),
@@ -2062,9 +2062,10 @@ async function loadPurchasingTab() {
     `;
 
     // ---- Top 5: หมวดหมู่ / ซัพพลายเออร์ ----
+    const PURCH_CAT_LABEL = { coffee_bean: "Coffee Beans", milk: "Milk/Cream", syrup: "Syrup/Powder", base: "Base", packaging: "Packaging", other: "Other" };
     const byCategory = {}, bySupplier = {};
     purchLogs.forEach(p => {
-      const cat = p.category || 'อื่นๆ';
+      const cat = PURCH_CAT_LABEL[p.category] || p.category || 'อื่นๆ';
       byCategory[cat] = (byCategory[cat] || 0) + Number(p.total_cost || 0);
       const sup = p.supplier || 'ไม่ระบุ';
       bySupplier[sup] = (bySupplier[sup] || 0) + Number(p.total_cost || 0);
