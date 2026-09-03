@@ -439,51 +439,8 @@
     <div class="card-title">งบกำไรขาดทุนแบบง่าย</div>
     <div id="fin-statement"><div class="loading">กำลังโหลด...</div></div>
     <div style="font-size:10px;color:#A8876F;margin-top:8px;">
-      💡 รายได้/ต้นทุนขาย/กำไรขั้นต้น อ้างอิงจากสูตรจริงเหมือนแท็บ Sales & Customers ทุกอย่าง ไม่เปลี่ยน — ส่วน "ค่าใช้จ่ายคงที่" ด้านล่างนับเฉพาะรายการที่ติ๊ก "รวมในงบ" เท่านั้น
+      💡 รายได้/ต้นทุนขาย/กำไรขั้นต้น อ้างอิงจากสูตรจริงเหมือนแท็บ Sales & Customers ทุกอย่าง ไม่เปลี่ยน — ส่วน "ค่าใช้จ่ายคงที่" ด้านล่างนับเฉพาะรายการที่ติ๊ก "รวมในงบ" เท่านั้น · กรอกรายการใหม่ได้ที่หน้า "จัดซื้อ" (orangecat-ops) เท่านั้น เลือกหมวดของใหญ่/คงที่
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">เพิ่มรายการค่าใช้จ่ายคงที่ (พิมพ์เอง)</div>
-    <label>ชื่อรายการ</label>
-    <input id="fin-name" type="text" placeholder="เช่น เครื่องปั่นน้ำผลไม้">
-    <div class="row2">
-      <div>
-        <label>หมวดหมู่</label>
-        <select id="fin-category">
-          <option value="equipment">อุปกรณ์</option>
-          <option value="renovation">รีโนเวท</option>
-          <option value="rent">ค่าเช่า</option>
-          <option value="utilities">ค่าน้ำ-ไฟ-เน็ต</option>
-          <option value="marketing">การตลาด-โฆษณา</option>
-          <option value="labor">ค่าแรง</option>
-          <option value="subscription">ซอฟต์แวร์-สมัครสมาชิก</option>
-          <option value="other">อื่นๆ</option>
-        </select>
-      </div>
-      <div>
-        <label>จำนวนเงิน (บาท)</label>
-        <input id="fin-amount" type="number" step="any" placeholder="15000">
-      </div>
-    </div>
-    <div class="row2">
-      <div>
-        <label>ซัพพลายเออร์ / จ่ายให้ใคร</label>
-        <input id="fin-supplier" type="text" placeholder="ไม่บังคับ">
-      </div>
-      <div>
-        <label>วันที่</label>
-        <input id="fin-date" type="date">
-      </div>
-    </div>
-    <label>หมายเหตุ</label>
-    <input id="fin-notes" type="text" placeholder="ไม่บังคับ">
-    <div class="checkrow">
-      <input type="checkbox" id="fin-include" checked>
-      <span>รวมในงบการเงิน (ยกเลิกติ๊กถ้าไม่อยากให้กระทบภาพรวม เช่น รีโนเวทก้อนใหญ่)</span>
-    </div>
-    <button class="btn" id="fin-submit">บันทึกรายการ</button>
-    <div class="status" id="fin-status"></div>
   </div>
 
   <div class="card">
@@ -2152,7 +2109,7 @@ async function loadPurchasingTab() {
 }
 
 // ---------- FINANCIAL STATEMENT TAB (บัญชีรายรับ-รายจ่ายจำลองของเจ้าของร้าน) ----------
-const FIN_CAT_LABEL_OWNER = { equipment: "อุปกรณ์", renovation: "รีโนเวท", rent: "ค่าเช่า", utilities: "ค่าน้ำ-ไฟ-เน็ต", marketing: "การตลาด-โฆษณา", labor: "ค่าแรง", subscription: "ซอฟต์แวร์-สมัครสมาชิก", other: "อื่นๆ" };
+const FIN_CAT_LABEL_OWNER = { equipment: "Equipment", new_menu_trial: "New Menu Trial", marketing_subscription: "Marketing & Subscriptions", renovation: "Renovation", other_fixed: "Other" };
 
 function finDateRange() {
   const fromEl = document.getElementById('fin-from');
@@ -2183,7 +2140,7 @@ async function loadFinancialsTab() {
       sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
       sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
       sb('packaging_type_items?select=type_key,quantity,ingredients(cost_per_base_unit)'),
-      sb(`shop_financial_entries?select=*&entry_date=gte.${fromDateStr}&entry_date=lte.${toDateStr}&order=entry_date.desc`),
+      sb(`purchase_log?select=*&cost_type=eq.fixed&purchase_date=gte.${fromDateStr}&purchase_date=lte.${toDateStr}&order=purchase_date.desc`),
     ]);
 
     const menuByName = {}; menuItems.forEach(m => menuByName[m.name] = m);
@@ -2229,13 +2186,13 @@ async function loadFinancialsTab() {
     const cogsF = recipeCogsF + packagingCogsF;
     const grossProfit = revenueF - cogsF;
 
-    // ---- ค่าใช้จ่ายคงที่: เฉพาะรายการที่ติ๊ก include_in_statement ----
-    const includedEntries = finEntries.filter(e => e.include_in_statement);
-    const totalFixed = includedEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
+    // ---- ค่าใช้จ่ายคงที่: เฉพาะรายการที่ติ๊ก include_in_financials ----
+    const includedEntries = finEntries.filter(e => e.include_in_financials);
+    const totalFixed = includedEntries.reduce((s, e) => s + Number(e.total_cost || 0), 0);
     const netProfit = grossProfit - totalFixed;
 
     const byCat = {};
-    includedEntries.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + Number(e.amount || 0); });
+    includedEntries.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + Number(e.total_cost || 0); });
     const catRows = Object.entries(byCat).sort((a, b) => b[1] - a[1])
       .map(([cat, amt]) => `<div style="display:flex;justify-content:space-between;font-size:11.5px;padding:4px 0;color:#8a6a4a;"><span>${FIN_CAT_LABEL_OWNER[cat] || cat}</span><span>฿${amt.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>`)
       .join('');
@@ -2251,21 +2208,21 @@ async function loadFinancialsTab() {
     `;
 
     if (!finEntries.length) {
-      listEl.innerHTML = '<div class="empty">ยังไม่มีรายการค่าใช้จ่ายคงที่ในช่วงนี้</div>';
+      listEl.innerHTML = '<div class="empty">ยังไม่มีรายการค่าใช้จ่ายคงที่ในช่วงนี้ — กรอกได้ที่หน้าจัดซื้อ (ops)</div>';
     } else {
       listEl.innerHTML = finEntries.map(e => `
         <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F0E4D8;">
-          <input type="checkbox" class="fin-toggle" data-id="${e.id}" ${e.include_in_statement ? 'checked' : ''}>
+          <input type="checkbox" class="fin-toggle" data-id="${e.id}" ${e.include_in_financials ? 'checked' : ''}>
           <div style="flex:1;">
             <div style="font-size:12.5px;font-weight:500;">${e.item_name} <span style="font-size:9.5px;color:#A8876F;">${e.source === 'receipt' ? '📷' : '⌨️'}</span></div>
-            <div style="font-size:10px;color:#A8876F;">${FIN_CAT_LABEL_OWNER[e.category] || e.category} · ${e.entry_date}${e.supplier ? ' · ' + e.supplier : ''}</div>
+            <div style="font-size:10px;color:#A8876F;">${FIN_CAT_LABEL_OWNER[e.category] || e.category} · ${e.purchase_date}${e.supplier ? ' · ' + e.supplier : ''}</div>
           </div>
-          <div style="font-weight:700;font-size:12.5px;color:${e.include_in_statement ? '#4A3428' : '#C4B39E'};">฿${Number(e.amount).toLocaleString()}</div>
+          <div style="font-weight:700;font-size:12.5px;color:${e.include_in_financials ? '#4A3428' : '#C4B39E'};">฿${Number(e.total_cost).toLocaleString()}</div>
         </div>
       `).join('');
       listEl.querySelectorAll('.fin-toggle').forEach(cb => {
         cb.addEventListener('change', async () => {
-          await sb(`shop_financial_entries?id=eq.${cb.dataset.id}`, { method: 'PATCH', body: JSON.stringify({ include_in_statement: cb.checked }) });
+          await sb(`purchase_log?id=eq.${cb.dataset.id}`, { method: 'PATCH', body: JSON.stringify({ include_in_financials: cb.checked }) });
           loadFinancialsTab();
         });
       });
@@ -2276,39 +2233,6 @@ async function loadFinancialsTab() {
 }
 document.getElementById('fin-from').addEventListener('change', loadFinancialsTab);
 document.getElementById('fin-to').addEventListener('change', loadFinancialsTab);
-
-document.getElementById('fin-submit').addEventListener('click', async () => {
-  const status = document.getElementById('fin-status');
-  const name = document.getElementById('fin-name').value.trim();
-  const category = document.getElementById('fin-category').value;
-  const amount = parseFloat(document.getElementById('fin-amount').value);
-  const supplier = document.getElementById('fin-supplier').value.trim() || null;
-  const date = document.getElementById('fin-date').value || new Date().toISOString().slice(0, 10);
-  const notes = document.getElementById('fin-notes').value.trim() || null;
-  const include = document.getElementById('fin-include').checked;
-
-  if (!name || !amount) {
-    status.textContent = 'กรอกชื่อรายการและจำนวนเงินให้ครบก่อนนะ';
-    status.className = 'status err'; status.style.display = 'block';
-    return;
-  }
-  try {
-    await sb('shop_financial_entries', {
-      method: 'POST',
-      body: JSON.stringify([{ item_name: name, category, amount, entry_date: date, supplier, notes, include_in_statement: include, source: 'manual' }])
-    });
-    status.textContent = 'บันทึกแล้ว ✓';
-    status.className = 'status ok'; status.style.display = 'block';
-    document.getElementById('fin-name').value = '';
-    document.getElementById('fin-amount').value = '';
-    document.getElementById('fin-supplier').value = '';
-    document.getElementById('fin-notes').value = '';
-    loadFinancialsTab();
-  } catch (e) {
-    status.textContent = 'บันทึกไม่สำเร็จ: ' + e.message;
-    status.className = 'status err'; status.style.display = 'block';
-  }
-});
 
 
 // ---------- GTKY TAB ----------
