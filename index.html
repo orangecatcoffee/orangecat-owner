@@ -1926,11 +1926,18 @@ const PURCH_CAT_LABEL = { coffee_bean: "Coffee Beans", milk: "Milk/Cream", syrup
 const PURCH_CAT_COLORS = { coffee_bean: "#6B4423", milk: "#D9A544", syrup: "#E8863A", base: "#7B4F9E", packaging: "#4A9B5C", other: "#A8876F",
   equipment: "#3A6B8C", new_menu_trial: "#C9546B", marketing_subscription: "#5C8A6B", renovation: "#B08442", other_fixed: "#8A7F9E" };
 const PURCH_CATS_BY_TYPE = { variable: ["coffee_bean","milk","syrup","base","packaging","other"], fixed: ["equipment","new_menu_trial","marketing_subscription","renovation","other_fixed"] };
-let purchViewState = { costType: 'variable' };
+let purchViewState = { costTypes: new Set(['variable']) };
 document.querySelectorAll('#purchCostTypeRow .chip').forEach(btn => {
   btn.addEventListener('click', () => {
-    purchViewState.costType = btn.dataset.costtype;
-    document.querySelectorAll('#purchCostTypeRow .chip').forEach(b => b.classList.toggle('selected', b === btn));
+    const val = btn.dataset.costtype;
+    if (purchViewState.costTypes.has(val)) {
+      if (purchViewState.costTypes.size === 1) return; // ต้องเหลืออย่างน้อย 1 เสมอ
+      purchViewState.costTypes.delete(val);
+      btn.classList.remove('selected');
+    } else {
+      purchViewState.costTypes.add(val);
+      btn.classList.add('selected');
+    }
     loadPurchasingTab();
   });
 });
@@ -1953,7 +1960,7 @@ function renderPurchTrend() {
   const el = document.getElementById('purchTrendChart');
   if (!el) return;
   const { granularity } = purchTrendState;
-  const activeCats = PURCH_CATS_BY_TYPE[purchViewState.costType];
+  const activeCats = [...purchViewState.costTypes].flatMap(t => PURCH_CATS_BY_TYPE[t]);
   const buckets = {};
   currentPurchLogs.forEach(p => {
     const key = purchBucketKey(p.purchase_date, granularity);
@@ -2015,7 +2022,7 @@ async function loadPurchasingTab() {
     const fromDateStr = from.toISOString().slice(0, 10);
     const toDateStr = to.toISOString().slice(0, 10);
     const [purchLogs, brewedOrders, menuItems, recipes, beans, packagingTypeItems] = await Promise.all([
-      sb(`purchase_log?select=*&cost_type=eq.${purchViewState.costType}&purchase_date=gte.${fromDateStr}&purchase_date=lte.${toDateStr}&order=purchase_date.desc`),
+      sb(`purchase_log?select=*&cost_type=in.(${[...purchViewState.costTypes].join(',')})&purchase_date=gte.${fromDateStr}&purchase_date=lte.${toDateStr}&order=purchase_date.desc`),
       // ต้นทุนที่ "ใช้ไปจริง" (COGS) มาจากออเดอร์ที่ชงในช่วงเดียวกัน — คนละก้อนกับยอดซื้อเข้าร้าน (ซื้อ vs ใช้ คนละจังหวะเวลา)
       sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}&or=(order_type.eq.customer,order_type.is.null)`),
       sb('menu_items?select=id,name,needs_bean'),
@@ -2078,7 +2085,24 @@ async function loadPurchasingTab() {
     const revenueForProfit = brewedOrders.filter(o => o.paid).reduce((s, o) => s + Number(o.price || 0) + Number(o.bean_surcharge || 0), 0);
     const netProfit = revenueForProfit - recipeCogs - packagingCogs;
 
-    if (purchViewState.costType === 'variable') {
+    const showingVariable = purchViewState.costTypes.has('variable');
+    const showingFixed = purchViewState.costTypes.has('fixed');
+    const variableTotal = purchLogs.filter(p => p.cost_type === 'variable').reduce((s, p) => s + Number(p.total_cost || 0), 0);
+    const fixedTotal = purchLogs.filter(p => p.cost_type === 'fixed').reduce((s, p) => s + Number(p.total_cost || 0), 0);
+
+    if (showingVariable && showingFixed) {
+      summaryEl.innerHTML = `
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-label">ยอดซื้อรวมทั้งหมด</div><div class="stat-val">฿${totalPurchased.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+          <div class="stat-box"><div class="stat-label">💧 ส่วน COGS (วัตถุดิบ)</div><div class="stat-val">฿${variableTotal.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+          <div class="stat-box"><div class="stat-label">📌 ส่วน Fixed (ของใหญ่/คงที่)</div><div class="stat-val">฿${fixedTotal.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+          <div class="stat-box"><div class="stat-label">กำไรสุทธิจริง (COGS เท่านั้น)</div><div class="stat-val ${netProfit>=0?'good':'bad'}">฿${netProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        </div>
+        <div style="font-size:10px;color:#A8876F;margin-top:6px;">
+          💡 ดูรวมทั้ง 2 ประเภทพร้อมกัน — กำไรสุทธิยังคำนวณจาก COGS เท่านั้น (Fixed cost ไม่เคยกระทบตัวเลขนี้) ผลกระทบของ Fixed cost ต่อกำไรสุทธิจริง ดูที่แท็บ "งบการเงิน" แทน
+        </div>
+    `;
+    } else if (showingVariable) {
       summaryEl.innerHTML = `
         <div class="stat-grid">
           <div class="stat-box"><div class="stat-label">ยอดซื้อเข้าร้านรวม</div><div class="stat-val">฿${totalPurchased.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
