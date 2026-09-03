@@ -2041,10 +2041,8 @@ async function loadPurchasingTab() {
     currentPurchLogs = purchLogs;
     renderPurchTrend();
 
-    // ---- ยอดซื้อเข้าร้านรวม แยก Variable (กระทบต้นทุนต่อแก้ว) / Fixed (แค่ track ยอดจ่าย) ----
+    // ---- ยอดซื้อเข้าร้านรวม ----
     const totalPurchased = purchLogs.reduce((s, p) => s + Number(p.total_cost || 0), 0);
-    const totalVariable = purchLogs.filter(p => p.cost_type !== 'fixed').reduce((s, p) => s + Number(p.total_cost || 0), 0);
-    const totalFixed = purchLogs.filter(p => p.cost_type === 'fixed').reduce((s, p) => s + Number(p.total_cost || 0), 0);
 
     // ---- ต้นทุนที่ใช้ไปจริง (layer 1 + layer 2) จากออเดอร์ที่ชงในช่วงนี้ ----
     const menuByName = {}; menuItems.forEach(m => menuByName[m.name] = m);
@@ -2097,14 +2095,12 @@ async function loadPurchasingTab() {
     summaryEl.innerHTML = `
       <div class="stat-grid">
         <div class="stat-box"><div class="stat-label">ยอดซื้อเข้าร้านรวม</div><div class="stat-val">฿${totalPurchased.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-        <div class="stat-box"><div class="stat-label">💧 ต้นทุนแปรผัน (วัตถุดิบ)</div><div class="stat-val">฿${totalVariable.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-        <div class="stat-box"><div class="stat-label">📌 ต้นทุนคงที่ (อุปกรณ์/รายจ่ายร้าน)</div><div class="stat-val">฿${totalFixed.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
         <div class="stat-box"><div class="stat-label">ต้นทุนสูตรที่ใช้จริง</div><div class="stat-val">฿${recipeCogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
         <div class="stat-box"><div class="stat-label">ต้นทุนบรรจุภัณฑ์ที่ใช้จริง</div><div class="stat-val">฿${packagingCogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
         <div class="stat-box"><div class="stat-label">กำไรสุทธิจริง</div><div class="stat-val ${netProfit>=0?'good':'bad'}">฿${netProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
       </div>
       <div style="font-size:10px;color:#A8876F;margin-top:6px;">
-        💡 "ยอดซื้อเข้าร้าน" = เงินที่จ่ายซื้อของเข้าสต็อกช่วงนี้ (ไม่ตรงกับต้นทุนที่ใช้จริงเป๊ะ เพราะซื้อไว้ก่อนอาจยังไม่ได้ใช้หมด) ส่วน "ต้นทุนที่ใช้จริง" มาจากแก้วที่ชงจริงในช่วงเดียวกัน · "ต้นทุนคงที่" (อุปกรณ์/ค่าเช่า ฯลฯ) ไม่เคยถูกนำไปคิดรวมในต้นทุนต่อแก้วหรือกำไรสุทธิด้านบนเลย เป็นแค่ยอดจ่ายให้ดูเฉยๆ
+        💡 "ยอดซื้อเข้าร้าน" = เงินที่จ่ายซื้อของเข้าสต็อกช่วงนี้ (ไม่ตรงกับต้นทุนที่ใช้จริงเป๊ะ เพราะซื้อไว้ก่อนอาจยังไม่ได้ใช้หมด) ส่วน "ต้นทุนที่ใช้จริง" มาจากแก้วที่ชงจริงในช่วงเดียวกัน · รายจ่ายคงที่ (อุปกรณ์/ค่าเช่า ฯลฯ) ดูได้ที่แท็บ "งบการเงิน" แทน ไม่ได้อยู่ในนี้แล้ว
       </div>
     `;
 
