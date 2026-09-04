@@ -333,18 +333,6 @@
     <div id="dimMenuProfit"><div class="loading">Loading...</div></div>
   </div>
 
-  <div class="card-title" style="padding-left:2px;margin-top:8px;color:var(--orange);">🫘 Bean Dimension</div>
-  <div class="row2" style="align-items:start;">
-    <div class="card">
-      <div class="card-title">Top 5 — Cups</div>
-      <div id="dimBeanCups"><div class="loading">Loading...</div></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Top 5 — Revenue</div>
-      <div id="dimBeanRevenue"><div class="loading">Loading...</div></div>
-    </div>
-  </div>
-
   <div class="card">
     <div class="card-title">All Transactions This Period</div>
     <label>Filter by Customer</label>
@@ -379,9 +367,10 @@
         <div id="missionPct" style="font-size:20px;font-weight:600;">–</div>
       </div>
     </div>
-    <div style="height:6px;background:rgba(0,0,0,0.06);border-radius:3px;overflow:hidden;margin-bottom:16px;">
+    <div style="height:6px;background:rgba(0,0,0,0.06);border-radius:3px;overflow:hidden;margin-bottom:12px;">
       <div id="missionBar" style="height:100%;width:0%;background:#E8863A;"></div>
     </div>
+    <div id="missionRunrate" style="font-size:12.5px;color:#8a6a4a;text-align:center;margin-bottom:16px;">–</div>
     <canvas id="missionMosaic" style="display:block;width:100%;height:auto;border-radius:12px;"></canvas>
     <p style="font-size:12px;color:var(--ol,#888);margin:8px 0 0;text-align:center;">เริ่มนับ 3 ก.ย. 2569 · แก้วขาวดำ = ยังไม่ขาย · แก้วมีสี = ขายแล้ว</p>
   </div>
@@ -787,6 +776,21 @@ async function loadMissionTab() {
     document.getElementById("missionLeft").textContent = left;
     document.getElementById("missionPct").textContent = pct + "%";
     document.getElementById("missionBar").style.width = pct + "%";
+
+    const runrateEl = document.getElementById("missionRunrate");
+    const daysElapsed = Math.max((Date.now() - new Date(MISSION_START).getTime()) / 86400000, 1);
+    const perDay = sold / daysElapsed;
+    if (left <= 0) {
+      runrateEl.textContent = "🎉 ครบ 975 แก้วแล้ว!";
+    } else if (perDay > 0) {
+      const daysToGo = Math.ceil(left / perDay);
+      const targetDate = new Date(Date.now() + daysToGo * 86400000);
+      const targetLabel = targetDate.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+      runrateEl.textContent = `เฉลี่ย ${perDay.toFixed(1)} แก้ว/วัน · ตามอัตรานี้ครบเป้าในอีกราว ${daysToGo} วัน (~${targetLabel})`;
+    } else {
+      runrateEl.textContent = "ยังไม่มีข้อมูลพอประมาณอัตราขาย";
+    }
+
     missionDrawMosaic(sold);
   } catch (e) {
     console.error("mission load failed", e);
@@ -1264,7 +1268,7 @@ async function loadReportTab() {
   freebiesEl.innerHTML = '<div class="loading">Loading...</div>';
   txnEl.innerHTML = '<div class="loading">Loading...</div>';
   document.getElementById('salesTrendChart').innerHTML = '<div class="loading">Loading...</div>';
-  ['dimCustCups','dimCustRevenue','dimMenuCups','dimMenuRevenue','dimBeanCups','dimBeanRevenue'].forEach(id => {
+  ['dimCustCups','dimCustRevenue','dimMenuCups','dimMenuRevenue'].forEach(id => {
     document.getElementById(id).innerHTML = '<div class="loading">Loading...</div>';
   });
   document.getElementById('dimMenuProfit').innerHTML = '<div class="loading">Loading...</div>';
@@ -1594,26 +1598,6 @@ async function loadReportTab() {
     const profitEntries = menuEntries
       .map(([name, d]) => ({ name, qty: d.qty, revenue: d.revenue, cogs: d.cogs, profit: d.revenue - d.cogs, margin: d.revenue ? ((d.revenue - d.cogs) / d.revenue * 100) : 0 }));
     renderStrategyMap('dimMenuProfit', profitEntries, gp);
-
-    // Dimension 3: Bean — Top 5 cups/revenue; house blends collapse into one "House Blend" bar here
-    const byBean = {};
-    customerOrders.forEach(o => {
-      if (o.omakase_set_id) return;
-      const menu = menuByName[o.menu_item_name];
-      const key = menu && menu.needs_bean ? beanKey(o) : null;
-      if (!key) return;
-      if (!byBean[key]) byBean[key] = { qty: 0, revenue: 0, cogs: 0 };
-      byBean[key].qty += 1;
-      byBean[key].revenue += orderTotal(o);
-      byBean[key].cogs += computeCost(o);
-    });
-    const beanEntries = Object.entries(byBean);
-    renderBarChart('dimBeanCups',
-      [...beanEntries].sort((a,b) => b[1].qty - a[1].qty).slice(0,5).map(([name,d]) => ({ label: name, value: d.qty })),
-      v => `${v} cups`);
-    renderBarChart('dimBeanRevenue',
-      [...beanEntries].sort((a,b) => b[1].revenue - a[1].revenue).slice(0,5).map(([name,d]) => ({ label: name, value: d.revenue })),
-      v => `฿${v.toLocaleString(undefined,{maximumFractionDigits:0})}`);
 
     // All transactions (most recent first) — includes staff/reward too, filterable by customer
     const allTxns = [...orders].sort((a,b) => new Date(b.brewed_at) - new Date(a.brewed_at));
