@@ -653,6 +653,19 @@
     <div class="status" id="qrSettingsStatus"></div>
   </div>
 
+  <div class="card">
+    <div class="card-title">🎯 รูปมิชชั่น 975 แก้ว</div>
+    <div style="font-size:12px;color:#8a6a4a;margin-bottom:12px;line-height:1.6;">
+      รูปนี้ใช้ประกอบโมเสกแก้ว 975 ใบในแท็บ Sales & Customers — เปลี่ยนที่นี่ที่เดียว มีผลทันที ไม่ต้องรอ Claude แก้โค้ด
+    </div>
+    <div id="missionPhotoCurrent" style="margin-bottom:14px;">
+      <div class="loading">กำลังโหลด...</div>
+    </div>
+    <label style="font-size:12px;color:#8a6a4a;display:block;margin-bottom:6px;">อัปโหลดรูปใหม่</label>
+    <input type="file" accept="image/*" id="missionPhotoInput" style="margin-bottom:10px;">
+    <div class="status" id="missionPhotoStatus"></div>
+  </div>
+
 </div>
 
 <script>
@@ -685,7 +698,7 @@ const MISSION_START = "2026-09-03T00:00:00+07:00";
 const MISSION_TOTAL = 975;
 const MISSION_COLS = 25;
 const MISSION_ROWS = 39;
-const MISSION_IMG_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/storage/v1/object/public/menu-images/IMG_0803.jpeg";
+let MISSION_IMG_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/storage/v1/object/public/menu-images/IMG_0803.jpeg";
 
 function mulberry32(a) {
   return function () {
@@ -763,6 +776,10 @@ function missionDrawMosaic(sold) {
 }
 async function loadMissionTab() {
   try {
+    const settingsRows = await sb('payment_settings?id=eq.1&select=mission_photo_url');
+    if (settingsRows && settingsRows[0] && settingsRows[0].mission_photo_url) {
+      MISSION_IMG_URL = settingsRows[0].mission_photo_url;
+    }
     const sold = Math.min(await getMissionCupsSold(), MISSION_TOTAL);
     const left = MISSION_TOTAL - sold;
     const pct = ((sold / MISSION_TOTAL) * 100).toFixed(1);
@@ -808,6 +825,7 @@ function parseEMVCoPromptPay(payload) {
 const ID_TAG_LABEL = { '01': 'เบอร์มือถือ', '02': 'เลขผู้เสียภาษี', '03': 'รหัสอ้างอิง e-Wallet (เช่น Make by KBank)' };
 
 async function loadSettingsTab() {
+  loadMissionPhotoSettings();
   const infoEl = document.getElementById('qrCurrentInfo');
   try {
     const rows = await sb('payment_settings?id=eq.1&select=promptpay_id,promptpay_id_tag,label,updated_at');
@@ -825,6 +843,61 @@ async function loadSettingsTab() {
     infoEl.innerHTML = 'โหลดไม่สำเร็จ: ' + e.message;
   }
 }
+
+async function loadMissionPhotoSettings() {
+  const el = document.getElementById('missionPhotoCurrent');
+  try {
+    const rows = await sb('payment_settings?id=eq.1&select=mission_photo_url,updated_at');
+    const row = rows && rows[0];
+    const url = row && row.mission_photo_url;
+    if (!url) {
+      el.innerHTML = 'ยังไม่มีรูปมิชชั่นครับ';
+    } else {
+      el.innerHTML = `<img src="${url}" style="width:100%;max-width:220px;border-radius:10px;display:block;">`;
+    }
+  } catch (e) {
+    el.innerHTML = 'โหลดไม่สำเร็จ: ' + e.message;
+  }
+}
+
+document.getElementById('missionPhotoInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('missionPhotoStatus');
+  statusEl.className = 'status';
+  statusEl.textContent = 'กำลังอัปโหลด...';
+  try {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `mission-photo-${Date.now()}.${ext}`;
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/menu-images/${path}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': file.type || 'application/octet-stream',
+        'x-upsert': 'true',
+      },
+      body: file,
+    });
+    if (!uploadRes.ok) {
+      const t = await uploadRes.text();
+      throw new Error(t || uploadRes.statusText);
+    }
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/menu-images/${path}`;
+    await sb('payment_settings?id=eq.1', {
+      method: 'PATCH',
+      body: JSON.stringify({ mission_photo_url: publicUrl, updated_at: new Date().toISOString() }),
+    });
+    statusEl.className = 'status ok';
+    statusEl.textContent = '✅ เปลี่ยนรูปมิชชั่นแล้ว มีผลทันที';
+    document.getElementById('missionPhotoInput').value = '';
+    loadMissionPhotoSettings();
+    if (reportLoaded) loadMissionTab();
+  } catch (err) {
+    statusEl.className = 'status err';
+    statusEl.textContent = 'อัปโหลดไม่สำเร็จ: ' + err.message;
+  }
+});
 
 let qrDecodedResult = null;
 
