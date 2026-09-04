@@ -373,6 +373,25 @@
     <div id="missionRunrate" style="font-size:12.5px;color:#8a6a4a;text-align:center;margin-bottom:16px;">–</div>
     <canvas id="missionMosaic" style="display:block;width:100%;height:auto;border-radius:12px;"></canvas>
     <p style="font-size:12px;color:var(--ol,#888);margin:8px 0 0;text-align:center;">เริ่มนับ 3 ก.ย. 2569 · แก้วขาวดำ = ยังไม่ขาย · แก้วมีสี = ขายแล้ว</p>
+
+    <div style="margin-top:18px;padding-top:16px;border-top:2px solid #F0E4D8;">
+      <div style="font-size:13px;font-weight:700;color:#4A3428;margin-bottom:10px;">🧮 คำนวณเป้าหมาย</div>
+      <div class="chip-row" id="missionCalcModeRow">
+        <button type="button" class="chip range-chip selected" data-calc-mode="perday">ตั้งแก้ว/วัน</button>
+        <button type="button" class="chip range-chip" data-calc-mode="date">ตั้งวันที่เป้าหมาย</button>
+      </div>
+      <div id="missionCalcInputWrap" style="margin-top:10px;">
+        <div id="missionCalcPerdayInput">
+          <label style="font-size:12px;color:#8a6a4a;display:block;margin-bottom:6px;">สมมติขายได้กี่แก้ว/วัน</label>
+          <input type="number" id="missionCalcPerday" min="0" step="0.1" placeholder="เช่น 15" style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:13px;">
+        </div>
+        <div id="missionCalcDateInput" style="display:none;">
+          <label style="font-size:12px;color:#8a6a4a;display:block;margin-bottom:6px;">อยากครบ 975 แก้ววันไหน</label>
+          <input type="date" id="missionCalcDate" style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:13px;">
+        </div>
+      </div>
+      <div id="missionCalcResult" style="margin-top:12px;background:#FFF3E8;border-radius:10px;padding:12px 14px;font-size:13px;color:#4A3428;min-height:20px;">กรอกตัวเลขด้านบนเพื่อดูผลลัพธ์</div>
+    </div>
   </div>
 
 </div>
@@ -776,6 +795,7 @@ async function loadMissionTab() {
     document.getElementById("missionLeft").textContent = left;
     document.getElementById("missionPct").textContent = pct + "%";
     document.getElementById("missionBar").style.width = pct + "%";
+    missionCupsLeft = left;
 
     const runrateEl = document.getElementById("missionRunrate");
     const daysElapsed = Math.max((Date.now() - new Date(MISSION_START).getTime()) / 86400000, 1);
@@ -796,6 +816,56 @@ async function loadMissionTab() {
     console.error("mission load failed", e);
   }
 }
+
+// ---------- MISSION CALCULATOR: "cups/day" <-> "target date" ----------
+let missionCupsLeft = 0;
+
+function updateMissionCalc() {
+  const resultEl = document.getElementById("missionCalcResult");
+  const mode = document.querySelector('#missionCalcModeRow .chip.selected').dataset.calcMode;
+  const left = missionCupsLeft;
+  if (left <= 0) {
+    resultEl.textContent = "ครบเป้าหมาย 975 แก้วแล้วครับ 🎉";
+    return;
+  }
+  if (mode === "perday") {
+    const v = parseFloat(document.getElementById("missionCalcPerday").value);
+    if (!v || v <= 0) {
+      resultEl.textContent = "กรอกจำนวนแก้ว/วันเป็นตัวเลขที่มากกว่า 0";
+      return;
+    }
+    const daysToGo = Math.ceil(left / v);
+    const targetDate = new Date(Date.now() + daysToGo * 86400000);
+    const label = targetDate.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+    resultEl.textContent = `ขาย ${v} แก้ว/วัน → เหลือ ${left} แก้ว จะครบเป้าในอีก ${daysToGo} วัน (ประมาณ ${label})`;
+  } else {
+    const dateStr = document.getElementById("missionCalcDate").value;
+    if (!dateStr) {
+      resultEl.textContent = "เลือกวันที่เป้าหมายก่อนครับ";
+      return;
+    }
+    const target = new Date(dateStr + "T23:59:59");
+    const daysLeft = Math.ceil((target.getTime() - Date.now()) / 86400000);
+    if (daysLeft <= 0) {
+      resultEl.textContent = "วันที่เลือกผ่านไปแล้วหรือคือวันนี้ครับ ลองเลือกวันถัดไป";
+      return;
+    }
+    const needPerDay = left / daysLeft;
+    resultEl.textContent = `เหลือ ${left} แก้ว ใน ${daysLeft} วัน → ต้องขายเฉลี่ย ${needPerDay.toFixed(1)} แก้ว/วัน`;
+  }
+}
+
+document.querySelectorAll("#missionCalcModeRow .chip").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#missionCalcModeRow .chip").forEach(b => b.classList.toggle("selected", b === btn));
+    const mode = btn.dataset.calcMode;
+    document.getElementById("missionCalcPerdayInput").style.display = mode === "perday" ? "block" : "none";
+    document.getElementById("missionCalcDateInput").style.display = mode === "date" ? "block" : "none";
+    updateMissionCalc();
+  });
+});
+document.getElementById("missionCalcPerday").addEventListener("input", updateMissionCalc);
+document.getElementById("missionCalcDate").addEventListener("input", updateMissionCalc);
 
 // ---------- SETTINGS TAB: QR รับเงิน (PromptPay) ----------
 function parseEMVCoPromptPay(payload) {
