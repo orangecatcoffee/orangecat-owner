@@ -726,6 +726,16 @@ function missionShuffledIdx(n, seed) {
   }
   return arr;
 }
+// Fill order for "sold" cups: bottom row first, left to right, then upward row by row
+function missionFillOrder(cols, rows) {
+  const order = [];
+  for (let r = rows - 1; r >= 0; r--) {
+    for (let c = 0; c < cols; c++) {
+      order.push(r * cols + c);
+    }
+  }
+  return order;
+}
 function missionDrawCup(ctx, x, y, w, h, color) {
   const topW = w * 0.88, botW = w * 0.56;
   const topX = x + (w - topW) / 2, botX = x + (w - botW) / 2;
@@ -762,7 +772,7 @@ function missionDrawMosaic(sold) {
     const octx = off.getContext("2d");
     octx.drawImage(img, 0, 0, MISSION_COLS, MISSION_ROWS);
     const data = octx.getImageData(0, 0, MISSION_COLS, MISSION_ROWS).data;
-    const order = missionShuffledIdx(MISSION_TOTAL, 42);
+    const order = missionFillOrder(MISSION_COLS, MISSION_ROWS);
     const coloredSet = new Set(order.slice(0, sold));
     const canvas = document.getElementById("missionMosaic");
     canvas.width = W; canvas.height = H;
