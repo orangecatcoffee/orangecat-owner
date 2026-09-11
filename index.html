@@ -656,6 +656,12 @@
   </div>
 
   <div class="card">
+    <div class="card-title">⏳ รอดำเนินการ (จะเกิดขึ้นเมื่อเปิดระบบ)</div>
+    <div style="font-size:12px;color:rgba(74,52,40,0.5);margin-bottom:10px;">คำนวณสดจากข้อมูลจริงตอนนี้ — ยังไม่มีการส่งอะไรออกไปจนกว่าจะเปิด flag ที่ Admin</div>
+    <div id="crmPendingList"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
     <div class="card-title">👋 Outreach Log (Win-back)</div>
     <div id="crmOutreachList"><div class="loading">กำลังโหลด...</div></div>
   </div>
@@ -1132,7 +1138,7 @@ let crmRewardsCache = [];
 let crmRewardFilter = 'all';
 
 async function loadCrmTab() {
-  await Promise.all([loadCrmStatus(), loadCrmRewards(), loadCrmOutreach()]);
+  await Promise.all([loadCrmStatus(), loadCrmRewards(), loadCrmOutreach(), loadCrmPending()]);
 
   document.querySelectorAll('.crm-reward-filter').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1217,6 +1223,42 @@ async function crmRedeemReward(id) {
     await loadCrmRewards();
   } catch (e) {
     alert('บันทึกไม่สำเร็จ: ' + e.message);
+  }
+}
+
+async function loadCrmPending() {
+  const el = document.getElementById('crmPendingList');
+  el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try {
+    const [loyalty, birthday, winback] = await Promise.all([
+      sb('rpc/get_loyalty_new_milestones', { method: 'POST', body: '{}' }),
+      sb('rpc/get_birthday_candidates', { method: 'POST', body: '{}' }),
+      sb('rpc/get_winback_candidates', { method: 'POST', body: '{}' }),
+    ]);
+
+    const sections = [];
+    if (loyalty && loyalty.length) {
+      sections.push(`<div style="font-weight:600;font-size:13px;margin:10px 0 4px;">🎁 Loyalty (${loyalty.length})</div>` +
+        loyalty.map(c => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span>${c.customer_name}</span><span style="font-size:12px;color:rgba(74,52,40,0.55);">ครบ ${c.milestone} แก้ว (สะสม ${c.paid_cups})</span>
+        </div>`).join(''));
+    }
+    if (birthday && birthday.length) {
+      sections.push(`<div style="font-weight:600;font-size:13px;margin:10px 0 4px;">🎂 Birthday วันนี้ (${birthday.length})</div>` +
+        birthday.map(c => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span>${c.customer_name}</span>
+        </div>`).join(''));
+    }
+    if (winback && winback.length) {
+      sections.push(`<div style="font-weight:600;font-size:13px;margin:10px 0 4px;">👋 Win-back (${winback.length})</div>` +
+        winback.map(c => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span>${c.customer_name}</span><span style="font-size:12px;color:rgba(74,52,40,0.55);">หายไป ${c.days_since} วัน</span>
+        </div>`).join(''));
+    }
+
+    el.innerHTML = sections.length ? sections.join('') : '<div class="empty">ไม่มีใครเข้าเกณฑ์ตอนนี้</div>';
+  } catch (e) {
+    el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
   }
 }
 
