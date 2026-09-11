@@ -252,6 +252,7 @@
   <div class="tab" data-tab="purchasing">Purchasing</div>
   <div class="tab" data-tab="financials">งบการเงิน</div>
   <div class="tab" data-tab="gtky">GTKY</div>
+  <div class="tab" data-tab="crm">CRM</div>
   <div class="tab" data-tab="settings">Settings</div>
 </div>
 
@@ -630,6 +631,33 @@
     <div id="custList"><div class="loading">Loading...</div></div>
   </div>
 
+  </div>
+
+</div>
+
+<!-- ============ TAB: CRM AUTOMATION ============ -->
+<div class="view" id="view-crm">
+
+  <div class="card">
+    <div class="card-title">⚙️ สถานะระบบ</div>
+    <div id="crmStatusBox"><div class="loading">กำลังโหลด...</div></div>
+    <div style="font-size:12px;color:rgba(74,52,40,0.5);margin-top:8px;">เปิด/ปิดและตั้งค่าจริงอยู่ที่หน้า Admin — ที่นี่แสดงสถานะให้ดูเฉยๆ</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🎁 Rewards (Birthday + Loyalty)</div>
+    <div class="chip-row" style="margin-bottom:10px;">
+      <button type="button" class="chip crm-reward-filter selected" data-filter="all">ทั้งหมด</button>
+      <button type="button" class="chip crm-reward-filter" data-filter="unredeemed">ยังไม่แลก</button>
+      <button type="button" class="chip crm-reward-filter" data-filter="loyalty">Loyalty</button>
+      <button type="button" class="chip crm-reward-filter" data-filter="birthday">Birthday</button>
+    </div>
+    <div id="crmRewardsList"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">👋 Outreach Log (Win-back)</div>
+    <div id="crmOutreachList"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
 </div>
@@ -1095,8 +1123,123 @@ document.querySelectorAll(".tab").forEach(tab => {
     if (tab.dataset.tab === "financials" && !finLoaded) { finLoaded = true; loadFinancialsTab(); }
     if (tab.dataset.tab === "gtky" && !gtkyLoaded) { gtkyLoaded = true; loadGtkyTab(); }
     if (tab.dataset.tab === "settings" && !settingsLoaded) { settingsLoaded = true; loadSettingsTab(); }
+    if (tab.dataset.tab === "crm" && !crmLoaded) { crmLoaded = true; loadCrmTab(); }
   });
 });
+
+// ---------- CRM TAB ----------
+let crmRewardsCache = [];
+let crmRewardFilter = 'all';
+
+async function loadCrmTab() {
+  await Promise.all([loadCrmStatus(), loadCrmRewards(), loadCrmOutreach()]);
+
+  document.querySelectorAll('.crm-reward-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.crm-reward-filter').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      crmRewardFilter = btn.dataset.filter;
+      renderCrmRewards();
+    });
+  });
+}
+
+async function loadCrmStatus() {
+  const el = document.getElementById('crmStatusBox');
+  try {
+    const rows = await sb('system_settings?select=key,value&key=in.(crm.winback_enabled,crm.birthday_enabled,crm.loyalty_enabled,daily_brief.enabled,auto_feedback.enabled)');
+    const map = {};
+    rows.forEach(r => map[r.key] = r.value);
+    const journeys = [
+      ['crm.winback_enabled', '👋 Win-back'],
+      ['crm.birthday_enabled', '🎂 Birthday'],
+      ['crm.loyalty_enabled', '🎁 Loyalty'],
+      ['daily_brief.enabled', '☀️ Daily Brief'],
+      ['auto_feedback.enabled', '💬 Auto-Feedback'],
+    ];
+    el.innerHTML = journeys.map(([key, label]) => {
+      const on = map[key] === true;
+      return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+        <span>${label}</span>
+        <span style="font-weight:600;color:${on ? 'var(--green)' : 'rgba(74,52,40,0.4)'};">${on ? '● เปิดอยู่' : '○ ปิดอยู่'}</span>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
+  }
+}
+
+async function loadCrmRewards() {
+  const el = document.getElementById('crmRewardsList');
+  el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try {
+    crmRewardsCache = await sb('crm_rewards?select=*&order=earned_at.desc');
+    renderCrmRewards();
+  } catch (e) {
+    el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
+  }
+}
+
+function renderCrmRewards() {
+  const el = document.getElementById('crmRewardsList');
+  let rows = crmRewardsCache;
+  if (crmRewardFilter === 'unredeemed') rows = rows.filter(r => !r.redeemed);
+  else if (crmRewardFilter === 'loyalty') rows = rows.filter(r => r.source === 'loyalty');
+  else if (crmRewardFilter === 'birthday') rows = rows.filter(r => r.source === 'birthday');
+
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty">ไม่มีรายการ</div>';
+    return;
+  }
+
+  el.innerHTML = rows.map(r => {
+    const sourceLabel = r.source === 'loyalty' ? `🎁 ครบ ${r.milestone} แก้ว` : '🎂 วันเกิด';
+    const dateStr = new Date(r.earned_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:8px;">
+      <div>
+        <div style="font-weight:600;">${r.customer_name || r.line_user_id}</div>
+        <div style="font-size:12px;color:rgba(74,52,40,0.55);">${sourceLabel} · ${r.reward_text || ''} · ${dateStr}</div>
+      </div>
+      ${r.redeemed
+        ? `<span style="font-size:12px;color:var(--green);font-weight:600;white-space:nowrap;">✓ แลกแล้ว</span>`
+        : `<button type="button" class="btn" style="padding:6px 14px;font-size:13px;white-space:nowrap;" onclick="crmRedeemReward('${r.id}')">แลกแล้ว</button>`}
+    </div>`;
+  }).join('');
+}
+
+async function crmRedeemReward(id) {
+  if (!confirm('ยืนยันว่าลูกค้าแลกสิทธิ์นี้ไปแล้ว?')) return;
+  try {
+    await sb(`crm_rewards?id=eq.${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ redeemed: true, redeemed_at: new Date().toISOString() }),
+    });
+    await loadCrmRewards();
+  } catch (e) {
+    alert('บันทึกไม่สำเร็จ: ' + e.message);
+  }
+}
+
+async function loadCrmOutreach() {
+  const el = document.getElementById('crmOutreachList');
+  el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try {
+    const rows = await sb('crm_journey_enrollments?select=*&journey_key=eq.win_back&order=last_sent_at.desc');
+    if (!rows.length) {
+      el.innerHTML = '<div class="empty">ยังไม่เคยทักลูกค้าคนไหนเลย</div>';
+      return;
+    }
+    el.innerHTML = rows.map(r => {
+      const dateStr = new Date(r.last_sent_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+      return `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+        <span style="font-weight:600;">${r.customer_name || r.line_user_id}</span>
+        <span style="font-size:12px;color:rgba(74,52,40,0.55);">ทักล่าสุด ${dateStr} (${r.send_count || 1} ครั้ง)</span>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
+  }
+}
 
 // ---------- REPORT TAB ----------
 const SWEETNESS_RULES_REPORT = {
@@ -1115,6 +1258,7 @@ let gtkyLoaded = false;
 let purchLoaded = false;
 let finLoaded = false;
 let settingsLoaded = false;
+let crmLoaded = false;
 reportLoaded = true;
 loadReportTab();
 loadCustomerTab();
