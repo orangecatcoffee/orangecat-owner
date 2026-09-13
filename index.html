@@ -261,6 +261,12 @@
 <div class="view active" id="view-report">
 
   <div class="card">
+    <div class="card-title">🆕 สมาชิกใหม่ล่าสุด</div>
+    <div style="font-size:11px;color:rgba(74,52,40,0.5);margin-bottom:8px;">อัปเดตทุกครั้งที่เปิดหน้านี้ — เรียงตามสมัครล่าสุดก่อน</div>
+    <div id="newMembersList"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
     <div class="card-title">Date Range</div>
     <div class="chip-row" id="reportRangeRow">
       <button type="button" class="chip range-chip selected" data-range="all">All</button>
@@ -1469,6 +1475,7 @@ reportLoaded = true;
 loadReportTab();
 loadCustomerTab();
 loadMissionTab();
+loadNewMembers();
 
 async function resolveEarliestDate() {
   if (earliestDateCache) return earliestDateCache;
@@ -1684,6 +1691,33 @@ function renderBarChart(containerId, items, valueFmt) {
       <div class="barchart-track"><div class="barchart-fill" style="width:${Math.max(4, (i.value / max) * 100)}%;"></div></div>
     </div>
   `).join('');
+}
+
+async function loadNewMembers() {
+  const el = document.getElementById('newMembersList');
+  try {
+    const rows = await sb('members?select=display_name,phone,created_at,birthday&order=created_at.desc&limit=8');
+    if (!rows || !rows.length) { el.innerHTML = '<div class="empty">ยังไม่มีสมาชิกเลย</div>'; return; }
+
+    const now = new Date();
+    el.innerHTML = rows.map(m => {
+      const created = new Date(m.created_at);
+      const hoursAgo = (now - created) / 3600000;
+      const isNew = hoursAgo <= 24;
+      const timeLabel = hoursAgo < 1 ? 'เมื่อสักครู่'
+        : hoursAgo < 24 ? `${Math.floor(hoursAgo)} ชม.ที่แล้ว`
+        : created.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+        <div>
+          <span style="font-weight:600;">${m.display_name}</span>
+          ${isNew ? '<span style="background:#4A9B5C;color:#fff;font-size:10px;padding:2px 7px;border-radius:999px;margin-left:6px;">ใหม่</span>' : ''}
+        </div>
+        <span style="font-size:12px;color:rgba(74,52,40,0.55);">${timeLabel}</span>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
+  }
 }
 
 async function loadReportTab() {
