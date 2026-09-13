@@ -253,6 +253,7 @@
   <div class="tab" data-tab="financials">งบการเงิน</div>
   <div class="tab" data-tab="gtky">GTKY</div>
   <div class="tab" data-tab="crm">CRM</div>
+  <div class="tab" data-tab="content">Content</div>
   <div class="tab" data-tab="settings">Settings</div>
 </div>
 
@@ -664,6 +665,23 @@
   <div class="card">
     <div class="card-title">👋 Outreach Log (Win-back)</div>
     <div id="crmOutreachList"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+</div>
+
+<!-- ============ TAB: CONTENT (Social) ============ -->
+<div class="view" id="view-content">
+
+  <div class="card">
+    <div class="card-title">📢 ร่างโพสต์ Social</div>
+    <div style="font-size:12px;color:rgba(74,52,40,0.5);margin-bottom:10px;">แก้ข้อความ/ใส่รูป/กด "พร้อมโพสต์" — Claude จะมาเช็คแล้วโพสต์จริงผ่าน Metricool ให้</div>
+    <div class="chip-row" style="margin-bottom:10px;">
+      <button type="button" class="chip content-filter selected" data-filter="active">รอดำเนินการ</button>
+      <button type="button" class="chip content-filter" data-filter="posted">โพสต์แล้ว</button>
+      <button type="button" class="chip content-filter" data-filter="all">ทั้งหมด</button>
+    </div>
+    <button type="button" class="btn" id="newDraftBtn" style="margin-bottom:14px;">+ ร่างใหม่เอง</button>
+    <div id="contentDraftList"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
 </div>
@@ -1130,6 +1148,7 @@ document.querySelectorAll(".tab").forEach(tab => {
     if (tab.dataset.tab === "gtky" && !gtkyLoaded) { gtkyLoaded = true; loadGtkyTab(); }
     if (tab.dataset.tab === "settings" && !settingsLoaded) { settingsLoaded = true; loadSettingsTab(); }
     if (tab.dataset.tab === "crm" && !crmLoaded) { crmLoaded = true; loadCrmTab(); }
+    if (tab.dataset.tab === "content" && !contentLoaded) { contentLoaded = true; loadContentTab(); }
   });
 });
 
@@ -1262,6 +1281,150 @@ async function loadCrmPending() {
   }
 }
 
+// ---------- CONTENT TAB ----------
+let contentDraftsCache = [];
+let contentFilter = 'active';
+
+const PILLAR_LABELS = {
+  product_spotlight: '🎉 Product Spotlight',
+  behind_scenes: '🔮 Behind the Scenes',
+  customer_love: '⭐ Customer Love',
+  mascot_vibe: '🐱 Mascot & Vibe',
+  manual: '✍️ เขียนเอง',
+};
+
+async function loadContentTab() {
+  document.querySelectorAll('.content-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.content-filter').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      contentFilter = btn.dataset.filter;
+      renderContentDrafts();
+    });
+  });
+  document.getElementById('newDraftBtn').addEventListener('click', createManualDraft);
+  await loadContentDrafts();
+}
+
+async function loadContentDrafts() {
+  const el = document.getElementById('contentDraftList');
+  el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try {
+    contentDraftsCache = await sb('content_drafts?select=*&order=created_at.desc');
+    renderContentDrafts();
+  } catch (e) {
+    el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
+  }
+}
+
+function renderContentDrafts() {
+  const el = document.getElementById('contentDraftList');
+  let rows = contentDraftsCache;
+  if (contentFilter === 'active') rows = rows.filter(r => r.status === 'draft' || r.status === 'ready');
+  else if (contentFilter === 'posted') rows = rows.filter(r => r.status === 'posted');
+
+  if (!rows.length) { el.innerHTML = '<div class="empty">ไม่มีรายการ</div>'; return; }
+
+  el.innerHTML = rows.map(r => {
+    const dateStr = new Date(r.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+    const statusBadge = r.status === 'posted'
+      ? `<span style="font-size:11px;color:var(--green);font-weight:600;">✓ โพสต์แล้ว</span>`
+      : r.status === 'ready'
+        ? `<span style="font-size:11px;color:var(--orange);font-weight:600;">⏳ พร้อมโพสต์ — รอ Claude</span>`
+        : `<span style="font-size:11px;color:rgba(74,52,40,0.5);">📝 ร่าง</span>`;
+
+    return `<div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:12px;font-weight:600;color:rgba(74,52,40,0.6);">${PILLAR_LABELS[r.pillar] || r.pillar}</span>
+        ${statusBadge}
+      </div>
+      <textarea class="draft-caption" data-id="${r.id}" rows="4" style="width:100%;padding:10px;border-radius:10px;border:2px solid var(--border);font-family:inherit;font-size:13.5px;margin-bottom:8px;" ${r.status === 'posted' ? 'disabled' : ''}>${r.caption}</textarea>
+      ${r.image_url ? `<img src="${r.image_url}" style="width:100%;border-radius:10px;margin-bottom:8px;">` : ''}
+      ${r.status !== 'posted' ? `
+        <input type="file" accept="image/*" class="draft-image-input" data-id="${r.id}" style="margin-bottom:8px;font-size:12px;">
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn-save save-caption-btn" data-id="${r.id}">บันทึกข้อความ</button>
+          ${r.status === 'draft' ? `<button type="button" class="btn-save mark-ready-btn" data-id="${r.id}" style="background:var(--orange);">✓ พร้อมโพสต์</button>` : ''}
+          ${r.status === 'ready' ? `<button type="button" class="btn-save unmark-ready-btn" data-id="${r.id}" style="background:rgba(74,52,40,0.4);">ยกเลิกพร้อมโพสต์</button>` : ''}
+        </div>
+      ` : `<div style="font-size:11px;color:rgba(74,52,40,0.4);">โพสต์เมื่อ ${new Date(r.posted_at).toLocaleDateString('th-TH')}</div>`}
+      <div style="font-size:10px;color:rgba(74,52,40,0.35);margin-top:6px;">สร้างเมื่อ ${dateStr}</div>
+    </div>`;
+  }).join('');
+
+  el.querySelectorAll('.save-caption-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const textarea = el.querySelector(`.draft-caption[data-id="${btn.dataset.id}"]`);
+      btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+      await sb(`content_drafts?id=eq.${btn.dataset.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ caption: textarea.value, updated_at: new Date().toISOString() }),
+      });
+      btn.textContent = '✓ บันทึกแล้ว';
+      setTimeout(() => { btn.disabled = false; btn.textContent = 'บันทึกข้อความ'; }, 1200);
+    });
+  });
+
+  el.querySelectorAll('.mark-ready-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await sb(`content_drafts?id=eq.${btn.dataset.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'ready', updated_at: new Date().toISOString() }),
+      });
+      loadContentDrafts();
+    });
+  });
+
+  el.querySelectorAll('.unmark-ready-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await sb(`content_drafts?id=eq.${btn.dataset.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'draft', updated_at: new Date().toISOString() }),
+      });
+      loadContentDrafts();
+    });
+  });
+
+  el.querySelectorAll('.draft-image-input').forEach(input => {
+    input.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const id = input.dataset.id;
+      try {
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const path = `content-draft-${id}-${Date.now()}.${ext}`;
+        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/menu-images/${path}`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': file.type || 'application/octet-stream',
+            'x-upsert': 'true',
+          },
+          body: file,
+        });
+        if (!uploadRes.ok) throw new Error(await uploadRes.text());
+        const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/menu-images/${path}`;
+        await sb(`content_drafts?id=eq.${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ image_url: publicUrl, updated_at: new Date().toISOString() }),
+        });
+        loadContentDrafts();
+      } catch (err) {
+        alert('อัปโหลดรูปไม่สำเร็จ: ' + err.message);
+      }
+    });
+  });
+}
+
+async function createManualDraft() {
+  await sb('content_drafts', {
+    method: 'POST',
+    body: JSON.stringify([{ pillar: 'manual', caption: '', status: 'draft', source_note: 'manual: สร้างเองจาก Owner' }]),
+  });
+  loadContentDrafts();
+}
+
 async function loadCrmOutreach() {
   const el = document.getElementById('crmOutreachList');
   el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
@@ -1301,6 +1464,7 @@ let purchLoaded = false;
 let finLoaded = false;
 let settingsLoaded = false;
 let crmLoaded = false;
+let contentLoaded = false;
 reportLoaded = true;
 loadReportTab();
 loadCustomerTab();
