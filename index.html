@@ -2105,7 +2105,9 @@ async function loadReportTab() {
             const cost = computeCost(o);
             let subLine;
             if (isSelfConsumed) {
-              subLine = `<span>ต้นทุน ฿${cost.toFixed(0)}</span><span class="staff-badge">Staff แมวส้ม</span>`;
+              // แยก label ตาม order_type จริง — เดิม hardcode "Staff แมวส้ม" ให้ทั้ง staff และ reward ปนกัน ทำให้แก้วแลกแต้มลูกค้าโชว์ผิดเป็น staff drink
+              const selfLabel = o.order_type === 'reward' ? '🎁 แลกแต้มสะสม' : 'Staff แมวส้ม';
+              subLine = `<span>ต้นทุน ฿${cost.toFixed(0)}</span><span class="staff-badge">${selfLabel}</span>`;
             } else if (o.omakase_set_id && !omakaseResolved) {
               subLine = `<span>ต้นทุน ฿${cost.toFixed(0)}</span><span class="staff-badge">รอครบเซ็ต Omakase</span>`;
             } else {
