@@ -1251,6 +1251,34 @@ async function crmRedeemReward(id) {
   }
 }
 
+// เพิ่ม 1 ต.ค. 2569 — ปิดช่องโหว่: ลิสต์ "รอเข้าเกณฑ์" เดิมเป็นแค่ข้อมูลสดจาก RPC ไม่เคยถูกบันทึกถาวร
+// กด "บันทึกรอแลก" เพื่อย้ายเข้า crm_rewards (redeemed=false) ก่อน ถึงจะมาขึ้นในลิสต์ "ยังไม่ได้แลก" ด้านบน
+// ที่กด "แลกแล้ว" ได้จริง — ป้องกันลูกค้าครบสิทธิ์ซ้ำแล้วไม่มีที่ไหนจำไว้ว่าให้ไปหรือยัง
+async function crmCaptureLoyaltyMilestone(lineUserId, customerName, milestone, btn) {
+  if (!confirm(`บันทึก "${customerName}" ครบ ${milestone} แก้ว เป็นสิทธิ์รอแลก?`)) return;
+  btn.disabled = true;
+  btn.textContent = 'กำลังบันทึก...';
+  try {
+    await sb('crm_rewards', {
+      method: 'POST',
+      body: JSON.stringify({
+        line_user_id: lineUserId,
+        customer_name: customerName,
+        source: 'loyalty',
+        milestone: milestone,
+        period_key: String(milestone),
+        reward_text: 'เครื่องดื่มฟรี 1 แก้ว',
+        redeemed: false,
+      }),
+    });
+    await Promise.all([loadCrmRewards(), loadCrmPending()]);
+  } catch (e) {
+    alert('บันทึกไม่สำเร็จ: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'บันทึกรอแลก';
+  }
+}
+
 async function loadCrmPending() {
   const el = document.getElementById('crmPendingList');
   el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
@@ -1264,8 +1292,12 @@ async function loadCrmPending() {
     const sections = [];
     if (loyalty && loyalty.length) {
       sections.push(`<div style="font-weight:600;font-size:13px;margin:10px 0 4px;">🎁 Loyalty (${loyalty.length})</div>` +
-        loyalty.map(c => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
-          <span>${c.customer_name}</span><span style="font-size:12px;color:rgba(74,52,40,0.55);">ครบ ${c.milestone} แก้ว (สะสม ${c.paid_cups})</span>
+        loyalty.map(c => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);gap:8px;">
+          <div><span>${c.customer_name}</span><br><span style="font-size:12px;color:rgba(74,52,40,0.55);">ครบ ${c.milestone} แก้ว (สะสม ${c.paid_cups})</span></div>
+          <button type="button" class="btn btn-capture-loyalty" style="padding:6px 12px;font-size:12.5px;white-space:nowrap;"
+            data-line="${String(c.line_user_id).replace(/"/g,'&quot;')}"
+            data-name="${String(c.customer_name).replace(/"/g,'&quot;')}"
+            data-milestone="${c.milestone}">บันทึกรอแลก</button>
         </div>`).join(''));
     }
     if (birthday && birthday.length) {
@@ -1282,6 +1314,9 @@ async function loadCrmPending() {
     }
 
     el.innerHTML = sections.length ? sections.join('') : '<div class="empty">ไม่มีใครเข้าเกณฑ์ตอนนี้</div>';
+    el.querySelectorAll('.btn-capture-loyalty').forEach(btn => {
+      btn.addEventListener('click', () => crmCaptureLoyaltyMilestone(btn.dataset.line, btn.dataset.name, Number(btn.dataset.milestone), btn));
+    });
   } catch (e) {
     el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
   }
