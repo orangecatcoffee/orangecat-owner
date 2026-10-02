@@ -2311,10 +2311,9 @@ async function loadCustomerTab() {
       return { m, myOrders, myFeedback, myGtky, myManualNotes, avgRating, favBean, favMenu, revenue };
     }).sort((a, b) => b.revenue - a.revenue || b.myOrders.length - a.myOrders.length);
 
-    listEl.innerHTML = enriched.map((row, idx) => {
+    const STAFF_LINE_IDS = ['U9e5b79a29578bb5e62df0ac7b0585436', 'U12c18047ff0ace4c831fe4ed8f277d3f'];
+    function renderCustRow(row, rankBadge) {
       const { m, myOrders, myFeedback, myGtky, myManualNotes, avgRating, favBean, favMenu, revenue } = row;
-      const rank = idx + 1;
-      const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
 
       let insight = 'Not enough data yet — waiting for more orders/feedback';
       if (avgRating !== null || favBean || favMenu) {
@@ -2437,7 +2436,23 @@ async function loadCustomerTab() {
           </div>
         </div>
       `;
+    }
+
+    const staffRows = enriched.filter(row => STAFF_LINE_IDS.includes(row.m.line_user_id));
+    const regularRows = enriched.filter(row => !STAFF_LINE_IDS.includes(row.m.line_user_id));
+
+    const staffSectionHtml = staffRows.length ? `
+      <div class="cust-subhead" style="font-size:12px;color:var(--green);margin:4px 0 8px;">⭐ Staff</div>
+      ${staffRows.map(row => renderCustRow(row, '👩‍🍳')).join('')}
+    ` : '';
+
+    const regularListHtml = regularRows.map((row, idx) => {
+      const rank = idx + 1;
+      const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+      return renderCustRow(row, rankBadge);
     }).join('');
+
+    listEl.innerHTML = staffSectionHtml + regularListHtml;
 
     listEl.querySelectorAll('.cust-card').forEach(card => {
       card.addEventListener('click', (e) => {
