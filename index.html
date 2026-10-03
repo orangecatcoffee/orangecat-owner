@@ -267,6 +267,15 @@
   </div>
 
   <div class="card">
+    <div class="card-title">ช่องทางขาย</div>
+    <div class="chip-row" id="reportChannelRow">
+      <button type="button" class="chip channel-chip selected" data-channel="all">ทุกช่องทาง</button>
+      <button type="button" class="chip channel-chip" data-channel="own">🏪 ขายเอง (หน้าร้าน/LINE)</button>
+    </div>
+    <div id="reportChannelNote" style="font-size:10.5px;color:#A8876F;margin-top:8px;line-height:1.6;">เลือกช่องทางเพื่อดูยอด กำไร และกราฟของช่องทางนั้นๆ — ออเดอร์จากแพลตฟอร์ม (เช่น Grab) นับยอดสุทธิหลังหัก GP</div>
+  </div>
+
+  <div class="card">
     <div class="card-title">Date Range</div>
     <div class="chip-row" id="reportRangeRow">
       <button type="button" class="chip range-chip selected" data-range="all">All</button>
@@ -290,6 +299,11 @@
   <div class="card">
     <div class="card-title" id="reportPeriodLabel">Overview</div>
     <div id="reportSummary"><div class="loading">Loading...</div></div>
+  </div>
+
+  <div class="card" id="reportChannelCompareCard" style="display:none;">
+    <div class="card-title">🛵 เทียบช่องทาง — คุ้มไหม</div>
+    <div id="reportChannelCompare"></div>
   </div>
 
   <div class="card">
@@ -1498,6 +1512,7 @@ const FLAT_BEAN_COST = 20;
 // its own column so menu-dimension reporting can roll special-bean drinks up under their base name).
 function orderTotal(o) { return Number(o.price || 0) + Number(o.bean_surcharge || 0); }
 let reportRange = 'all';
+let reportChannel = 'all'; // 'all' | 'own' (ขายเอง ไม่หัก GP) | channel_key ของแพลตฟอร์ม เช่น 'grab'
 let earliestDateCache = null;
 let reportLoaded = false;
 let gtkyLoaded = false;
@@ -1601,6 +1616,23 @@ document.getElementById('reportRangeRow').addEventListener('click', (e) => {
   document.querySelectorAll('.range-chip').forEach(b => b.classList.toggle('selected', b === btn));
   document.getElementById('reportCustomRange').style.display = reportRange === 'custom' ? 'grid' : 'none';
   if (reportRange !== 'custom') loadReportTab();
+});
+function renderReportChannelChips(platforms) {
+  const row = document.getElementById('reportChannelRow');
+  const wanted = ['all', 'own', ...platforms.map(p => p.channel_key)].join(',');
+  if (row.dataset.sig === wanted) return;
+  row.dataset.sig = wanted;
+  row.innerHTML = `<button type="button" class="chip channel-chip" data-channel="all">ทุกช่องทาง</button>
+    <button type="button" class="chip channel-chip" data-channel="own">🏪 ขายเอง (หน้าร้าน/LINE)</button>` +
+    platforms.map(p => `<button type="button" class="chip channel-chip" data-channel="${p.channel_key}">🛵 ${p.label_th} (GP ${Number(p.gp_pct)}%)</button>`).join('');
+  row.querySelectorAll('.channel-chip').forEach(b => b.classList.toggle('selected', b.dataset.channel === reportChannel));
+}
+document.getElementById('reportChannelRow').addEventListener('click', (e) => {
+  const btn = e.target.closest('.channel-chip');
+  if (!btn || btn.dataset.channel === reportChannel) return;
+  reportChannel = btn.dataset.channel;
+  document.querySelectorAll('#reportChannelRow .channel-chip').forEach(b => b.classList.toggle('selected', b === btn));
+  loadReportTab();
 });
 document.getElementById('reportFrom').addEventListener('change', loadReportTab);
 document.getElementById('reportTo').addEventListener('change', loadReportTab);
@@ -1773,15 +1805,27 @@ async function loadReportTab() {
   document.getElementById('dimMenuProfit').innerHTML = '<div class="loading">Loading...</div>';
 
   try {
-    const [orders, menuItems, recipes, beans, allIngredients, futureOrders] = await Promise.all([
+    const [ordersRaw, menuItems, recipes, beans, allIngredients, futureOrdersRaw, salesChannels, settlementsRaw] = await Promise.all([
       sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}`),
       sb('menu_items?select=*'),
       sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
       sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
       sb('ingredients?select=id,name,category,stock_quantity,base_unit,cost_per_base_unit&active=eq.true'),
       // ออเดอร์ในอนาคต — ยังไม่ได้ชงเลย (คิวรอบาริสต้า ไม่จำกัดช่วงเวลาที่เลือกไว้ด้านบน เพราะเป็นคนละสถานะกัน)
-      sb(`preorders?select=id,customer_name,menu_item_name,price,wanted_date&brewed=eq.false&or=(order_type.eq.customer,order_type.is.null)`),
+      sb(`preorders?select=id,customer_name,menu_item_name,price,wanted_date,platform_gp_pct,channel&brewed=eq.false&or=(order_type.eq.customer,order_type.is.null)`),
+      sb('sales_channels?select=channel_key,label_th,gp_pct,margin_alert_pct,active&gp_pct=gt.0&active=eq.true&order=sort_order'),
+      sb('channel_settlements?select=*&order=settled_at.desc'),
     ]);
+
+    // ---- ช่องทางขาย: ออเดอร์แพลตฟอร์ม (Grab ฯลฯ) เก็บ price = ที่ลูกค้าจ่ายจริง + platform_gp_pct ตอนสั่ง ----
+    // ในรายงาน นับเป็นยอดสุทธิหลังหัก GP (price x (1-GP)) ให้รายได้/กำไร/margin สะท้อนเงินที่ร้านได้จริง
+    const platformCfg = (salesChannels || []).map(c => ({ ...c, gp_pct: Number(c.gp_pct) || 0, margin_alert_pct: Number(c.margin_alert_pct) || 0 }));
+    renderReportChannelChips(platformCfg);
+    const isPlat = (o) => o.platform_gp_pct !== null && o.platform_gp_pct !== undefined;
+    const passesChannel = (o) => reportChannel === 'all' ? true : (reportChannel === 'own' ? !isPlat(o) : o.channel === reportChannel);
+    const toNet = (o) => isPlat(o) ? { ...o, _gross: Number(o.price || 0), price: Number(o.price || 0) * (1 - Number(o.platform_gp_pct) / 100) } : o;
+    const orders = ordersRaw.filter(passesChannel).map(toNet);
+    const futureOrders = futureOrdersRaw.filter(passesChannel).map(toNet);
 
     currentReportOrders = orders;
     renderSalesTrend();
@@ -1892,12 +1936,13 @@ async function loadReportTab() {
     customerOrders.forEach(o => {
       if (o.omakase_set_id) return;
       const cost = computeCost(o);
-      if (!o.paid) { unpaid += orderTotal(o); unpaidList.push({ name: o.customer_name, item: o.menu_item_name, amount: orderTotal(o) }); }
+      if (!o.paid) { unpaid += orderTotal(o); unpaidList.push({ name: isPlat(o) ? `🛵 ${o.customer_name} (รอโอน · สุทธิ)` : o.customer_name, item: o.menu_item_name, amount: orderTotal(o) }); }
       if (!byMenu[o.menu_item_name]) byMenu[o.menu_item_name] = { qty: 0, revenue: 0, cogs: 0 };
       byMenu[o.menu_item_name].qty += 1;
       byMenu[o.menu_item_name].revenue += orderTotal(o);
       byMenu[o.menu_item_name].cogs += cost;
 
+      if (isPlat(o)) return; // ลูกค้าแพลตฟอร์มไม่ใช่ลูกค้าประจำของร้าน — ไม่นับใน Customers / Top customers
       const custName = o.customer_name || 'ไม่ระบุชื่อ';
       if (!byCustomer[custName]) byCustomer[custName] = { qty: 0, revenue: 0 };
       byCustomer[custName].qty += 1;
@@ -1971,6 +2016,57 @@ async function loadReportTab() {
       finStatsEl.style.display = showing ? 'none' : 'grid';
       finToggleBtn.textContent = showing ? '💰 Show Cost & Margin' : '🙈 Hide Cost & Margin';
     });
+
+    // ---- เทียบช่องทาง: แต่ละช่องทางได้เงินสุทธิ/กำไร/margin ต่างกันแค่ไหน (นับตามวันที่ชง รวมที่ยังไม่ได้รับเงิน, ไม่รวมเซ็ต Omakase) ----
+    (function renderChannelCompare() {
+      const card = document.getElementById('reportChannelCompareCard');
+      const host = document.getElementById('reportChannelCompare');
+      const cmp = {};
+      ordersRaw.filter(o => (o.order_type === 'customer' || !o.order_type) && !o.omakase_set_id).forEach(o => {
+        const key = isPlat(o) ? o.channel : 'own';
+        const gross = orderTotal(o);
+        const gp = isPlat(o) ? Number(o.platform_gp_pct) : 0;
+        const c = cmp[key] = cmp[key] || { cups: 0, gross: 0, fee: 0, net: 0, cogs: 0, pendingCups: 0, pendingNet: 0 };
+        c.cups += 1; c.gross += gross; c.fee += gross * gp / 100; c.net += gross * (1 - gp / 100); c.cogs += computeCost(o);
+        if (isPlat(o) && !o.paid) { c.pendingCups += 1; c.pendingNet += gross * (1 - gp / 100); }
+      });
+      const platKeys = platformCfg.map(p => p.channel_key).filter(k => cmp[k]);
+      if (!platKeys.length) { card.style.display = 'none'; return; }
+      card.style.display = 'block';
+      const money = (n) => '฿' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+      const labelOf = (k) => k === 'own' ? '🏪 ขายเอง (หน้าร้าน/LINE)' : '🛵 ' + ((platformCfg.find(p => p.channel_key === k) || {}).label_th || k);
+      const rowFor = (k) => {
+        const c = cmp[k]; if (!c) return '';
+        const profit = c.net - c.cogs, margin = c.gross ? profit / c.gross * 100 : 0, perCup = c.cups ? profit / c.cups : 0;
+        const cfg = platformCfg.find(p => p.channel_key === k);
+        const bad = cfg ? (profit < 0 || margin < cfg.margin_alert_pct) : false;
+        return `<div style="background:#FFF3E8;border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:#4A3428;"><span>${labelOf(k)}</span><span>${c.cups} แก้ว</span></div>
+          <div style="font-size:12px;color:#8a6a4a;margin-top:6px;line-height:1.7;">
+            ลูกค้าจ่าย <b>${money(c.gross)}</b>${c.fee > 0 ? ` − GP ${money(c.fee)}` : ''} = ได้สุทธิ <b>${money(c.net)}</b><br>
+            ต้นทุน ${money(c.cogs)} → กำไร <b style="color:${profit >= 0 ? '#4A9B5C' : '#D64545'};">${money(profit)}</b> · margin <b style="color:${bad ? '#D64545' : '#4A9B5C'};">${margin.toFixed(0)}%</b> · กำไร/แก้ว <b>${money(perCup)}</b>${bad ? ' ⚠️' : ''}
+            ${c.pendingCups ? `<br><span style="color:#D64545;">🟡 รอแพลตฟอร์มโอน ${c.pendingCups} แก้ว (สุทธิ ${money(c.pendingNet)})</span>` : ''}
+          </div></div>`;
+      };
+      let html = rowFor('own') + platKeys.map(rowFor).join('');
+      const own = cmp.own;
+      if (own && own.cups) {
+        const ownPer = (own.net - own.cogs) / own.cups;
+        platKeys.forEach(k => {
+          const c = cmp[k]; const per = (c.net - c.cogs) / c.cups; const d = per - ownPer;
+          html += `<div style="font-size:12px;color:#4A3428;margin-bottom:6px;">• ${labelOf(k)}: กำไรต่อแก้ว ${money(per)} เทียบขายเอง ${money(ownPer)} → ${Math.abs(d) < 0.5 ? 'ใกล้เคียงกัน' : (d > 0 ? 'ได้มากกว่า ' : 'ได้น้อยกว่า ') + money(Math.abs(d)) + ' ต่อแก้ว'}</div>`;
+        });
+      }
+      // เงินที่แพลตฟอร์มโอนจริงในช่วงนี้ (จากที่บาริสต้ากด "รับเงินแล้ว") เทียบกับที่คาดไว้ — เห็น GP จริง
+      const inRange = (settlementsRaw || []).filter(h => { const t = new Date(h.settled_at); return t >= from && t <= to; });
+      platKeys.forEach(k => {
+        const hs = inRange.filter(h => h.channel_key === k);
+        if (!hs.length) return;
+        const gross = hs.reduce((s, h) => s + Number(h.gross_amount), 0), exp = hs.reduce((s, h) => s + Number(h.expected_net), 0), rec = hs.reduce((s, h) => s + Number(h.received_amount), 0);
+        html += `<div style="font-size:12px;color:#4A3428;background:#EAF6EC;border-radius:10px;padding:8px 12px;margin-top:6px;">🧾 ${labelOf(k)} โอนจริง ${hs.length} รอบ: ได้ <b>${money(rec)}</b> จากลูกค้าจ่าย ${money(gross)} → GP จริง ≈ <b>${gross ? ((1 - rec / gross) * 100).toFixed(1) : '0'}%</b> (ที่ตั้งไว้คาดว่าได้ ${money(exp)} · ${rec - exp >= 0 ? '+' : '-'}${money(Math.abs(rec - exp))})</div>`;
+      });
+      host.innerHTML = html + `<div style="font-size:10px;color:#A8876F;margin-top:8px;line-height:1.6;">ต้นทุนคิดจากสูตรจริง + บรรจุภัณฑ์ที่บันทึกตอนชง · ราคาที่กรอกคือที่ลูกค้าจ่ายจริงอยู่แล้ว (รวมโปรของแพลตฟอร์มถ้ามี) · GP ที่ใช้คือค่าที่ตั้งไว้ตอนสั่ง</div>`;
+    })();
 
     const unpaidToggleBtn = document.getElementById('unpaidToggle');
     if (unpaidToggleBtn) {
