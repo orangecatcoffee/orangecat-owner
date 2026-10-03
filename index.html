@@ -1818,7 +1818,7 @@ async function loadReportTab() {
       return o.bean_name.startsWith('เบลนด์:') ? 'House Blend' : o.bean_name;
     }
 
-    // ต้นทุนบรรจุภัณฑ์ในรายงาน — Fah ตั้งใจปัดขึ้นเป็นบัฟเฟอร์กันชนต้นทุน (ไม่ใช่ราคาจริงเป๊ะ)
+    // ต้นทุนบรรจุภัณฑ์ในรายงาน — อาบุ้ง ตั้งใจปัดขึ้นเป็นบัฟเฟอร์กันชนต้นทุน (ไม่ใช่ราคาจริงเป๊ะ)
     // ราคาจริงเป๊ะ (1.44/3.91 ฯลฯ) ยังถูกบันทึกไว้ใน preorders.packaging_cost ตามปกติ แค่ตัวเลขที่โชว์ในรายงาน/กำไรใช้บัฟเฟอร์นี้แทน
     const REPORTING_PACKAGING_COST = { tumbler: 0, bag: 1.5, cup_small: 4, cup_large: 4.25 };
 
@@ -3249,7 +3249,7 @@ document.getElementById('gtkySendBtn').addEventListener('click', async () => {
           const qq = gtkyQuestionsCache.find(x => x.id === item.qId);
           return qq ? qq.question_text : '(ไม่พบคำถาม)';
         });
-        // แจ้งร้านว่าส่ง GTKY แล้ว — ปิดไว้ตามที่ Fah ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
+        // แจ้งร้านว่าส่ง GTKY แล้ว — ปิดไว้ตามที่ อาบุ้ง ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
 
         sentCount++;
       }
@@ -3287,7 +3287,7 @@ document.getElementById('gtkySendBtn').addEventListener('click', async () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ line_user_id: row.line_user_id, gtky_send_id: row.id, question_text: q.question_text }),
       }).catch(err => console.error('gtky-send push failed:', err));
-      // แจ้งร้านว่าส่ง GTKY แล้ว — ปิดไว้ตามที่ Fah ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
+      // แจ้งร้านว่าส่ง GTKY แล้ว — ปิดไว้ตามที่ อาบุ้ง ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
     }
 
     statusEl.textContent = `ส่งแล้ว ${inserted.length} คน ✓`;
