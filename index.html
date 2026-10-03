@@ -710,6 +710,16 @@
 <div class="view" id="view-settings">
 
   <div class="card">
+    <div class="card-title">🛵 ช่องทางแพลตฟอร์ม (GP)</div>
+    <div style="font-size:12px;color:#8a6a4a;margin-bottom:12px;line-height:1.6;">
+      GP% ที่แพลตฟอร์มหักจากยอดขาย — ตอนนี้เป็นค่าตุ๊กตา 30% พอรู้ตัวเลขจริงจากรายงานของแพลตฟอร์ม มาแก้ที่นี่ได้เลย ระบบใช้ค่านี้คำนวณกำไรสุทธิทุกหน้า<br>
+      <b>เกณฑ์เตือน margin</b> = ถ้ากำไรสุทธิต่อแก้วต่ำกว่าเปอร์เซ็นต์นี้ จะขึ้นสีแดงเตือนในหน้าเมนูและตอนสั่ง
+    </div>
+    <div id="channelGpList"><div class="loading">กำลังโหลด...</div></div>
+    <div class="status" id="channelGpStatus"></div>
+  </div>
+
+  <div class="card">
     <div class="card-title">💳 QR รับเงิน (PromptPay)</div>
     <div style="font-size:12px;color:#8a6a4a;margin-bottom:12px;line-height:1.6;">
       QR นี้ใช้กับหน้า "ชำระเงิน" ที่ลูกค้าสแกนจ่ายทั้งหมด — เปลี่ยนที่นี่ที่เดียว มีผลทันทีทุกจุด ไม่ต้องรอ Claude แก้โค้ด
@@ -980,7 +990,48 @@ function parseEMVCoPromptPay(payload) {
 
 const ID_TAG_LABEL = { '01': 'เบอร์มือถือ', '02': 'เลขผู้เสียภาษี', '03': 'รหัสอ้างอิง e-Wallet (เช่น Make by KBank)' };
 
+async function loadChannelGpSettings() {
+  const host = document.getElementById('channelGpList');
+  const statusEl = document.getElementById('channelGpStatus');
+  try {
+    const chans = await sb('sales_channels?select=channel_key,label_th,gp_pct,margin_alert_pct&gp_pct=gt.0&active=eq.true&order=sort_order');
+    if (!chans.length) { host.innerHTML = '<div style="font-size:12px;color:#A8876F;">ยังไม่มีช่องทางแพลตฟอร์ม</div>'; return; }
+    host.innerHTML = chans.map(c => `
+      <div data-ch="${c.channel_key}" style="background:#FFF3E8;border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:700;color:#4A3428;margin-bottom:8px;">🛵 ${c.label_th}</div>
+        <div class="row2">
+          <div><label>GP ที่ถูกหัก (%)</label><input type="number" min="0" max="99" step="0.1" class="gp-input" value="${Number(c.gp_pct)}"></div>
+          <div><label>เกณฑ์เตือน margin (%)</label><input type="number" min="0" max="99" step="1" class="alert-input" value="${Number(c.margin_alert_pct)}"></div>
+        </div>
+        <button type="button" class="btn gp-save" style="width:100%;margin-top:10px;">บันทึก</button>
+      </div>`).join('');
+    host.querySelectorAll('[data-ch]').forEach(card => {
+      const key = card.dataset.ch;
+      const orig = chans.find(c => c.channel_key === key);
+      card.querySelector('.gp-save').addEventListener('click', async () => {
+        const gp = Number(card.querySelector('.gp-input').value);
+        const alertPct = Number(card.querySelector('.alert-input').value);
+        if (!(gp > 0 && gp < 100) || !(alertPct >= 0 && alertPct < 100)) { statusEl.style.display = 'block'; statusEl.className = 'status error'; statusEl.textContent = 'GP ต้องอยู่ระหว่าง 0-100 (มากกว่า 0)'; return; }
+        const gpChanged = Math.abs(gp - Number(orig.gp_pct)) > 0.0001;
+        let applyPending = false;
+        if (gpChanged) {
+          const pend = await sb(`preorders?select=id&channel=eq.${key}&paid=eq.false&platform_gp_pct=not.is.null`);
+          if (pend.length) applyPending = confirm(`เปลี่ยน GP ${orig.label_th} จาก ${Number(orig.gp_pct)}% เป็น ${gp}%\n\nมีออเดอร์ที่ยังรอรับเงิน ${pend.length} แก้ว — ให้ใช้ GP ใหม่กับแก้วเหล่านั้นด้วยไหม?\n(OK = เปลี่ยนด้วย / ยกเลิก = เปลี่ยนเฉพาะออเดอร์ใหม่)\nออเดอร์ที่รับเงินแล้วไม่ถูกแก้ย้อนหลัง`);
+        }
+        try {
+          await sb(`sales_channels?channel_key=eq.${key}`, { method: 'PATCH', body: JSON.stringify({ gp_pct: gp, margin_alert_pct: alertPct }) });
+          if (applyPending) await sb(`preorders?channel=eq.${key}&paid=eq.false&platform_gp_pct=not.is.null`, { method: 'PATCH', body: JSON.stringify({ platform_gp_pct: gp }) });
+          orig.gp_pct = gp; orig.margin_alert_pct = alertPct;
+          statusEl.style.display = 'block'; statusEl.className = 'status success';
+          statusEl.textContent = `✅ บันทึก ${orig.label_th}: GP ${gp}%${applyPending ? ' (ปรับแก้วที่รอรับเงินด้วยแล้ว)' : ''}`;
+        } catch (e) { statusEl.style.display = 'block'; statusEl.className = 'status error'; statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + e.message; }
+      });
+    });
+  } catch (e) { host.innerHTML = '<div style="font-size:12px;color:#D64545;">โหลดไม่สำเร็จ: ' + e.message + '</div>'; }
+}
+
 async function loadSettingsTab() {
+  loadChannelGpSettings();
   loadMissionPhotoSettings();
   const infoEl = document.getElementById('qrCurrentInfo');
   try {
@@ -2032,6 +2083,8 @@ async function loadReportTab() {
       });
       const platKeys = platformCfg.map(p => p.channel_key).filter(k => cmp[k]);
       if (!platKeys.length) { card.style.display = 'none'; return; }
+      const promoByCh = {};
+      ordersRaw.filter(o => isPlat(o) && Number(o.discount_amount) > 0).forEach(o => { const p = promoByCh[o.channel] = promoByCh[o.channel] || { cups: 0, amount: 0 }; p.cups += 1; p.amount += Number(o.discount_amount); });
       card.style.display = 'block';
       const money = (n) => '฿' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
       const labelOf = (k) => k === 'own' ? '🏪 ขายเอง (หน้าร้าน/LINE)' : '🛵 ' + ((platformCfg.find(p => p.channel_key === k) || {}).label_th || k);
@@ -2045,6 +2098,7 @@ async function loadReportTab() {
           <div style="font-size:12px;color:#8a6a4a;margin-top:6px;line-height:1.7;">
             ลูกค้าจ่าย <b>${money(c.gross)}</b>${c.fee > 0 ? ` − GP ${money(c.fee)}` : ''} = ได้สุทธิ <b>${money(c.net)}</b><br>
             ต้นทุน ${money(c.cogs)} → กำไร <b style="color:${profit >= 0 ? '#4A9B5C' : '#D64545'};">${money(profit)}</b> · margin <b style="color:${bad ? '#D64545' : '#4A9B5C'};">${margin.toFixed(0)}%</b> · กำไร/แก้ว <b>${money(perCup)}</b>${bad ? ' ⚠️' : ''}
+            ${promoByCh[k] ? `<br><span style="color:#E8621A;">🏷️ โปรที่ร้านลดให้ลูกค้า ${promoByCh[k].cups} แก้ว รวม ${money(promoByCh[k].amount)} (ราคาที่ลูกค้าจ่ายด้านบนหักโปรแล้ว)</span>` : ''}
             ${c.pendingCups ? `<br><span style="color:#D64545;">🟡 รอแพลตฟอร์มโอน ${c.pendingCups} แก้ว (สุทธิ ${money(c.pendingNet)})</span>` : ''}
           </div></div>`;
       };
