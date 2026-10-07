@@ -1243,13 +1243,13 @@ async function loadCrmTab() {
 async function loadCrmStatus() {
   const el = document.getElementById('crmStatusBox');
   try {
-    const rows = await sb('system_settings?select=key,value&key=in.(crm.winback_enabled,crm.birthday_enabled,crm.loyalty_enabled,daily_brief.enabled,auto_feedback.enabled)');
+    const rows = await sb('system_settings?select=key,value&key=in.(crm.winback_enabled,crm.birthday_enabled,passport.redemption_enabled,daily_brief.enabled,auto_feedback.enabled)');
     const map = {};
     rows.forEach(r => map[r.key] = r.value);
     const journeys = [
       ['crm.winback_enabled', '👋 Win-back'],
       ['crm.birthday_enabled', '🎂 Birthday'],
-      ['crm.loyalty_enabled', '🎁 Loyalty'],
+      ['passport.redemption_enabled', '🎁 แลกแต้ม 10 แก้ว'],
       ['daily_brief.enabled', '☀️ Daily Brief'],
       ['auto_feedback.enabled', '💬 Auto-Feedback'],
     ];
@@ -1265,11 +1265,34 @@ async function loadCrmStatus() {
   }
 }
 
+// Loyalty numbers come from get_reward_ledger() — the same counter Barista and the Passport use,
+// so the three screens can never disagree. Birthday rewards stay in crm_rewards.
 async function loadCrmRewards() {
   const el = document.getElementById('crmRewardsList');
   el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
   try {
-    crmRewardsCache = await sb('crm_rewards?select=*&order=earned_at.desc');
+    const [ledger, birthdays] = await Promise.all([
+      sb('rpc/get_reward_ledger', { method: 'POST', body: '{}' }),
+      sb('crm_rewards?select=*&source=eq.birthday&order=earned_at.desc'),
+    ]);
+    const waiting = (ledger.waiting || []).map(w => ({
+      kind: 'loyalty', redeemed: false, name: w.customer_name, sortAt: null,
+      line: `🎁 ครบ 10 แก้ว · รอแลก (สะสมรอบนี้ ${w.progress} แก้ว)`,
+    }));
+    const history = (ledger.history || []).map(x => {
+      const parts = ['🎁 ครบ 10 แก้ว'];
+      if (x.menu_item_name) parts.push(x.menu_item_name);
+      if (Number(x.discount_amount) > 0) parts.push(`ส่วนลด ${Number(x.discount_amount)}฿`);
+      else if (Number(x.price) > 0) parts.push(`เก็บส่วนต่าง ${Number(x.price)}฿`);
+      parts.push(new Date(x.redeemed_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }));
+      return { kind: 'loyalty', redeemed: true, name: x.customer_name, sortAt: x.redeemed_at, line: parts.join(' · ') };
+    });
+    const bdays = (birthdays || []).map(r => ({
+      kind: 'birthday', redeemed: !!r.redeemed, id: r.id, name: r.customer_name || r.line_user_id, sortAt: r.earned_at,
+      line: `🎂 วันเกิด · ${r.reward_text || ''} · ${new Date(r.earned_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+    }));
+    const done = [...history, ...bdays.filter(b => b.redeemed)].sort((a, b) => new Date(b.sortAt) - new Date(a.sortAt));
+    crmRewardsCache = [...waiting, ...bdays.filter(b => !b.redeemed), ...done];
     renderCrmRewards();
   } catch (e) {
     el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
@@ -1280,25 +1303,22 @@ function renderCrmRewards() {
   const el = document.getElementById('crmRewardsList');
   let rows = crmRewardsCache;
   if (crmRewardFilter === 'unredeemed') rows = rows.filter(r => !r.redeemed);
-  else if (crmRewardFilter === 'loyalty') rows = rows.filter(r => r.source === 'loyalty');
-  else if (crmRewardFilter === 'birthday') rows = rows.filter(r => r.source === 'birthday');
+  else if (crmRewardFilter === 'loyalty') rows = rows.filter(r => r.kind === 'loyalty');
+  else if (crmRewardFilter === 'birthday') rows = rows.filter(r => r.kind === 'birthday');
 
-  if (!rows.length) {
-    el.innerHTML = '<div class="empty">ไม่มีรายการ</div>';
-    return;
-  }
+  if (!rows.length) { el.innerHTML = '<div class="empty">ไม่มีรายการ</div>'; return; }
 
   el.innerHTML = rows.map(r => {
-    const sourceLabel = r.source === 'loyalty' ? `🎁 ครบ ${r.milestone} แก้ว` : '🎂 วันเกิด';
-    const dateStr = new Date(r.earned_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+    let right;
+    if (r.redeemed) right = `<span style="font-size:12px;color:var(--green);font-weight:600;white-space:nowrap;">✓ แลกแล้ว</span>`;
+    else if (r.kind === 'loyalty') right = `<span style="font-size:11.5px;color:var(--orange);font-weight:600;white-space:nowrap;">แลกที่ Barista</span>`;
+    else right = `<button type="button" class="btn" style="padding:6px 14px;font-size:13px;white-space:nowrap;" onclick="crmRedeemReward('${r.id}')">แลกแล้ว</button>`;
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:8px;">
       <div>
-        <div style="font-weight:600;">${r.customer_name || r.line_user_id}</div>
-        <div style="font-size:12px;color:rgba(74,52,40,0.55);">${sourceLabel} · ${r.reward_text || ''} · ${dateStr}</div>
+        <div style="font-weight:600;">${r.name}</div>
+        <div style="font-size:12px;color:rgba(74,52,40,0.55);">${r.line}</div>
       </div>
-      ${r.redeemed
-        ? `<span style="font-size:12px;color:var(--green);font-weight:600;white-space:nowrap;">✓ แลกแล้ว</span>`
-        : `<button type="button" class="btn" style="padding:6px 14px;font-size:13px;white-space:nowrap;" onclick="crmRedeemReward('${r.id}')">แลกแล้ว</button>`}
+      ${right}
     </div>`;
   }).join('');
 }
@@ -1348,8 +1368,8 @@ async function loadCrmPending() {
   const el = document.getElementById('crmPendingList');
   el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
   try {
-    const [loyalty, birthday, winback] = await Promise.all([
-      sb('rpc/get_loyalty_new_milestones', { method: 'POST', body: '{}' }),
+    const loyalty = []; // 10-cup rewards waiting now live in the Rewards list (same counter as Barista)
+    const [birthday, winback] = await Promise.all([
       sb('rpc/get_birthday_candidates', { method: 'POST', body: '{}' }),
       sb('rpc/get_winback_candidates', { method: 'POST', body: '{}' }),
     ]);
