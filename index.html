@@ -3728,8 +3728,6 @@ function renderGiftForm(g){
     + '<label>Box tag (2 lines: “to … / from …”)</label><textarea id="gfBox" rows="2">' + v('box_label') + '</textarea>'
     + '<label>Intro text (under the box)</label><textarea id="gfIntro" rows="2">' + v('intro_text') + '</textarea>'
     + '<label>Message (coupon page, the heart of the gift)</label><textarea id="gfMsg" rows="4">' + v('message') + '</textarea>'
-    + '<div class="gf-row2"><div><label>Signature (text)</label><input type="text" id="gfSignT" value="' + v('signature_text') + '"></div>'
-    + '<div><label>Signature (image URL)</label><input type="text" id="gfSignI" value="' + v('signature_image_url') + '"></div></div>'
     + '<label>Coupon image URL (Abung — empty = default mascot)</label><input type="text" id="gfCoupImg" value="' + v('coupon_image_url') + '">'
     + '<label>Default delivery place</label><input type="text" id="gfPlace" value="' + v('default_delivery_place') + '">'
     + '<div class="gf-row2"><div><label>Number of coupons</label><input type="number" inputmode="numeric" id="gfCount" min="1" max="50" value="' + (cps.length || 5) + '"></div>'
@@ -3751,7 +3749,7 @@ async function saveGiftForm(){
   btn.disabled = true;
   const payload = {
     recipient_name: name, headline: val('gfHeadline').trim(), box_label: val('gfBox'), intro_text: val('gfIntro'),
-    message: val('gfMsg'), signature_text: val('gfSignT').trim(), signature_image_url: val('gfSignI').trim(),
+    message: val('gfMsg'),
     coupon_image_url: val('gfCoupImg').trim(), default_delivery_place: val('gfPlace').trim(),
     expires_at: val('gfExp') ? val('gfExp') + 'T23:59:59+07:00' : '', coupon_count: count
   };
