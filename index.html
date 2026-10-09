@@ -3665,7 +3665,7 @@ function renderGifts(){
       + '<div class="gf-link">' + gEsc(link) + '</div>'
       + '<div class="gf-actions">'
       +   '<button class="gf-btn primary" data-gact="copy" data-id="' + g.id + '">Copy link</button>'
-      +   '<button class="gf-btn" data-gact="preview" data-id="' + g.id + '">Preview</button>'
+      +   '<button class="gf-btn" data-gact="preview" data-id="' + g.id + '">Preview as recipient</button>'
       +   '<button class="gf-btn" data-gact="edit" data-id="' + g.id + '">Edit</button>'
       +   (g.status !== 'active' ? '<button class="gf-btn" data-gact="activate" data-id="' + g.id + '">Activate</button>' : '<button class="gf-btn" data-gact="pause" data-id="' + g.id + '">Pause (back to draft)</button>')
       +   (g.status !== 'archived' ? '<button class="gf-btn danger" data-gact="archive" data-id="' + g.id + '">Archive</button>' : '')
@@ -3686,8 +3686,7 @@ document.addEventListener('click', async (e) => {
         try { await navigator.clipboard.writeText(url); gbtn.textContent = 'Copied ✓'; setTimeout(() => gbtn.textContent = 'Copy link', 1500); }
         catch(_) { window.prompt('Copy this link', url); }
       } else if (act === 'preview') {
-        if (g.status !== 'active') { alert('The link only works while the gift is Active. Tap Activate first (it stays private until you send the link).'); return; }
-        window.open(GIFT_BASE + g.access_token, '_blank');
+        window.open(GIFT_BASE + g.access_token + '&preview=1', '_blank'); // preview mode: any status, no opened-mark, no redemption
       } else if (act === 'edit') { giftEditId = g.id; renderGiftForm(g); }
       else if (act === 'activate' || act === 'pause' || act === 'archive') {
         const status = act === 'activate' ? 'active' : act === 'pause' ? 'draft' : 'archived';
