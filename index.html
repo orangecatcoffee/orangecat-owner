@@ -3723,10 +3723,12 @@ function renderGiftForm(g){
   document.getElementById('gfFormWrap').innerHTML =
     '<div class="card gf-form"><div class="card-title">' + (g ? 'Edit gift' : 'New gift') + '</div>'
     + '<label>Recipient name</label><input type="text" id="gfName" value="' + v('recipient_name') + '">'
-    + '<label>Headline (box page)</label><textarea id="gfHeadline" rows="2">' + v('headline', 'มีของขวัญฝากถึงคุณ') + '</textarea>'
+    + '<label>Headline (box page)</label><textarea id="gfHeadline" rows="2">' + v('headline', 'ของขวัญสำหรับคุณ') + '</textarea>'
     + '<label>Box tag (2 lines: “to … / from …”)</label><textarea id="gfBox" rows="2">' + v('box_label') + '</textarea>'
-    + '<label>Intro text (under the box)</label><textarea id="gfIntro" rows="2">' + v('intro_text') + '</textarea>'
-    + '<label>Message (coupon page, the heart of the gift)</label><textarea id="gfMsg" rows="4">' + v('message') + '</textarea>'
+    + '<label>Short line under the box (optional — empty = clean box)</label><textarea id="gfIntro" rows="2">' + v('intro_text') + '</textarea>'
+    + '<label>Card message (shown after “Open card”)</label><textarea id="gfMsg" rows="9">' + v('message') + '</textarea>'
+    + '<label>“Open card” button text (empty = เปิดการ์ด)</label><input type="text" id="gfCardBtn" value="' + v('card_button_text') + '">'
+    + '<label>Pop-up image URL (Abung coming out of the box — empty = default)</label><input type="text" id="gfHero" value="' + v('hero_image_url') + '">'
     + '<label>Coupon image URL (Abung — empty = default mascot)</label><input type="text" id="gfCoupImg" value="' + v('coupon_image_url') + '">'
     + '<label>Default delivery place</label><input type="text" id="gfPlace" value="' + v('default_delivery_place') + '">'
     + '<div class="gf-row2"><div><label>Number of coupons</label><input type="number" inputmode="numeric" id="gfCount" min="1" max="50" value="' + (cps.length || 5) + '"></div>'
@@ -3748,7 +3750,7 @@ async function saveGiftForm(){
   btn.disabled = true;
   const payload = {
     recipient_name: name, headline: val('gfHeadline').trim(), box_label: val('gfBox'), intro_text: val('gfIntro'),
-    message: val('gfMsg'),
+    message: val('gfMsg'), card_button_text: val('gfCardBtn').trim(), hero_image_url: val('gfHero').trim(),
     coupon_image_url: val('gfCoupImg').trim(), default_delivery_place: val('gfPlace').trim(),
     expires_at: val('gfExp') ? val('gfExp') + 'T23:59:59+07:00' : '', coupon_count: count
   };
