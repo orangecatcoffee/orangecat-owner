@@ -1916,16 +1916,17 @@ async function loadReportTab() {
   document.getElementById('dimMenuProfit').innerHTML = '<div class="loading">Loading...</div>';
 
   try {
-    const [ordersRaw, menuItems, recipes, beans, allIngredients, futureOrdersRaw, salesChannels, settlementsRaw] = await Promise.all([
+    const [ordersRaw, menuItems, recipes, beans, allIngredients, futureOrdersRaw, salesChannels, settlementsRaw, spendRaw] = await Promise.all([
       sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}`),
       sb('menu_items?select=*'),
       sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
       sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
       sb('ingredients?select=id,name,category,stock_quantity,base_unit,cost_per_base_unit&active=eq.true'),
       // ออเดอร์ในอนาคต — ยังไม่ได้ชงเลย (คิวรอบาริสต้า ไม่จำกัดช่วงเวลาที่เลือกไว้ด้านบน เพราะเป็นคนละสถานะกัน)
-      sb(`preorders?select=id,customer_name,menu_item_name,price,wanted_date,platform_gp_pct,channel&brewed=eq.false&or=(order_type.eq.customer,order_type.is.null)`),
+      sb(`preorders?select=id,customer_name,menu_item_name,price,order_discount_share,wanted_date,platform_gp_pct,channel&brewed=eq.false&or=(order_type.eq.customer,order_type.is.null)`),
       sb('sales_channels?select=channel_key,label_th,gp_pct,margin_alert_pct,active&gp_pct=gt.0&active=eq.true&order=sort_order'),
       sb('channel_settlements?select=*&order=settled_at.desc'),
+      sb('marketing_spend?select=*&order=spend_date.desc'),
     ]);
 
     // ---- ช่องทางขาย: ออเดอร์แพลตฟอร์ม (Grab ฯลฯ) เก็บ price = ที่ลูกค้าจ่ายจริง + platform_gp_pct ตอนสั่ง ----
@@ -1934,7 +1935,8 @@ async function loadReportTab() {
     renderReportChannelChips(platformCfg);
     const isPlat = (o) => o.platform_gp_pct !== null && o.platform_gp_pct !== undefined;
     const passesChannel = (o) => reportChannel === 'all' ? true : (reportChannel === 'own' ? !isPlat(o) : o.channel === reportChannel);
-    const toNet = (o) => isPlat(o) ? { ...o, _gross: Number(o.price || 0), price: Number(o.price || 0) * (1 - Number(o.platform_gp_pct) / 100) } : o;
+    // Net sales ของแก้วแพลตฟอร์ม = ราคา - ส่วนลดระดับออเดอร์ที่ร้านออก (เช่น ส่วนลดค่าส่ง) ตรงกับ Net sales ที่แพลตฟอร์มรายงาน แล้วหัก GP
+    const toNet = (o) => isPlat(o) ? { ...o, _gross: Number(o.price || 0) - Number(o.order_discount_share || 0), price: (Number(o.price || 0) - Number(o.order_discount_share || 0)) * (1 - Number(o.platform_gp_pct) / 100) } : o;
     const orders = ordersRaw.filter(passesChannel).map(toNet);
     const futureOrders = futureOrdersRaw.filter(passesChannel).map(toNet);
 
@@ -2135,34 +2137,48 @@ async function loadReportTab() {
       const cmp = {};
       ordersRaw.filter(o => (o.order_type === 'customer' || !o.order_type) && !o.omakase_set_id).forEach(o => {
         const key = isPlat(o) ? o.channel : 'own';
-        const gross = orderTotal(o);
+        const gross = orderTotal(o) - (isPlat(o) ? Number(o.order_discount_share || 0) : 0);
         const gp = isPlat(o) ? Number(o.platform_gp_pct) : 0;
         const c = cmp[key] = cmp[key] || { cups: 0, gross: 0, fee: 0, net: 0, cogs: 0, pendingCups: 0, pendingNet: 0 };
         c.cups += 1; c.gross += gross; c.fee += gross * gp / 100; c.net += gross * (1 - gp / 100); c.cogs += computeCost(o);
         if (isPlat(o) && !o.paid) { c.pendingCups += 1; c.pendingNet += gross * (1 - gp / 100); }
       });
       const platKeys = platformCfg.map(p => p.channel_key).filter(k => cmp[k]);
-      if (!platKeys.length) { card.style.display = 'none'; return; }
+      // ค่าการตลาดที่เป็นเงินออกจริงนอกยอดขาย (เลี้ยง/โฆษณา/อื่นๆ) ในช่วงวันที่ที่เลือก — ส่วนลดที่หักในออเดอร์แล้วไม่นับซ้ำตรงนี้
+      const spendInRange = (spendRaw || []).filter(x => { const t = new Date(x.spend_date + 'T12:00:00+07:00'); return t >= from && t <= to; });
+      const spendByCh = {};
+      spendInRange.forEach(x => { const k = x.channel_key || 'other'; const p = spendByCh[k] = spendByCh[k] || { total: 0, byKind: {} }; p.total += Number(x.amount); p.byKind[x.kind] = (p.byKind[x.kind] || 0) + Number(x.amount); });
+      if (!platKeys.length && !spendInRange.length) { card.style.display = 'none'; return; }
       const promoByCh = {};
-      ordersRaw.filter(o => isPlat(o) && Number(o.discount_amount) > 0).forEach(o => { const p = promoByCh[o.channel] = promoByCh[o.channel] || { cups: 0, amount: 0 }; p.cups += 1; p.amount += Number(o.discount_amount); });
+      ordersRaw.filter(o => isPlat(o) && (Number(o.discount_amount) > 0 || Number(o.order_discount_share) > 0)).forEach(o => { const p = promoByCh[o.channel] = promoByCh[o.channel] || { cups: 0, item: 0, order: 0 }; if (Number(o.discount_amount) > 0) { p.cups += 1; p.item += Number(o.discount_amount); } p.order += Number(o.order_discount_share || 0); });
+      const KIND_TH = { treat: 'เลี้ยง/แจกลอง', ads: 'โฆษณา/แคมเปญ', other: 'อื่นๆ' };
       card.style.display = 'block';
       const money = (n) => '฿' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
       const labelOf = (k) => k === 'own' ? '🏪 ขายเอง (หน้าร้าน/LINE)' : '🛵 ' + ((platformCfg.find(p => p.channel_key === k) || {}).label_th || k);
       const rowFor = (k) => {
         const c = cmp[k]; if (!c) return '';
-        const profit = c.net - c.cogs, margin = c.gross ? profit / c.gross * 100 : 0, perCup = c.cups ? profit / c.cups : 0;
+        const spend = (spendByCh[k] || { total: 0, byKind: {} });
+        const profitBefore = c.net - c.cogs;
+        const profit = profitBefore - spend.total; // กำไรหลังหักค่าการตลาดนอกยอดขาย
+        const margin = c.gross ? profit / c.gross * 100 : 0, perCup = c.cups ? profit / c.cups : 0;
         const cfg = platformCfg.find(p => p.channel_key === k);
         const bad = cfg ? (profit < 0 || margin < cfg.margin_alert_pct) : false;
         return `<div style="background:#FFF3E8;border-radius:12px;padding:12px 14px;margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:#4A3428;"><span>${labelOf(k)}</span><span>${c.cups} แก้ว</span></div>
           <div style="font-size:12px;color:#8a6a4a;margin-top:6px;line-height:1.7;">
             ลูกค้าจ่าย <b>${money(c.gross)}</b>${c.fee > 0 ? ` − GP ${money(c.fee)}` : ''} = ได้สุทธิ <b>${money(c.net)}</b><br>
-            ต้นทุน ${money(c.cogs)} → กำไร <b style="color:${profit >= 0 ? '#4A9B5C' : '#D64545'};">${money(profit)}</b> · margin <b style="color:${bad ? '#D64545' : '#4A9B5C'};">${margin.toFixed(0)}%</b> · กำไร/แก้ว <b>${money(perCup)}</b>${bad ? ' ⚠️' : ''}
-            ${promoByCh[k] ? `<br><span style="color:#E8621A;">🏷️ โปรที่ร้านลดให้ลูกค้า ${promoByCh[k].cups} แก้ว รวม ${money(promoByCh[k].amount)} (ราคาที่ลูกค้าจ่ายด้านบนหักโปรแล้ว)</span>` : ''}
+            ต้นทุน ${money(c.cogs)}${spend.total ? ` − ค่าการตลาด ${money(spend.total)}` : ''} → กำไร <b style="color:${profit >= 0 ? '#4A9B5C' : '#D64545'};">${money(profit)}</b> · margin <b style="color:${bad ? '#D64545' : '#4A9B5C'};">${margin.toFixed(0)}%</b> · กำไร/แก้ว <b>${money(perCup)}</b>${bad ? ' ⚠️' : ''}
+            ${promoByCh[k] ? `<br><span style="color:#E8621A;">🏷️ ส่วนลดที่ร้านออกให้ลูกค้า (หักในยอดแล้ว): รายแก้ว ${money(promoByCh[k].item)} (${promoByCh[k].cups} แก้ว)${promoByCh[k].order ? ` · ค่าส่ง ${money(promoByCh[k].order)}` : ''}</span>` : ''}
+            ${spend.total ? `<br><span style="color:#8E5BB5;">💸 ค่าการตลาดนอกยอดขาย: ${Object.entries(spend.byKind).map(([kk, v]) => `${KIND_TH[kk] || kk} ${money(v)}`).join(' · ')}</span>` : ''}
             ${c.pendingCups ? `<br><span style="color:#D64545;">🟡 รอแพลตฟอร์มโอน ${c.pendingCups} แก้ว (สุทธิ ${money(c.pendingNet)})</span>` : ''}
           </div></div>`;
       };
       let html = rowFor('own') + platKeys.map(rowFor).join('');
+      // ค่าการตลาดของช่องทางที่ยังไม่มียอดขายในช่วงนี้ (เช่น จ่ายแล้วแต่ออเดอร์ยังไม่ชง) ไม่ให้หายไปจากรายงาน
+      Object.keys(spendByCh).filter(k => k !== 'own' && !platKeys.includes(k)).forEach(k => {
+        const sp = spendByCh[k];
+        html += `<div style="background:#F5EEFA;border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#4A3428;">💸 ${labelOf(k)} — ค่าการตลาดนอกยอดขาย ${Object.entries(sp.byKind).map(([kk, v]) => `${KIND_TH[kk] || kk} ${money(v)}`).join(' · ')} (ยังไม่มีออเดอร์ที่ชงแล้วในช่วงนี้)</div>`;
+      });
       const own = cmp.own;
       if (own && own.cups) {
         const ownPer = (own.net - own.cogs) / own.cups;
@@ -2179,7 +2195,26 @@ async function loadReportTab() {
         const gross = hs.reduce((s, h) => s + Number(h.gross_amount), 0), exp = hs.reduce((s, h) => s + Number(h.expected_net), 0), rec = hs.reduce((s, h) => s + Number(h.received_amount), 0);
         html += `<div style="font-size:12px;color:#4A3428;background:#EAF6EC;border-radius:10px;padding:8px 12px;margin-top:6px;">🧾 ${labelOf(k)} โอนจริง ${hs.length} รอบ: ได้ <b>${money(rec)}</b> จากลูกค้าจ่าย ${money(gross)} → GP จริง ≈ <b>${gross ? ((1 - rec / gross) * 100).toFixed(1) : '0'}%</b> (ที่ตั้งไว้คาดว่าได้ ${money(exp)} · ${rec - exp >= 0 ? '+' : '-'}${money(Math.abs(rec - exp))})</div>`;
       });
-      host.innerHTML = html + `<div style="font-size:10px;color:#A8876F;margin-top:8px;line-height:1.6;">ต้นทุนคิดจากสูตรจริง + บรรจุภัณฑ์ที่บันทึกตอนชง · ราคาที่กรอกคือที่ลูกค้าจ่ายจริงอยู่แล้ว (รวมโปรของแพลตฟอร์มถ้ามี) · GP ที่ใช้คือค่าที่ตั้งไว้ตอนสั่ง</div>`;
+      host.innerHTML = html + `<div style="font-size:10px;color:#A8876F;margin-top:8px;line-height:1.6;">ต้นทุนคิดจากสูตรจริง + บรรจุภัณฑ์ที่บันทึกตอนชง · ราคาที่กรอกคือที่ลูกค้าจ่ายจริงอยู่แล้ว (รวมโปรของแพลตฟอร์มถ้ามี) · GP ที่ใช้คือค่าที่ตั้งไว้ตอนสั่ง · ค่าการตลาดนอกยอดขายหักจากกำไรของช่องทางนั้น (ส่วนลดที่หักในบิลแล้วไม่นับซ้ำ)</div>
+        <details style="margin-top:10px;"><summary style="font-size:12px;font-weight:700;color:#8E5BB5;cursor:pointer;">＋ บันทึกค่าการตลาด (เลี้ยง / โฆษณา / อื่นๆ)</summary>
+          <div style="margin-top:8px;">
+            <div class="row2"><div><label>วันที่</label><input type="date" id="mkDate" value="${new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10)}"></div>
+            <div><label>ช่องทาง</label><select id="mkChannel">${platformCfg.map(p => `<option value="${p.channel_key}">${p.label_th}</option>`).join('')}<option value="line">ขายเอง (หน้าร้าน/LINE)</option></select></div></div>
+            <div class="row2"><div><label>ประเภท</label><select id="mkKind"><option value="treat">เลี้ยง / แจกลอง</option><option value="ads">โฆษณา / แคมเปญ</option><option value="other">อื่นๆ</option></select></div>
+            <div><label>จำนวนเงิน (บาท)</label><input type="number" id="mkAmount" min="0" step="0.01" placeholder="เช่น 315"></div></div>
+            <label>ชื่อแคมเปญ / หมายเหตุ</label><input type="text" id="mkNote" placeholder="เช่น เลี้ยงเพื่อน GF-900">
+            <button type="button" class="btn" id="mkSave" style="width:100%;margin-top:10px;">บันทึก</button>
+            <div class="status" id="mkStatus"></div>
+          </div></details>`;
+      document.getElementById('mkSave').addEventListener('click', async () => {
+        const st = document.getElementById('mkStatus');
+        const amount = Number(document.getElementById('mkAmount').value);
+        if (!(amount > 0)) { st.style.display = 'block'; st.className = 'status error'; st.textContent = 'ใส่จำนวนเงินก่อน'; return; }
+        try {
+          await sb('marketing_spend', { method: 'POST', body: JSON.stringify({ spend_date: document.getElementById('mkDate').value, channel_key: document.getElementById('mkChannel').value, kind: document.getElementById('mkKind').value, amount, campaign: document.getElementById('mkNote').value.trim() || null, note: document.getElementById('mkNote').value.trim() || null }) });
+          loadReportTab();
+        } catch (e) { st.style.display = 'block'; st.className = 'status error'; st.textContent = 'บันทึกไม่สำเร็จ: ' + e.message; }
+      });
     })();
 
     const unpaidToggleBtn = document.getElementById('unpaidToggle');
