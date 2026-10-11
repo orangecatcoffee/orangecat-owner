@@ -3155,13 +3155,14 @@ async function loadFinancialsTab() {
     const toDateStr = to.toISOString().slice(0, 10);
 
     // ---- รายได้/ต้นทุนขาย/กำไรขั้นต้น: ใช้สูตรเดียวกับแท็บ Purchasing เป๊ะ ไม่เปลี่ยนอะไร ----
-    const [brewedOrders, menuItems, recipes, beans, packagingTypeItems, finEntries] = await Promise.all([
+    const [brewedOrders, menuItems, recipes, beans, packagingTypeItems, finEntries, mkSpend] = await Promise.all([
       sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}&or=(order_type.eq.customer,order_type.is.null)`),
       sb('menu_items?select=id,name,needs_bean'),
       sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
       sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
       sb('packaging_type_items?select=type_key,quantity,ingredients(cost_per_base_unit)'),
       sb(`purchase_log?select=*&cost_type=eq.fixed&purchase_date=gte.${fromDateStr}&purchase_date=lte.${toDateStr}&order=purchase_date.desc`),
+      sb(`marketing_spend?select=*&spend_date=gte.${fromDateStr}&spend_date=lte.${toDateStr}&order=spend_date.desc`),
     ]);
 
     const menuByName = {}; menuItems.forEach(m => menuByName[m.name] = m);
@@ -3203,14 +3204,22 @@ async function loadFinancialsTab() {
       if (o.misc_cost_estimate) rCost += Number(o.misc_cost_estimate);
       recipeCogsF += rCost;
     });
-    const revenueF = brewedOrders.filter(o => o.paid).reduce((s, o) => s + Number(o.price || 0) + Number(o.bean_surcharge || 0), 0);
+    // รายได้ = ยอดขายสุทธิ (Net sales): ออเดอร์แพลตฟอร์ม (Grab) หักส่วนลดค่าส่งที่ร้านออกแล้ว · ค่า GP แพลตฟอร์มแยกเป็นบรรทัดค่าธรรมเนียมด้านล่าง
+    const isPlatF = (o) => o.platform_gp_pct !== null && o.platform_gp_pct !== undefined;
+    const paidOrdersF = brewedOrders.filter(o => o.paid);
+    const revenueF = paidOrdersF.reduce((s, o) => s + Number(o.price || 0) + Number(o.bean_surcharge || 0) - (isPlatF(o) ? Number(o.order_discount_share || 0) : 0), 0);
+    const platformFeeF = paidOrdersF.filter(isPlatF).reduce((s, o) => s + (Number(o.price || 0) - Number(o.order_discount_share || 0)) * Number(o.platform_gp_pct) / 100, 0);
     const cogsF = recipeCogsF + packagingCogsF;
     const grossProfit = revenueF - cogsF;
+    // ค่าการตลาดนอกยอดขาย (เลี้ยง/โฆษณา/อื่นๆ) ที่บันทึกใน marketing_spend — ส่วนลดที่หักในบิลแล้วไม่นับซ้ำ
+    const MK_KIND_TH = { treat: 'เลี้ยง/แจกลอง', ads: 'โฆษณา/แคมเปญ', other: 'อื่นๆ' };
+    const totalMarketing = (mkSpend || []).reduce((s, x) => s + Number(x.amount || 0), 0);
+    const mkRows = (mkSpend || []).map(x => `<div style="display:flex;justify-content:space-between;font-size:11.5px;padding:3px 0;color:#8a6a4a;"><span>${MK_KIND_TH[x.kind] || x.kind} · ${x.spend_date}${x.campaign ? ' · ' + x.campaign : ''}</span><span>฿${Number(x.amount).toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>`).join('');
 
     // ---- ค่าใช้จ่ายคงที่: เฉพาะรายการที่ติ๊ก include_in_financials ----
     const includedEntries = finEntries.filter(e => e.include_in_financials);
     const totalFixed = includedEntries.reduce((s, e) => s + Number(e.total_cost || 0), 0);
-    const netProfit = grossProfit - totalFixed;
+    const netProfit = grossProfit - platformFeeF - totalMarketing - totalFixed;
 
     const byCat = {};
     includedEntries.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + Number(e.total_cost || 0); });
@@ -3222,6 +3231,9 @@ async function loadFinancialsTab() {
       <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;"><span>รายได้</span><span style="font-weight:700;">฿${revenueF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
       <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;"><span>− ต้นทุนขาย (COGS)</span><span>฿${cogsF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
       <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:700;border-top:1px solid #E4DCC8;border-bottom:2px solid #4A3428;margin:4px 0;"><span>= กำไรขั้นต้น</span><span class="${grossProfit>=0?'good':'bad'}">฿${grossProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;"><span>− ค่าธรรมเนียมแพลตฟอร์ม (GP Grab ฯลฯ)</span><span>฿${platformFeeF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;"><span>− ค่าการตลาด (เลี้ยง/โฆษณา)</span><span>฿${totalMarketing.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+      ${mkRows}
       <div style="padding:8px 0 2px;font-size:11px;color:#A8876F;font-weight:600;">− ค่าใช้จ่ายคงที่ (เฉพาะที่ติ๊ก "รวมในงบ")</div>
       ${catRows || '<div style="font-size:11.5px;color:#C4B39E;padding:4px 0;">ไม่มีรายการในช่วงนี้</div>'}
       <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;border-top:1px solid #E4DCC8;"><span>รวมค่าใช้จ่ายคงที่</span><span>฿${totalFixed.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
