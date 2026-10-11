@@ -2149,6 +2149,20 @@ async function loadReportTab() {
       const spendByCh = {};
       spendInRange.forEach(x => { const k = x.channel_key || 'other'; const p = spendByCh[k] = spendByCh[k] || { total: 0, byKind: {} }; p.total += Number(x.amount); p.byKind[x.kind] = (p.byKind[x.kind] || 0) + Number(x.amount); });
       if (!platKeys.length && !spendInRange.length) { card.style.display = 'none'; return; }
+      const basketStats = {};
+      (function () {
+        const groups = {};
+        ordersRaw.filter(o => isPlat(o) && (o.order_type === 'customer' || !o.order_type)).forEach(o => {
+          const gk = o.platform_order_id || (o.external_ref ? `${o.channel}:${o.external_ref}` : `single:${o.id}`);
+          const g = groups[gk] = groups[gk] || { channel: o.channel, cups: 0, net: 0 };
+          g.cups += 1; g.net += Number(o.price || 0) - Number(o.order_discount_share || 0);
+        });
+        Object.values(groups).forEach(g => {
+          const b = basketStats[g.channel] = basketStats[g.channel] || { orders: 0, cups: 0, net: 0, one: 0, two: 0, three: 0 };
+          b.orders += 1; b.cups += g.cups; b.net += g.net;
+          if (g.cups === 1) b.one += 1; else if (g.cups === 2) b.two += 1; else b.three += 1;
+        });
+      })();
       const promoByCh = {};
       ordersRaw.filter(o => isPlat(o) && (Number(o.discount_amount) > 0 || Number(o.order_discount_share) > 0)).forEach(o => { const p = promoByCh[o.channel] = promoByCh[o.channel] || { cups: 0, item: 0, order: 0 }; if (Number(o.discount_amount) > 0) { p.cups += 1; p.item += Number(o.discount_amount); } p.order += Number(o.order_discount_share || 0); });
       const KIND_TH = { treat: 'เลี้ยง/แจกลอง', ads: 'โฆษณา/แคมเปญ', other: 'อื่นๆ' };
@@ -2168,6 +2182,7 @@ async function loadReportTab() {
           <div style="font-size:12px;color:#8a6a4a;margin-top:6px;line-height:1.7;">
             ลูกค้าจ่าย <b>${money(c.gross)}</b>${c.fee > 0 ? ` − GP ${money(c.fee)}` : ''} = ได้สุทธิ <b>${money(c.net)}</b><br>
             ต้นทุน ${money(c.cogs)}${spend.total ? ` − ค่าการตลาด ${money(spend.total)}` : ''} → กำไร <b style="color:${profit >= 0 ? '#4A9B5C' : '#D64545'};">${money(profit)}</b> · margin <b style="color:${bad ? '#D64545' : '#4A9B5C'};">${margin.toFixed(0)}%</b> · กำไร/แก้ว <b>${money(perCup)}</b>${bad ? ' ⚠️' : ''}
+            ${basketStats[k] ? `<br><span style="color:#00703A;">🧺 ${basketStats[k].orders} ออเดอร์ · เฉลี่ย <b>${(basketStats[k].cups / basketStats[k].orders).toFixed(1)} แก้ว/ออเดอร์</b> · ยอด Net เฉลี่ย ${money(basketStats[k].net / basketStats[k].orders)}/ออเดอร์ · 1 แก้ว ${basketStats[k].one} · 2 แก้ว ${basketStats[k].two} · 3+ แก้ว ${basketStats[k].three}</span>` : ''}
             ${promoByCh[k] ? `<br><span style="color:#E8621A;">🏷️ ส่วนลดที่ร้านออกให้ลูกค้า (หักในยอดแล้ว): รายแก้ว ${money(promoByCh[k].item)} (${promoByCh[k].cups} แก้ว)${promoByCh[k].order ? ` · ค่าส่ง ${money(promoByCh[k].order)}` : ''}</span>` : ''}
             ${spend.total ? `<br><span style="color:#8E5BB5;">💸 ค่าการตลาดนอกยอดขาย: ${Object.entries(spend.byKind).map(([kk, v]) => `${KIND_TH[kk] || kk} ${money(v)}`).join(' · ')}</span>` : ''}
             ${c.pendingCups ? `<br><span style="color:#D64545;">🟡 รอแพลตฟอร์มโอน ${c.pendingCups} แก้ว (สุทธิ ${money(c.pendingNet)})</span>` : ''}
