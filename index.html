@@ -3037,7 +3037,12 @@ async function loadPurchasingTab() {
     });
 
     // ---- Revenue ในช่วงเดียวกัน (เงินที่รับจริงแล้ว) เพื่อคำนวณกำไรสุทธิจริง — ใช้เฉพาะโหมด COGS ----
-    const revenueForProfit = brewedOrders.filter(o => o.paid).reduce((s, o) => s + Number(o.price || 0) + Number(o.bean_surcharge || 0), 0);
+    // ออเดอร์แพลตฟอร์ม (Grab) นับเป็นยอดสุทธิ: หักส่วนลดค่าส่งที่ร้านออก แล้วหัก GP ของแพลตฟอร์ม — เหมือนแท็บ Sales & Customers
+    const revenueForProfit = brewedOrders.filter(o => o.paid).reduce((s, o) => {
+      const plat = o.platform_gp_pct !== null && o.platform_gp_pct !== undefined;
+      if (!plat) return s + Number(o.price || 0) + Number(o.bean_surcharge || 0);
+      return s + (Number(o.price || 0) - Number(o.order_discount_share || 0)) * (1 - Number(o.platform_gp_pct) / 100);
+    }, 0);
     const netProfit = revenueForProfit - recipeCogs - packagingCogs;
 
     const showingVariable = purchViewState.costTypes.has('variable');
@@ -3051,7 +3056,7 @@ async function loadPurchasingTab() {
           <div class="stat-box"><div class="stat-label">ยอดซื้อรวมทั้งหมด</div><div class="stat-val">฿${totalPurchased.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
           <div class="stat-box"><div class="stat-label">💧 ส่วน COGS (วัตถุดิบ)</div><div class="stat-val">฿${variableTotal.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
           <div class="stat-box"><div class="stat-label">📌 ส่วน Fixed (ของใหญ่/คงที่)</div><div class="stat-val">฿${fixedTotal.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-          <div class="stat-box"><div class="stat-label">กำไรสุทธิจริง (COGS เท่านั้น)</div><div class="stat-val ${netProfit>=0?'good':'bad'}">฿${netProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+          <div class="stat-box"><div class="stat-label">กำไรสุทธิจริง (COGS เท่านั้น · Grab หัก GP แล้ว)</div><div class="stat-val ${netProfit>=0?'good':'bad'}">฿${netProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
         </div>
         <div style="font-size:10px;color:#A8876F;margin-top:6px;">
           💡 ดูรวมทั้ง 2 ประเภทพร้อมกัน — กำไรสุทธิยังคำนวณจาก COGS เท่านั้น (Fixed cost ไม่เคยกระทบตัวเลขนี้) ผลกระทบของ Fixed cost ต่อกำไรสุทธิจริง ดูที่แท็บ "งบการเงิน" แทน
