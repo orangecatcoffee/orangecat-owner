@@ -2090,7 +2090,7 @@ async function loadReportTab() {
 
     summaryEl.innerHTML = `
       <div class="stat-grid">
-        <div class="stat-box"><div class="stat-label">Revenue</div><div class="stat-val">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">Revenue · Grab หลังหัก GP</div><div class="stat-val">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
         <div class="stat-box"><div class="stat-label">Customers</div><div class="stat-val">${custCount}</div></div>
         <div class="stat-box"><div class="stat-label">Cups</div><div class="stat-val">${totalCups}</div></div>
         <div class="stat-box"><div class="stat-label">Avg / Cup</div><div class="stat-val">฿${avgPerCup.toFixed(0)}</div></div>
@@ -3233,7 +3233,7 @@ async function loadFinancialsTab() {
       .join('');
 
     statementEl.innerHTML = `
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;"><span>รายได้</span><span style="font-weight:700;">฿${revenueF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;"><span>รายได้ (ยอดขายสุทธิ ก่อนหัก GP)</span><span style="font-weight:700;">฿${revenueF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
       <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;"><span>− ต้นทุนขาย (COGS)</span><span>฿${cogsF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
       <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:700;border-top:1px solid #E4DCC8;border-bottom:2px solid #4A3428;margin:4px 0;"><span>= กำไรขั้นต้น</span><span class="${grossProfit>=0?'good':'bad'}">฿${grossProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
       <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;"><span>− ค่าธรรมเนียมแพลตฟอร์ม (GP Grab ฯลฯ)</span><span>฿${platformFeeF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
