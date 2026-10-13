@@ -749,6 +749,18 @@
 <div class="view" id="view-settings">
 
   <div class="card">
+    <div class="card-title">🏢 กลุ่มราคาลูกค้า</div>
+    <div style="font-size:12px;color:#8a6a4a;margin-bottom:12px;line-height:1.6;">
+      ราคาที่ลูกค้ากลุ่มนี้จ่าย = <b>ราคากลาง</b> (ราคาใน LINE / Standard Price) − ส่วนลดต่อแก้ว · สมาชิกในกลุ่มเห็นราคาของตัวเองใน LINE อัตโนมัติ ส่วนใน brew บาริสต้ากดปุ่ม 🏢 ชิดลม หรือ 💼 Standard Price เอง (เลือกให้อัตโนมัติถ้าเลือกสมาชิกที่มีกลุ่ม)
+    </div>
+    <div id="priceGroupList"><div class="loading">กำลังโหลด...</div></div>
+    <div class="status" id="priceGroupStatus"></div>
+    <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:rgba(74,52,40,0.4);margin:14px 0 6px;">สมาชิก — เลือกกลุ่มราคารายคน</div>
+    <input type="text" id="pgMemberSearch" placeholder="ค้นหาชื่อสมาชิก">
+    <div id="pgMemberList" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="card">
     <div class="card-title">🛵 ช่องทางแพลตฟอร์ม (GP)</div>
     <div style="font-size:12px;color:#8a6a4a;margin-bottom:12px;line-height:1.6;">
       GP% ที่แพลตฟอร์มหักจากยอดขาย — Grab = 32.1% จากหน้า Finance ของ GrabMerchant วันแรก (หัก 70.62 จากยอดขาย 220 ตรงกับคอมมิชชั่น 30% + VAT 7% ของคอมมิชชั่น) ถ้า Grab เปลี่ยนเงื่อนไข มาแก้ที่นี่ได้เลย ระบบใช้ค่านี้คำนวณกำไรสุทธิทุกหน้า<br>
@@ -1069,7 +1081,48 @@ async function loadChannelGpSettings() {
   } catch (e) { host.innerHTML = '<div style="font-size:12px;color:#D64545;">โหลดไม่สำเร็จ: ' + e.message + '</div>'; }
 }
 
+async function loadPriceGroupSettings() {
+  const listEl = document.getElementById('priceGroupList');
+  const memEl = document.getElementById('pgMemberList');
+  const statusEl = document.getElementById('priceGroupStatus');
+  const say = (ok, msg) => { statusEl.style.display = 'block'; statusEl.className = 'status ' + (ok ? 'success' : 'error'); statusEl.textContent = msg; };
+  try {
+    const [groups, members] = await Promise.all([
+      sb('price_groups?select=key,label_th,discount_per_cup,active&active=eq.true&order=sort_order'),
+      sb('members?select=id,display_name,price_group&order=display_name&limit=500'),
+    ]);
+    listEl.innerHTML = groups.map(g => `
+      <div data-pg="${g.key}" style="background:#FFF3E8;border-radius:12px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;font-size:13px;font-weight:700;color:#4A3428;">${g.label_th}<div style="font-size:10.5px;font-weight:400;color:#A8876F;">${g.key === 'standard' ? 'ราคากลาง (ไม่ลด)' : 'ลดต่อแก้วจากราคากลาง (บาท)'}</div></div>
+        ${g.key === 'standard' ? '<span style="font-size:12px;color:#A8876F;">฿0</span>' : `<input type="number" class="pg-discount" min="0" step="1" value="${Number(g.discount_per_cup)}" style="width:90px;margin:0;"><button type="button" class="btn pg-save" style="width:auto;padding:9px 14px;">บันทึก</button>`}
+      </div>`).join('');
+    listEl.querySelectorAll('[data-pg]').forEach(row => {
+      const key = row.dataset.pg; const btn = row.querySelector('.pg-save'); if (!btn) return;
+      btn.addEventListener('click', async () => {
+        const v = Number(row.querySelector('.pg-discount').value);
+        if (!(v >= 0 && v <= 100)) { say(false, 'ส่วนลดต้องอยู่ระหว่าง 0-100 บาท'); return; }
+        try { await sb(`price_groups?key=eq.${key}`, { method: 'PATCH', body: JSON.stringify({ discount_per_cup: v }) }); say(true, `✅ บันทึกแล้ว: ส่วนลดกลุ่ม ${key} ฿${v} ต่อแก้ว (มีผลกับ LINE และ brew ทันที)`); }
+        catch (e) { say(false, 'บันทึกไม่สำเร็จ: ' + e.message); }
+      });
+    });
+    const renderMembers = (q) => {
+      const rows = members.filter(m => !q || (m.display_name || '').toLowerCase().includes(q.toLowerCase()));
+      memEl.innerHTML = rows.map(m => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(74,52,40,0.08);">
+        <span style="flex:1;font-size:13px;color:#4A3428;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(m.display_name || '(ไม่มีชื่อ)').replace(/</g, '&lt;')}</span>
+        <select data-member="${m.id}" style="width:auto;margin:0;padding:6px 8px;font-size:13px;">${groups.map(g => `<option value="${g.key}" ${m.price_group === g.key ? 'selected' : ''}>${g.label_th}</option>`).join('')}</select></div>`).join('') || '<div style="font-size:12px;color:#A8876F;">ไม่พบสมาชิก</div>';
+      memEl.querySelectorAll('select[data-member]').forEach(sel => sel.addEventListener('change', async () => {
+        const m = members.find(x => String(x.id) === sel.dataset.member);
+        try { await sb(`members?id=eq.${encodeURIComponent(sel.dataset.member)}`, { method: 'PATCH', body: JSON.stringify({ price_group: sel.value }) }); if (m) m.price_group = sel.value; say(true, `✅ ${m ? m.display_name : 'สมาชิก'} → ${sel.options[sel.selectedIndex].text}`); }
+        catch (e) { say(false, 'เปลี่ยนไม่สำเร็จ: ' + e.message); sel.value = m ? m.price_group : 'standard'; }
+      }));
+    };
+    renderMembers('');
+    document.getElementById('pgMemberSearch').oninput = (e) => renderMembers(e.target.value.trim());
+  } catch (e) { listEl.innerHTML = '<div style="font-size:12px;color:#D64545;">โหลดไม่สำเร็จ: ' + e.message + '</div>'; }
+}
+
 async function loadSettingsTab() {
+  loadPriceGroupSettings();
   loadChannelGpSettings();
   loadMissionPhotoSettings();
   const infoEl = document.getElementById('qrCurrentInfo');
