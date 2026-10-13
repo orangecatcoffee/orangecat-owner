@@ -1783,11 +1783,12 @@ document.getElementById('reportRangeRow').addEventListener('click', (e) => {
 });
 function renderReportChannelChips(platforms) {
   const row = document.getElementById('reportChannelRow');
-  const wanted = ['all', 'own', ...platforms.map(p => p.channel_key)].join(',');
+  const wanted = ['all', 'office', 'standard', ...platforms.map(p => p.channel_key)].join(',');
   if (row.dataset.sig === wanted) return;
   row.dataset.sig = wanted;
   row.innerHTML = `<button type="button" class="chip channel-chip" data-channel="all">ทุกช่องทาง</button>
-    <button type="button" class="chip channel-chip" data-channel="own">🏪 ขายเอง (หน้าร้าน/LINE)</button>` +
+    <button type="button" class="chip channel-chip" data-channel="office">🏢 ชิดลม</button>
+    <button type="button" class="chip channel-chip" data-channel="standard">💼 Standard Price</button>` +
     platforms.map(p => `<button type="button" class="chip channel-chip" data-channel="${p.channel_key}">🛵 ${p.label_th} (GP ${Number(p.gp_pct)}%)</button>`).join('');
   row.querySelectorAll('.channel-chip').forEach(b => b.classList.toggle('selected', b.dataset.channel === reportChannel));
 }
@@ -1969,17 +1970,18 @@ async function loadReportTab() {
   document.getElementById('dimMenuProfit').innerHTML = '<div class="loading">Loading...</div>';
 
   try {
-    const [ordersRaw, menuItems, recipes, beans, allIngredients, futureOrdersRaw, salesChannels, settlementsRaw, spendRaw] = await Promise.all([
+    const [ordersRaw, menuItems, recipes, beans, allIngredients, futureOrdersRaw, salesChannels, settlementsRaw, spendRaw, membersRaw] = await Promise.all([
       sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}`),
       sb('menu_items?select=*'),
       sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
       sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
       sb('ingredients?select=id,name,category,stock_quantity,base_unit,cost_per_base_unit&active=eq.true'),
       // ออเดอร์ในอนาคต — ยังไม่ได้ชงเลย (คิวรอบาริสต้า ไม่จำกัดช่วงเวลาที่เลือกไว้ด้านบน เพราะเป็นคนละสถานะกัน)
-      sb(`preorders?select=id,customer_name,menu_item_name,price,order_discount_share,wanted_date,platform_gp_pct,channel&brewed=eq.false&or=(order_type.eq.customer,order_type.is.null)`),
+      sb(`preorders?select=id,customer_name,menu_item_name,price,order_discount_share,wanted_date,platform_gp_pct,channel,line_user_id&brewed=eq.false&or=(order_type.eq.customer,order_type.is.null)`),
       sb('sales_channels?select=channel_key,label_th,gp_pct,margin_alert_pct,active&gp_pct=gt.0&active=eq.true&order=sort_order'),
       sb('channel_settlements?select=*&order=settled_at.desc'),
       sb('marketing_spend?select=*&order=spend_date.desc'),
+      sb('members?select=line_user_id,price_group'),
     ]);
 
     // ---- ช่องทางขาย: ออเดอร์แพลตฟอร์ม (Grab ฯลฯ) เก็บ price = ที่ลูกค้าจ่ายจริง + platform_gp_pct ตอนสั่ง ----
@@ -1987,7 +1989,10 @@ async function loadReportTab() {
     const platformCfg = (salesChannels || []).map(c => ({ ...c, gp_pct: Number(c.gp_pct) || 0, margin_alert_pct: Number(c.margin_alert_pct) || 0 }));
     renderReportChannelChips(platformCfg);
     const isPlat = (o) => o.platform_gp_pct !== null && o.platform_gp_pct !== undefined;
-    const passesChannel = (o) => reportChannel === 'all' ? true : (reportChannel === 'own' ? !isPlat(o) : o.channel === reportChannel);
+    // ขายเอง แยกเป็น ชิดลม / Standard Price: ช่องทาง office/standard ตรงตัว · ออเดอร์เก่า (walk-in) = ชิดลม · ออเดอร์ LINE แยกตามกลุ่มราคาของสมาชิก
+    const memberGroup = {}; (membersRaw || []).forEach(m => { memberGroup[m.line_user_id] = m.price_group; });
+    const ownGroup = (o) => { if (o.channel === 'office' || o.channel === 'walk-in') return 'office'; if (o.channel === 'standard') return 'standard'; return memberGroup[o.line_user_id] === 'standard' ? 'standard' : 'office'; };
+    const passesChannel = (o) => reportChannel === 'all' ? true : (reportChannel === 'own' ? !isPlat(o) : ((reportChannel === 'office' || reportChannel === 'standard') ? (!isPlat(o) && ownGroup(o) === reportChannel) : o.channel === reportChannel));
     // Net sales ของแก้วแพลตฟอร์ม = ราคา - ส่วนลดระดับออเดอร์ที่ร้านออก (เช่น ส่วนลดค่าส่ง) ตรงกับ Net sales ที่แพลตฟอร์มรายงาน แล้วหัก GP
     const toNet = (o) => isPlat(o) ? { ...o, _gross: Number(o.price || 0) - Number(o.order_discount_share || 0), price: (Number(o.price || 0) - Number(o.order_discount_share || 0)) * (1 - Number(o.platform_gp_pct) / 100) } : o;
     const orders = ordersRaw.filter(passesChannel).map(toNet);
@@ -2189,10 +2194,11 @@ async function loadReportTab() {
       const host = document.getElementById('reportChannelCompare');
       const cmp = {};
       ordersRaw.filter(o => (o.order_type === 'customer' || !o.order_type) && !o.omakase_set_id).forEach(o => {
-        const key = isPlat(o) ? o.channel : 'own';
+        const key = isPlat(o) ? o.channel : ownGroup(o);
         const gross = orderTotal(o) - (isPlat(o) ? Number(o.order_discount_share || 0) : 0);
         const gp = isPlat(o) ? Number(o.platform_gp_pct) : 0;
-        const c = cmp[key] = cmp[key] || { cups: 0, gross: 0, fee: 0, net: 0, cogs: 0, pendingCups: 0, pendingNet: 0 };
+        const c = cmp[key] = cmp[key] || { cups: 0, gross: 0, fee: 0, net: 0, cogs: 0, pendingCups: 0, pendingNet: 0, disc: 0, discCups: 0 };
+        if (!isPlat(o) && Number(o.discount_amount) > 0) { c.disc += Number(o.discount_amount); c.discCups += 1; }
         c.cups += 1; c.gross += gross; c.fee += gross * gp / 100; c.net += gross * (1 - gp / 100); c.cogs += computeCost(o);
         if (isPlat(o) && !o.paid) { c.pendingCups += 1; c.pendingNet += gross * (1 - gp / 100); }
       });
@@ -2201,7 +2207,7 @@ async function loadReportTab() {
       const spendInRange = (spendRaw || []).filter(x => { const t = new Date(x.spend_date + 'T12:00:00+07:00'); return t >= from && t <= to; });
       const spendByCh = {};
       spendInRange.forEach(x => { const k = x.channel_key || 'other'; const p = spendByCh[k] = spendByCh[k] || { total: 0, byKind: {} }; p.total += Number(x.amount); p.byKind[x.kind] = (p.byKind[x.kind] || 0) + Number(x.amount); });
-      if (!platKeys.length && !spendInRange.length) { card.style.display = 'none'; return; }
+      if (!platKeys.length && !spendInRange.length && !Object.keys(cmp).length) { card.style.display = 'none'; return; }
       const basketStats = {};
       (function () {
         const groups = {};
@@ -2221,7 +2227,7 @@ async function loadReportTab() {
       const KIND_TH = { treat: 'เลี้ยง/แจกลอง', ads: 'โฆษณา/แคมเปญ', other: 'อื่นๆ' };
       card.style.display = 'block';
       const money = (n) => '฿' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
-      const labelOf = (k) => k === 'own' ? '🏪 ขายเอง (หน้าร้าน/LINE)' : '🛵 ' + ((platformCfg.find(p => p.channel_key === k) || {}).label_th || k);
+      const labelOf = (k) => k === 'office' ? '🏢 ชิดลม' : (k === 'standard' ? '💼 Standard Price' : (k === 'own' ? '🏪 ขายเอง' : '🛵 ' + ((platformCfg.find(p => p.channel_key === k) || {}).label_th || k)));
       const rowFor = (k) => {
         const c = cmp[k]; if (!c) return '';
         const spend = (spendByCh[k] || { total: 0, byKind: {} });
@@ -2237,22 +2243,23 @@ async function loadReportTab() {
             ต้นทุน ${money(c.cogs)}${spend.total ? ` − ค่าการตลาด ${money(spend.total)}` : ''} → กำไร <b style="color:${profit >= 0 ? '#4A9B5C' : '#D64545'};">${money(profit)}</b> · margin <b style="color:${bad ? '#D64545' : '#4A9B5C'};">${margin.toFixed(0)}%</b> · กำไร/แก้ว <b>${money(perCup)}</b>${bad ? ' ⚠️' : ''}
             ${basketStats[k] ? `<br><span style="color:#00703A;">🧺 ${basketStats[k].orders} ออเดอร์ · เฉลี่ย <b>${(basketStats[k].cups / basketStats[k].orders).toFixed(1)} แก้ว/ออเดอร์</b> · ยอด Net เฉลี่ย ${money(basketStats[k].net / basketStats[k].orders)}/ออเดอร์ · 1 แก้ว ${basketStats[k].one} · 2 แก้ว ${basketStats[k].two} · 3+ แก้ว ${basketStats[k].three}</span>` : ''}
             ${promoByCh[k] ? `<br><span style="color:#E8621A;">🏷️ ส่วนลดที่ร้านออกให้ลูกค้า (หักในยอดแล้ว): รายแก้ว ${money(promoByCh[k].item)} (${promoByCh[k].cups} แก้ว)${promoByCh[k].order ? ` · ค่าส่ง ${money(promoByCh[k].order)}` : ''}</span>` : ''}
+            ${(!platformCfg.find(p => p.channel_key === k) && c.disc > 0) ? `<br><span style="color:#E8621A;">🏷️ ส่วนลดกลุ่มลูกค้า (หักในราคาแล้ว) ${c.discCups} แก้ว รวม ${money(c.disc)}</span>` : ''}
             ${spend.total ? `<br><span style="color:#8E5BB5;">💸 ค่าการตลาดนอกยอดขาย: ${Object.entries(spend.byKind).map(([kk, v]) => `${KIND_TH[kk] || kk} ${money(v)}`).join(' · ')}</span>` : ''}
             ${c.pendingCups ? `<br><span style="color:#D64545;">🟡 รอแพลตฟอร์มโอน ${c.pendingCups} แก้ว (สุทธิ ${money(c.pendingNet)})</span>` : ''}
           </div></div>`;
       };
-      let html = rowFor('own') + platKeys.map(rowFor).join('');
+      let html = rowFor('office') + rowFor('standard') + platKeys.map(rowFor).join('');
       // ค่าการตลาดของช่องทางที่ยังไม่มียอดขายในช่วงนี้ (เช่น จ่ายแล้วแต่ออเดอร์ยังไม่ชง) ไม่ให้หายไปจากรายงาน
       Object.keys(spendByCh).filter(k => k !== 'own' && !platKeys.includes(k)).forEach(k => {
         const sp = spendByCh[k];
         html += `<div style="background:#F5EEFA;border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#4A3428;">💸 ${labelOf(k)} — ค่าการตลาดนอกยอดขาย ${Object.entries(sp.byKind).map(([kk, v]) => `${KIND_TH[kk] || kk} ${money(v)}`).join(' · ')} (ยังไม่มีออเดอร์ที่ชงแล้วในช่วงนี้)</div>`;
       });
-      const own = cmp.own;
+      const own = cmp.office || cmp.standard;
       if (own && own.cups) {
         const ownPer = (own.net - own.cogs) / own.cups;
         platKeys.forEach(k => {
           const c = cmp[k]; const per = (c.net - c.cogs) / c.cups; const d = per - ownPer;
-          html += `<div style="font-size:12px;color:#4A3428;margin-bottom:6px;">• ${labelOf(k)}: กำไรต่อแก้ว ${money(per)} เทียบขายเอง ${money(ownPer)} → ${Math.abs(d) < 0.5 ? 'ใกล้เคียงกัน' : (d > 0 ? 'ได้มากกว่า ' : 'ได้น้อยกว่า ') + money(Math.abs(d)) + ' ต่อแก้ว'}</div>`;
+          html += `<div style="font-size:12px;color:#4A3428;margin-bottom:6px;">• ${labelOf(k)}: กำไรต่อแก้ว ${money(per)} เทียบ${cmp.office ? 'ชิดลม' : 'Standard'} ${money(ownPer)} → ${Math.abs(d) < 0.5 ? 'ใกล้เคียงกัน' : (d > 0 ? 'ได้มากกว่า ' : 'ได้น้อยกว่า ') + money(Math.abs(d)) + ' ต่อแก้ว'}</div>`;
         });
       }
       // เงินที่แพลตฟอร์มโอนจริงในช่วงนี้ (จากที่บาริสต้ากด "รับเงินแล้ว") เทียบกับที่คาดไว้ — เห็น GP จริง
