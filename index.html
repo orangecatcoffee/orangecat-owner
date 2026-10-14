@@ -321,6 +321,11 @@
     <div id="reportChannelCompare"></div>
   </div>
 
+  <div class="card" id="reportGroupCard" style="display:none;">
+    <div class="card-title">👥 ออเดอร์กลุ่ม (ตัวแทนสั่งให้เพื่อน)</div>
+    <div id="reportGroup"></div>
+  </div>
+
   <div class="card">
     <div class="card-title">📊 ยอดขายตามช่วงเวลา</div>
     <div class="chip-row" id="trendGranularityRow">
@@ -1262,6 +1267,27 @@ async function loadReportTab() {
     });
 
     // ---- เทียบช่องทาง: แต่ละช่องทางได้เงินสุทธิ/กำไร/margin ต่างกันแค่ไหน (นับตามวันที่ชง รวมที่ยังไม่ได้รับเงิน, ไม่รวมเซ็ต Omakase) ----
+    (function renderGroupOrders() {
+      const card = document.getElementById('reportGroupCard'), host = document.getElementById('reportGroup');
+      const rows = ordersRaw.filter(o => (o.order_type === 'customer' || !o.order_type) && o.drinker_name && String(o.drinker_name).trim() && !o.omakase_set_id);
+      if (!rows.length) { card.style.display = 'none'; return; }
+      const reps = {};
+      rows.forEach(o => {
+        const r = reps[o.customer_name] = reps[o.customer_name] || { cups: 0, rev: 0, disc: 0, drinkers: {} };
+        r.cups += 1; r.rev += Number(o.price || 0) + Number(o.bean_surcharge || 0); r.disc += Number(o.discount_amount || 0);
+        const d = String(o.drinker_name).trim(); r.drinkers[d] = (r.drinkers[d] || 0) + 1;
+      });
+      const money = (n) => '฿' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+      const deliveryTotal = (spendRaw || []).filter(x => x.kind === 'delivery').filter(x => { const t = new Date(x.spend_date + 'T12:00:00+07:00'); return t >= from && t <= to; }).reduce((s, x) => s + Number(x.amount || 0), 0);
+      const totalCups = rows.length;
+      card.style.display = 'block';
+      host.innerHTML = Object.entries(reps).sort((a, b) => b[1].cups - a[1].cups).map(([name, r]) => `
+        <div style="background:#EAF6EC;border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:12.5px;color:#4A3428;line-height:1.7;">
+          <b>${name}</b> — ${Object.keys(r.drinkers).length} คน · ${r.cups} แก้ว · ${money(r.rev)}${r.disc ? ` · ส่วนลดที่ให้ ${money(r.disc)}` : ''}<br>
+          <span style="font-size:11.5px;color:#8a6a4a;">${Object.entries(r.drinkers).sort((a, b) => b[1] - a[1]).map(([d, n]) => `${d} ${n}`).join(' · ')}</span>
+        </div>`).join('') + `<div style="font-size:11.5px;color:#A8876F;line-height:1.6;">ค่าส่งที่ร้านออกในช่วงนี้ ${money(deliveryTotal)} (ทุกออเดอร์) · เฉลี่ย ${totalCups ? money(deliveryTotal / totalCups) : '฿0'} ต่อแก้วออเดอร์กลุ่ม · คนที่สั่งซ้ำบ่อยคือคนที่ควรชวนเป็นสมาชิก</div>`;
+    })();
+
     (function renderChannelCompare() {
       const card = document.getElementById('reportChannelCompareCard');
       const host = document.getElementById('reportChannelCompare');
@@ -1297,7 +1323,7 @@ async function loadReportTab() {
       })();
       const promoByCh = {};
       ordersRaw.filter(o => isPlat(o) && (Number(o.discount_amount) > 0 || Number(o.order_discount_share) > 0)).forEach(o => { const p = promoByCh[o.channel] = promoByCh[o.channel] || { cups: 0, item: 0, order: 0 }; if (Number(o.discount_amount) > 0) { p.cups += 1; p.item += Number(o.discount_amount); } p.order += Number(o.order_discount_share || 0); });
-      const KIND_TH = { treat: 'เลี้ยง/แจกลอง', ads: 'โฆษณา/แคมเปญ', other: 'อื่นๆ' };
+      const KIND_TH = { treat: 'เลี้ยง/แจกลอง', ads: 'โฆษณา/แคมเปญ', delivery: 'ค่าส่งที่ร้านออก', other: 'อื่นๆ' };
       card.style.display = 'block';
       const money = (n) => '฿' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
       const labelOf = (k) => k === 'office' ? '🏢 ชิดลม' : (k === 'standard' ? '💼 Standard Price' : (k === 'own' ? '🏪 ขายเอง' : '🛵 ' + ((platformCfg.find(p => p.channel_key === k) || {}).label_th || k)));
@@ -1347,8 +1373,8 @@ async function loadReportTab() {
         <details style="margin-top:10px;"><summary style="font-size:12px;font-weight:700;color:#8E5BB5;cursor:pointer;">＋ บันทึกค่าการตลาด (เลี้ยง / โฆษณา / อื่นๆ)</summary>
           <div style="margin-top:8px;">
             <div class="row2"><div><label>วันที่</label><input type="date" id="mkDate" value="${new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10)}"></div>
-            <div><label>ช่องทาง</label><select id="mkChannel">${platformCfg.map(p => `<option value="${p.channel_key}">${p.label_th}</option>`).join('')}<option value="line">ขายเอง (หน้าร้าน/LINE)</option></select></div></div>
-            <div class="row2"><div><label>ประเภท</label><select id="mkKind"><option value="treat">เลี้ยง / แจกลอง</option><option value="ads">โฆษณา / แคมเปญ</option><option value="other">อื่นๆ</option></select></div>
+            <div><label>ช่องทาง</label><select id="mkChannel">${platformCfg.map(p => `<option value="${p.channel_key}">${p.label_th}</option>`).join('')}<option value="office">🏢 ชิดลม</option><option value="standard">💼 Standard Price</option></select></div></div>
+            <div class="row2"><div><label>ประเภท</label><select id="mkKind"><option value="treat">เลี้ยง / แจกลอง</option><option value="delivery">🛵 ค่าส่งที่ร้านออก</option><option value="ads">โฆษณา / แคมเปญ</option><option value="other">อื่นๆ</option></select></div>
             <div><label>จำนวนเงิน (บาท)</label><input type="number" id="mkAmount" min="0" step="0.01" placeholder="เช่น 315"></div></div>
             <label>ชื่อแคมเปญ / หมายเหตุ</label><input type="text" id="mkNote" placeholder="เช่น เลี้ยงเพื่อน GF-900">
             <button type="button" class="btn" id="mkSave" style="width:100%;margin-top:10px;">บันทึก</button>
@@ -1979,7 +2005,7 @@ async function loadFinancialsTab() {
     const cogsF = recipeCogsF + packagingCogsF;
     const grossProfit = revenueF - cogsF;
     // ค่าการตลาดนอกยอดขาย (เลี้ยง/โฆษณา/อื่นๆ) ที่บันทึกใน marketing_spend — ส่วนลดที่หักในบิลแล้วไม่นับซ้ำ
-    const MK_KIND_TH = { treat: 'เลี้ยง/แจกลอง', ads: 'โฆษณา/แคมเปญ', other: 'อื่นๆ' };
+    const MK_KIND_TH = { treat: 'เลี้ยง/แจกลอง', ads: 'โฆษณา/แคมเปญ', delivery: 'ค่าส่งที่ร้านออก', other: 'อื่นๆ' };
     const totalMarketing = (mkSpend || []).reduce((s, x) => s + Number(x.amount || 0), 0);
     const mkRows = (mkSpend || []).map(x => `<div style="display:flex;justify-content:space-between;font-size:11.5px;padding:3px 0;color:#8a6a4a;"><span>${MK_KIND_TH[x.kind] || x.kind} · ${x.spend_date}${x.campaign ? ' · ' + x.campaign : ''}</span><span>฿${Number(x.amount).toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>`).join('');
 
