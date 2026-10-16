@@ -272,13 +272,83 @@
 </div>
 
 <div class="tabs">
-  <div class="tab active" data-tab="report">Sales & Customers</div>
+  <div class="tab active" data-tab="target">เป้าหมาย</div>
+<div class="tab" data-tab="report">Sales & Customers</div>
   <div class="tab" data-tab="purchasing">Purchasing</div>
   <div class="tab" data-tab="financials">งบการเงิน</div>
 </div>
 
 <!-- ============ TAB 1: SALES & CUSTOMER PERFORMANCE ============ -->
-<div class="view active" id="view-report">
+<div class="view active" id="view-target">
+
+  <div class="card">
+    <div class="card-title">🎯 เป้าหมายรายเดือน</div>
+    <div id="tgBig"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">ตอนนี้อยู่ห่างจากเป้าแค่ไหน</div>
+    <div id="tgKpi"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🎯 ภารกิจ 975 แก้ว</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <div style="flex:1;background:rgba(0,0,0,0.03);border-radius:8px;padding:0.75rem;">
+        <div style="font-size:12px;color:var(--ol,#888);">ขายแล้ว</div>
+        <div id="missionSold" style="font-size:20px;font-weight:600;">–</div>
+      </div>
+      <div style="flex:1;background:rgba(0,0,0,0.03);border-radius:8px;padding:0.75rem;">
+        <div style="font-size:12px;color:var(--ol,#888);">เหลืออีก</div>
+        <div id="missionLeft" style="font-size:20px;font-weight:600;">–</div>
+      </div>
+      <div style="flex:1;background:rgba(0,0,0,0.03);border-radius:8px;padding:0.75rem;">
+        <div style="font-size:12px;color:var(--ol,#888);">ครบเป้า</div>
+        <div id="missionPct" style="font-size:20px;font-weight:600;">–</div>
+      </div>
+    </div>
+    <div style="height:6px;background:rgba(0,0,0,0.06);border-radius:3px;overflow:hidden;margin-bottom:12px;">
+      <div id="missionBar" style="height:100%;width:0%;background:#E8863A;"></div>
+    </div>
+    <div id="missionRunrate" style="font-size:12.5px;color:#8a6a4a;text-align:center;margin-bottom:16px;">–</div>
+    <canvas id="missionMosaic" style="display:block;width:100%;height:auto;border-radius:12px;"></canvas>
+    <p style="font-size:12px;color:var(--ol,#888);margin:8px 0 0;text-align:center;">เริ่มนับ 3 ก.ย. 2569 · ชิ้นขาวดำ = ยังไม่ขาย · ชิ้นมีสี = ขายแล้ว (1 ชิ้นจิ๊กซอว์ = 1 แก้ว)</p>
+
+    <div style="margin-top:18px;padding-top:16px;border-top:2px solid #F0E4D8;">
+      <div style="font-size:13px;font-weight:700;color:#4A3428;margin-bottom:10px;">🧮 คำนวณเป้าหมาย</div>
+      <div class="chip-row" id="missionCalcModeRow">
+        <button type="button" class="chip range-chip selected" data-calc-mode="perday">ตั้งแก้ว/วัน</button>
+        <button type="button" class="chip range-chip" data-calc-mode="date">ตั้งวันที่เป้าหมาย</button>
+      </div>
+      <div id="missionCalcInputWrap" style="margin-top:10px;">
+        <div id="missionCalcPerdayInput">
+          <label style="font-size:12px;color:#8a6a4a;display:block;margin-bottom:6px;">สมมติขายได้กี่แก้ว/วัน</label>
+          <input type="number" id="missionCalcPerday" min="0" step="0.1" placeholder="เช่น 15" style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:13px;">
+        </div>
+        <div id="missionCalcDateInput" style="display:none;">
+          <label style="font-size:12px;color:#8a6a4a;display:block;margin-bottom:6px;">อยากครบ 975 แก้ววันไหน</label>
+          <input type="date" id="missionCalcDate" style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:13px;">
+        </div>
+      </div>
+      <div id="missionCalcResult" style="margin-top:12px;background:#FFF3E8;border-radius:10px;padding:12px 14px;font-size:13px;color:#4A3428;min-height:20px;">กรอกตัวเลขด้านบนเพื่อดูผลลัพธ์</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary style="cursor:pointer;font-weight:700;font-size:13px;color:#8a6a4a;">⚙️ แก้เป้าหมาย</summary>
+      <div style="margin-top:10px;font-size:12px;color:#8a6a4a;">
+        <label style="display:block;margin:8px 0 4px;">เป้ายอดขายต่อเดือน (฿)</label><input type="number" id="tgInRev" min="0" step="500" style="width:100%;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:14px;">
+        <label style="display:block;margin:8px 0 4px;">ราคาเฉลี่ยต่อแก้ว (฿) — ใช้แปลงเป็นจำนวนแก้ว</label><input type="number" id="tgInAvg" min="1" step="1" style="width:100%;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:14px;">
+        <label style="display:block;margin:8px 0 4px;">เป้ากำไร (% ของยอดขาย)</label><input type="number" id="tgInPct" min="0" max="100" step="1" style="width:100%;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:14px;">
+        <button type="button" class="btn" id="tgSave" style="margin-top:12px;width:100%;">บันทึกเป้า</button>
+      </div>
+    </details>
+  </div>
+
+</div>
+
+<div class="view" id="view-report">
 
 
   <div class="card">
@@ -395,48 +465,7 @@
   </div>
 
 
-  <div class="card">
-    <div class="card-title">🎯 ภารกิจ 975 แก้ว</div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <div style="flex:1;background:rgba(0,0,0,0.03);border-radius:8px;padding:0.75rem;">
-        <div style="font-size:12px;color:var(--ol,#888);">ขายแล้ว</div>
-        <div id="missionSold" style="font-size:20px;font-weight:600;">–</div>
-      </div>
-      <div style="flex:1;background:rgba(0,0,0,0.03);border-radius:8px;padding:0.75rem;">
-        <div style="font-size:12px;color:var(--ol,#888);">เหลืออีก</div>
-        <div id="missionLeft" style="font-size:20px;font-weight:600;">–</div>
-      </div>
-      <div style="flex:1;background:rgba(0,0,0,0.03);border-radius:8px;padding:0.75rem;">
-        <div style="font-size:12px;color:var(--ol,#888);">ครบเป้า</div>
-        <div id="missionPct" style="font-size:20px;font-weight:600;">–</div>
-      </div>
-    </div>
-    <div style="height:6px;background:rgba(0,0,0,0.06);border-radius:3px;overflow:hidden;margin-bottom:12px;">
-      <div id="missionBar" style="height:100%;width:0%;background:#E8863A;"></div>
-    </div>
-    <div id="missionRunrate" style="font-size:12.5px;color:#8a6a4a;text-align:center;margin-bottom:16px;">–</div>
-    <canvas id="missionMosaic" style="display:block;width:100%;height:auto;border-radius:12px;"></canvas>
-    <p style="font-size:12px;color:var(--ol,#888);margin:8px 0 0;text-align:center;">เริ่มนับ 3 ก.ย. 2569 · แก้วขาวดำ = ยังไม่ขาย · แก้วมีสี = ขายแล้ว</p>
-
-    <div style="margin-top:18px;padding-top:16px;border-top:2px solid #F0E4D8;">
-      <div style="font-size:13px;font-weight:700;color:#4A3428;margin-bottom:10px;">🧮 คำนวณเป้าหมาย</div>
-      <div class="chip-row" id="missionCalcModeRow">
-        <button type="button" class="chip range-chip selected" data-calc-mode="perday">ตั้งแก้ว/วัน</button>
-        <button type="button" class="chip range-chip" data-calc-mode="date">ตั้งวันที่เป้าหมาย</button>
-      </div>
-      <div id="missionCalcInputWrap" style="margin-top:10px;">
-        <div id="missionCalcPerdayInput">
-          <label style="font-size:12px;color:#8a6a4a;display:block;margin-bottom:6px;">สมมติขายได้กี่แก้ว/วัน</label>
-          <input type="number" id="missionCalcPerday" min="0" step="0.1" placeholder="เช่น 15" style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:13px;">
-        </div>
-        <div id="missionCalcDateInput" style="display:none;">
-          <label style="font-size:12px;color:#8a6a4a;display:block;margin-bottom:6px;">อยากครบ 975 แก้ววันไหน</label>
-          <input type="date" id="missionCalcDate" style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:13px;">
-        </div>
-      </div>
-      <div id="missionCalcResult" style="margin-top:12px;background:#FFF3E8;border-radius:10px;padding:12px 14px;font-size:13px;color:#4A3428;min-height:20px;">กรอกตัวเลขด้านบนเพื่อดูผลลัพธ์</div>
-    </div>
-  </div>
+  
 
 </div>
 
@@ -634,32 +663,74 @@ async function getMissionCupsSold() {
   }
   return logs.filter(l => !l.source_preorder_id || !excludeSet.has(l.source_preorder_id)).length;
 }
+function missionJigsawPath(ctx, x, y, s, top, right, bottom, left) {
+  // each of top/right/bottom/left: +1 knob sticks out of this piece, -1 slot cut into it, 0 flat border
+  const edge = (x0, y0, x1, y1, nx, ny, sgn) => {
+    if (!sgn) { ctx.lineTo(x1, y1); return; }
+    const dx = x1 - x0, dy = y1 - y0;
+    const P = (t, a) => [x0 + dx * t + nx * sgn * a * s, y0 + dy * t + ny * sgn * a * s];
+    ctx.lineTo(...P(0.435, 0));
+    ctx.bezierCurveTo(...P(0.43, 0.05), ...P(0.36, 0.07), ...P(0.37, 0.14));
+    ctx.bezierCurveTo(...P(0.38, 0.22), ...P(0.45, 0.25), ...P(0.50, 0.25));
+    ctx.bezierCurveTo(...P(0.55, 0.25), ...P(0.62, 0.22), ...P(0.63, 0.14));
+    ctx.bezierCurveTo(...P(0.64, 0.07), ...P(0.57, 0.05), ...P(0.565, 0));
+    ctx.lineTo(x1, y1);
+  };
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  edge(x, y, x + s, y, 0, -1, top);
+  edge(x + s, y, x + s, y + s, 1, 0, right);
+  edge(x + s, y + s, x, y + s, 0, 1, bottom);
+  edge(x, y + s, x, y, -1, 0, left);
+  ctx.closePath();
+}
 function missionDrawMosaic(sold) {
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.onload = () => {
-    const cell = 11;
-    const W = MISSION_COLS * cell, H = MISSION_ROWS * cell;
-    const off = document.createElement("canvas");
-    off.width = MISSION_COLS; off.height = MISSION_ROWS;
-    const octx = off.getContext("2d");
-    octx.drawImage(img, 0, 0, MISSION_COLS, MISSION_ROWS);
-    const data = octx.getImageData(0, 0, MISSION_COLS, MISSION_ROWS).data;
-    const order = missionFillOrder(MISSION_COLS, MISSION_ROWS);
-    const coloredSet = new Set(order.slice(0, sold));
+    const s = 26;                                   // piece size in canvas px
+    const W = MISSION_COLS * s, H = MISSION_ROWS * s;
     const canvas = document.getElementById("missionMosaic");
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
-    let idx = 0;
+    // full-colour photo + a washed-out grey copy for pieces not sold yet
+    const color = document.createElement("canvas"); color.width = W; color.height = H;
+    color.getContext("2d").drawImage(img, 0, 0, W, H);
+    const grey = document.createElement("canvas"); grey.width = W; grey.height = H;
+    const gctx = grey.getContext("2d");
+    gctx.drawImage(color, 0, 0);
+    const gd = gctx.getImageData(0, 0, W, H), px = gd.data;
+    for (let i = 0; i < px.length; i += 4) {
+      const g = Math.round((0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) * 0.55 + 255 * 0.2);
+      px[i] = px[i + 1] = px[i + 2] = g;
+    }
+    gctx.putImageData(gd, 0, 0);
+    // random but fixed knob directions so the puzzle looks the same every time
+    const rnd = mulberry32(975);
+    const hk = [], vk = [];
+    for (let r = 0; r <= MISSION_ROWS; r++) { hk.push([]); for (let c = 0; c < MISSION_COLS; c++) hk[r].push(r === 0 || r === MISSION_ROWS ? 0 : (rnd() < 0.5 ? 1 : -1)); }
+    for (let r = 0; r < MISSION_ROWS; r++) { vk.push([]); for (let c = 0; c <= MISSION_COLS; c++) vk[r].push(c === 0 || c === MISSION_COLS ? 0 : (rnd() < 0.5 ? 1 : -1)); }
+    const order = missionFillOrder(MISSION_COLS, MISSION_ROWS);
+    const coloredSet = new Set(order.slice(0, sold));
+    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, W, H);
+    const pad = s * 0.3;
     for (let r = 0; r < MISSION_ROWS; r++) {
       for (let c = 0; c < MISSION_COLS; c++) {
-        const p = (r * MISSION_COLS + c) * 4;
-        const R = data[p], G = data[p + 1], B = data[p + 2];
-        let gray = Math.round(0.299 * R + 0.587 * G + 0.114 * B);
-        gray = Math.round(gray * 0.55 + 255 * 0.2);
-        const color = coloredSet.has(idx) ? `rgb(${R},${G},${B})` : `rgb(${gray},${gray},${gray})`;
-        missionDrawCup(ctx, c * cell + 0.5, r * cell + 0.5, cell - 1, cell - 1, color);
-        idx++;
+        const idx = r * MISSION_COLS + c, x = c * s, y = r * s;
+        const top = hk[r][c] === 0 ? 0 : (hk[r][c] === -1 ? 1 : -1);
+        const bottom = hk[r + 1][c] === 0 ? 0 : (hk[r + 1][c] === 1 ? 1 : -1);
+        const right = vk[r][c + 1] === 0 ? 0 : (vk[r][c + 1] === 1 ? 1 : -1);
+        const left = vk[r][c] === 0 ? 0 : (vk[r][c] === -1 ? 1 : -1);
+        ctx.save();
+        missionJigsawPath(ctx, x, y, s, top, right, bottom, left);
+        ctx.clip();
+        const bx = Math.max(0, x - pad), by = Math.max(0, y - pad), bw = Math.min(W, x + s + pad) - bx, bh = Math.min(H, y + s + pad) - by;
+        ctx.drawImage(coloredSet.has(idx) ? color : grey, bx, by, bw, bh, bx, by, bw, bh);
+        ctx.restore();
+        missionJigsawPath(ctx, x, y, s, top, right, bottom, left);
+        ctx.lineWidth = 1.1;
+        ctx.strokeStyle = coloredSet.has(idx) ? "rgba(255,255,255,0.65)" : "rgba(60,50,40,0.35)";
+        ctx.stroke();
       }
     }
   };
@@ -807,6 +878,55 @@ let finLoaded = false;
 reportLoaded = true;
 loadReportTab();
 loadMissionTab();
+loadTargetTab();
+
+async function loadTargetTab() {
+  const bigEl = document.getElementById('tgBig'), kpiEl = document.getElementById('tgKpi');
+  try {
+    const rows = await sb('system_settings?select=key,value&key=like.target.*');
+    const S = {}; rows.forEach(r => S[r.key] = Number(r.value));
+    const rev = S['target.monthly_revenue'] || 20000, avg = S['target.avg_price_per_cup'] || 80, pctT = S['target.profit_pct'] || 50;
+    const profitT = rev * pctT / 100, cupsT = Math.ceil(rev / avg), weekT = Math.floor(cupsT / 4), dayT = weekT / 7;
+    document.getElementById('tgInRev').value = rev; document.getElementById('tgInAvg').value = avg; document.getElementById('tgInPct').value = pctT;
+    const box = (big, label, sub) => `<div style="flex:1;background:#FFF3E8;border-radius:12px;padding:12px 8px;text-align:center;"><div style="font-size:30px;font-weight:800;color:#C2541A;line-height:1.1;">${big}</div><div style="font-size:12px;font-weight:700;color:#4A3428;margin-top:2px;">${label}</div><div style="font-size:10.5px;color:#A8876F;margin-top:2px;">${sub}</div></div>`;
+    bigEl.innerHTML = `
+      <div style="display:flex;gap:8px;">${box(cupsT, 'แก้ว / เดือน', '= ' + rev.toLocaleString() + ' ÷ ' + avg)}${box(weekT, 'แก้ว / สัปดาห์', '1 เดือน = 4 สัปดาห์')}${box(dayT.toFixed(1), 'แก้ว / วัน', 'ถ้านับ 30 วัน = ' + (cupsT / 30).toFixed(1))}</div>
+      <div style="display:flex;gap:8px;margin-top:8px;">${box('฿' + rev.toLocaleString(), 'ยอดขาย / เดือน', 'ราคาเฉลี่ย ฿' + avg + ' ต่อแก้ว')}${box('฿' + profitT.toLocaleString(), 'กำไร / เดือน', pctT + '% ของยอดขาย')}</div>`;
+
+    const today = new Date(), d30 = new Date(today.getTime() - 29 * 86400000), d7 = new Date(today.getTime() - 6 * 86400000);
+    const [p30, p7] = await Promise.all([fetchPnl(d30, today), fetchPnl(d7, today)]);
+    const t30 = p30.total, t7 = p7.total;
+    const row = (label, actual, target, fmt, extra) => {
+      const pct = target ? actual / target * 100 : 0, gap = target - actual;
+      const color = pct >= 100 ? '#2E7D46' : pct >= 70 ? '#E8863A' : '#B5483A';
+      return `<div style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:12.5px;font-weight:700;">${label}</span><span style="font-size:12px;color:${color};font-weight:700;">${pct.toFixed(0)}%</span></div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin:2px 0 6px;"><span style="font-size:26px;font-weight:800;color:${color};">${fmt(actual)}</span><span style="font-size:12px;color:#A8876F;">จากเป้า ${fmt(target)}</span></div>
+        <div style="height:8px;background:#F0E4D8;border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.min(pct, 100)}%;background:${color};"></div></div>
+        <div style="font-size:11.5px;color:#8a6a4a;margin-top:4px;">${gap > 0 ? 'ขาดอีก ' + fmt(gap) : '✅ ถึงเป้าแล้ว (เกิน ' + fmt(-gap) + ')'}${extra ? ' · ' + extra : ''}</div>
+      </div>`;
+    };
+    const n0 = v => Math.round(v).toLocaleString(), baht = v => '฿' + Math.round(v).toLocaleString();
+    const cups30 = Number(t30.cups), need = Math.max(0, (cupsT - cups30) / 30);
+    kpiEl.innerHTML =
+      `<div style="font-size:11px;color:#A8876F;margin-bottom:10px;">ย้อนหลัง 30 วัน (${fmtD(d30)} → ${fmtD(today)}) · เฉลี่ยวันละ ${(cups30 / 30).toFixed(1)} แก้ว</div>` +
+      row('จำนวนแก้ว 30 วันล่าสุด', cups30, cupsT, n0, need > 0 ? 'ต้องเพิ่มอีกวันละ ' + need.toFixed(1) + ' แก้ว' : '') +
+      row('ยอดขายสุทธิ 30 วันล่าสุด', Number(t30.net_sales), rev, baht) +
+      row('กำไร (หลังต้นทุนผันแปรและการตลาด) 30 วันล่าสุด', Number(t30.profit_after_marketing), profitT, baht) +
+      `<div style="border-top:1px solid #F0E4D8;padding-top:12px;">` + row('จำนวนแก้ว 7 วันล่าสุด', Number(t7.cups), weekT, n0) + `</div>`;
+  } catch (e) {
+    bigEl.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`; kpiEl.innerHTML = '';
+  }
+}
+document.getElementById('tgSave').addEventListener('click', async () => {
+  const btn = document.getElementById('tgSave'); btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  const vals = { 'target.monthly_revenue': Number(document.getElementById('tgInRev').value), 'target.avg_price_per_cup': Number(document.getElementById('tgInAvg').value), 'target.profit_pct': Number(document.getElementById('tgInPct').value) };
+  try {
+    for (const [k, v] of Object.entries(vals)) { if (!(v > 0)) throw new Error('ใส่ตัวเลขที่มากกว่า 0'); await sb(`system_settings?key=eq.${k}`, { method: 'PATCH', body: JSON.stringify({ value: v }) }); }
+    await loadTargetTab(); btn.textContent = '✓ บันทึกแล้ว';
+  } catch (e) { alert('บันทึกไม่สำเร็จ: ' + e.message); btn.textContent = 'บันทึกเป้า'; }
+  setTimeout(() => { btn.disabled = false; btn.textContent = 'บันทึกเป้า'; }, 1200);
+});
 
 async function resolveEarliestDate() {
   if (earliestDateCache) return earliestDateCache;
