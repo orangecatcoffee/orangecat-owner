@@ -316,6 +316,8 @@
     <div id="reportSummary"><div class="loading">Loading...</div></div>
   </div>
 
+  <div class="card" id="reportChannelPnlCard"><div class="card-title">Channel margin · ช่องทางไหนทำกำไรเท่าไหร่</div><div id="reportChannelPnl"><div class="loading">Loading...</div></div></div>
+
   <div class="card" id="reportChannelCompareCard" style="display:none;">
     <div class="card-title">🛵 เทียบช่องทาง — คุ้มไหม</div>
     <div id="reportChannelCompare"></div>
@@ -518,11 +520,21 @@
   </div>
 
   <div class="card">
-    <div class="card-title">งบกำไรขาดทุนแบบง่าย</div>
+    <div class="card-title">สรุปผู้บริหาร</div>
+    <div id="fin-exec"><div class="loading">กำลังโหลด...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">งบกำไรขาดทุน (P&amp;L)</div>
     <div id="fin-statement"><div class="loading">กำลังโหลด...</div></div>
     <div style="font-size:10px;color:#A8876F;margin-top:8px;">
-      💡 รายได้/ต้นทุนขาย/กำไรขั้นต้น อ้างอิงจากสูตรจริงเหมือนแท็บ Sales & Customers ทุกอย่าง ไม่เปลี่ยน — ส่วน "ค่าใช้จ่ายคงที่" ด้านล่างนับเฉพาะรายการที่ติ๊ก "รวมในงบ" เท่านั้น · กรอกรายการใหม่ได้ที่หน้า "จัดซื้อ" (orangecat-ops) เท่านั้น เลือกหมวดของใหญ่/คงที่
+      💡 ทุกตัวเลขในแท็บนี้และแท็บ Sales &amp; Customers มาจากฟังก์ชันเดียวกันในฐานข้อมูล (get_pnl) จึงตรงกันเสมอ · ค่าใช้จ่ายคงที่นับเฉพาะรายการที่ติ๊ก "รวมในงบ" · กรอกรายการใหม่ที่หน้า "จัดซื้อ"
     </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">กำไรแยกตามช่องทาง</div>
+    <div id="fin-channels"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
   <div class="card">
@@ -1030,6 +1042,33 @@ function renderBarChart(containerId, items, valueFmt) {
   `).join('');
 }
 
+
+// ===== Single source of truth: every number below comes from the database function get_pnl() =====
+const fmtD = d => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+async function fetchPnl(from, to) { return sb('rpc/get_pnl', { method: 'POST', body: JSON.stringify({ p_from: fmtD(from), p_to: fmtD(to) }) }); }
+const THB = (n, dp = 0) => '฿' + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: dp, minimumFractionDigits: dp });
+const PCT = (n, d) => d ? (n / d * 100).toFixed(1) + '%' : '–';
+function pnlSubset(pnl, mode) {
+  const keys = mode === 'all' ? ['store','office','standard','grab'] : mode === 'own' ? ['store','office','standard'] : [mode];
+  const rows = (pnl.channels || []).filter(c => keys.includes(c.key));
+  const sum = f => rows.reduce((s, c) => s + Number(c[f] || 0), 0);
+  return { cups: sum('cups'), net: sum('net_sales'), cost: sum('ingredients') + sum('packaging') + sum('delivery_pkg'), fees: sum('platform_fee') + sum('delivery_fee'), contribution: sum('contribution'), pam: sum('profit_after_marketing') };
+}
+function channelPnlTable(pnl) {
+  const rows = pnl.channels || [];
+  const totalPam = rows.reduce((s, c) => s + Number(c.profit_after_marketing || 0), 0);
+  const head = `<tr style="color:#A8876F;font-size:10.5px;"><td>ช่องทาง</td><td align="right">แก้ว</td><td align="right">ยอดขายสุทธิ</td><td align="right">หลังต้นทุนผันแปร</td><td align="right">หลังการตลาด</td><td align="right">สัดส่วนกำไร</td></tr>`;
+  const body = rows.map(c => {
+    const net = Number(c.net_sales), con = Number(c.contribution), pam = Number(c.profit_after_marketing);
+    return `<tr style="border-top:1px solid #F0E4D8;"><td style="padding:7px 0;font-weight:600;">${c.label}</td><td align="right">${c.cups}</td><td align="right">${THB(net)}</td>
+      <td align="right">${THB(con)}<div style="font-size:10px;color:#A8876F;">${PCT(con, net)}</div></td>
+      <td align="right" class="${pam >= 0 ? 'good' : 'bad'}">${THB(pam)}<div style="font-size:10px;color:#A8876F;">${PCT(pam, net)}</div></td>
+      <td align="right" style="font-weight:700;">${totalPam > 0 ? PCT(pam, totalPam) : '–'}</td></tr>`;
+  }).join('');
+  return `<table style="width:100%;font-size:12px;border-collapse:collapse;">${head}${body}</table>
+    <div style="font-size:10px;color:#A8876F;margin-top:6px;">ยอดขายสุทธิ − GP แพลตฟอร์ม − ค่าส่งที่ร้านออก − วัตถุดิบ − บรรจุภัณฑ์ (รวมชุดส่งเดลิเวอรี่) = หลังต้นทุนผันแปร · หลังการตลาด = หักแก้ว Our Treat, แก้วแลกแต้ม และค่าการตลาดของช่องทางนั้น (ไม่รวมแก้วสตาฟ, R&D, ค่าเสื่อม)</div>`;
+}
+
 async function loadReportTab() {
   const { from, to } = await getReportDateRange();
   document.getElementById('reportPeriodLabel').textContent =
@@ -1211,27 +1250,34 @@ async function loadReportTab() {
 
     const nonOmakaseOrders = customerOrders.filter(o => !o.omakase_set_id);
     // Revenue บนสุด = เงินที่รับจริงแล้วเท่านั้น (paid=true) ให้ตรงกับยอดในบัญชีธนาคาร
-    const revenue = nonOmakaseOrders.filter(o => o.paid).reduce((s, o) => s + orderTotal(o), 0) + omakaseRevenue;
-    const cogs = nonOmakaseOrders.reduce((s, o) => s + computeCost(o), 0) + omakaseCogs;
-    const totalCups = nonOmakaseOrders.length + omakaseCupsCounted;
+    let revenue = nonOmakaseOrders.filter(o => o.paid).reduce((s, o) => s + orderTotal(o), 0) + omakaseRevenue;
+    let cogs = nonOmakaseOrders.reduce((s, o) => s + computeCost(o), 0) + omakaseCogs;
+    let totalCups = nonOmakaseOrders.length + omakaseCupsCounted;
     const custCount = Object.keys(byCustomer).length;
-    const avgPerCup = totalCups ? (revenue / totalCups) : 0;
+    let avgPerCup = totalCups ? (revenue / totalCups) : 0;
 
-    const profit = revenue - cogs;
-    const gp = revenue ? (profit / revenue * 100) : 0;
-    const avgProfitPerCup = totalCups ? (profit / totalCups) : 0;
+    let profit = revenue - cogs;
+    let gp = revenue ? (profit / revenue * 100) : 0;
+    let avgProfitPerCup = totalCups ? (profit / totalCups) : 0;
 
+    const pnl = await fetchPnl(from, to);
+    const sel = pnlSubset(pnl, (typeof reportChannel !== 'undefined' && reportChannel) || 'all');
+    revenue = sel.net; cogs = sel.cost; totalCups = sel.cups;
+    avgPerCup = totalCups ? revenue / totalCups : 0;
+    profit = sel.contribution; gp = revenue ? profit / revenue * 100 : 0;
+    avgProfitPerCup = totalCups ? profit / totalCups : 0;
+    document.getElementById('reportChannelPnl').innerHTML = channelPnlTable(pnl);
     const futureTotal = futureOrders.reduce((s, o) => s + Number(o.price || 0), 0);
     const futureList = futureOrders.map(o => ({ name: o.customer_name, item: o.menu_item_name, amount: Number(o.price || 0), date: o.wanted_date }));
 
     summaryEl.innerHTML = `
       <div class="stat-grid">
-        <div class="stat-box"><div class="stat-label">Revenue · Grab หลังหัก GP</div><div class="stat-val">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">Net sales (หลังหักส่วนลด)</div><div class="stat-val">฿${revenue.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
         <div class="stat-box"><div class="stat-label">Customers</div><div class="stat-val">${custCount}</div></div>
         <div class="stat-box"><div class="stat-label">Cups</div><div class="stat-val">${totalCups}</div></div>
         <div class="stat-box"><div class="stat-label">Avg / Cup</div><div class="stat-val">฿${avgPerCup.toFixed(0)}</div></div>
       </div>
-      <div style="font-size:10px;color:#A8876F;margin-top:6px;">💰 Revenue = เงินที่รับจริงแล้วเท่านั้น (paid) — ตรงกับยอดในบัญชีธนาคาร</div>
+      <div style="font-size:10px;color:#A8876F;margin-top:6px;">💰 ยอดขายสุทธิตามหลักค้างรับ (นับเมื่อชงแล้ว) · ตัวเลขตรงกับแท็บงบการเงินทุกตัว · ยอดที่ยังไม่เก็บเงินดูที่ปุ่มสีส้มด้านล่าง</div>
       ${unpaid > 0 ? `
         <button type="button" class="chip" id="unpaidToggle" style="margin-top:10px;border-color:#D64545;color:#D64545;">🟡 รอเก็บเงิน (ชงแล้ว ยังไม่จ่าย): ฿${unpaid.toLocaleString(undefined,{maximumFractionDigits:0})}</button>
         <div id="unpaidList" style="display:none;margin-top:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;">
@@ -1252,10 +1298,10 @@ async function loadReportTab() {
       ` : ''}
       <button type="button" class="chip" id="reportFinToggle" style="margin-top:12px;">💰 Show Cost &amp; Margin</button>
       <div class="stat-grid" id="reportFinStats" style="display:none;margin-top:10px;">
-        <div class="stat-box"><div class="stat-label">Cost</div><div class="stat-val">฿${cogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-        <div class="stat-box"><div class="stat-label">Net Profit</div><div class="stat-val ${profit>=0?'good':'bad'}">฿${profit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
-        <div class="stat-box"><div class="stat-label">Margin (GP%)</div><div class="stat-val ${gp>=0?'good':'bad'}">${gp.toFixed(1)}%</div></div>
-        <div class="stat-box"><div class="stat-label">Avg Profit / Cup</div><div class="stat-val ${avgProfitPerCup>=0?'good':'bad'}">฿${avgProfitPerCup.toFixed(1)}</div></div>
+        <div class="stat-box"><div class="stat-label">Cost (วัตถุดิบ+บรรจุภัณฑ์)</div><div class="stat-val">฿${cogs.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">หลังต้นทุนผันแปร (หลัง GP/ค่าส่ง)</div><div class="stat-val ${profit>=0?'good':'bad'}">฿${profit.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+        <div class="stat-box"><div class="stat-label">Margin หลังต้นทุนผันแปร</div><div class="stat-val ${gp>=0?'good':'bad'}">${gp.toFixed(1)}%</div></div>
+        <div class="stat-box"><div class="stat-label">กำไร / แก้ว</div><div class="stat-val ${avgProfitPerCup>=0?'good':'bad'}">฿${avgProfitPerCup.toFixed(1)}</div></div>
       </div>
     `;
     const finToggleBtn = document.getElementById('reportFinToggle');
@@ -1288,7 +1334,8 @@ async function loadReportTab() {
         </div>`).join('') + `<div style="font-size:11.5px;color:#A8876F;line-height:1.6;">ค่าส่งที่ร้านออกในช่วงนี้ ${money(deliveryTotal)} (ทุกออเดอร์) · เฉลี่ย ${totalCups ? money(deliveryTotal / totalCups) : '฿0'} ต่อแก้วออเดอร์กลุ่ม · คนที่สั่งซ้ำบ่อยคือคนที่ควรชวนเป็นสมาชิก</div>`;
     })();
 
-    (function renderChannelCompare() {
+    (function renderChannelCompare() { return; // replaced by Channel margin card (get_pnl)
+
       const card = document.getElementById('reportChannelCompareCard');
       const host = document.getElementById('reportChannelCompare');
       const cmp = {};
@@ -1942,96 +1989,72 @@ async function loadFinancialsTab() {
   const listEl = document.getElementById('fin-list');
   statementEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
   listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
-
   try {
-    const fromDateStr = from.toISOString().slice(0, 10);
-    const toDateStr = to.toISOString().slice(0, 10);
-
-    // ---- รายได้/ต้นทุนขาย/กำไรขั้นต้น: ใช้สูตรเดียวกับแท็บ Purchasing เป๊ะ ไม่เปลี่ยนอะไร ----
-    const [brewedOrders, menuItems, recipes, beans, packagingTypeItems, finEntries, mkSpend] = await Promise.all([
-      sb(`preorders?select=*&brewed=eq.true&brewed_at=gte.${from.toISOString()}&brewed_at=lte.${to.toISOString()}&or=(order_type.eq.customer,order_type.is.null)`),
-      sb('menu_items?select=id,name,needs_bean'),
-      sb('menu_recipes?select=quantity,menu_item_id,ingredients(name,category,cost_per_base_unit)'),
-      sb('ingredients?select=name,cost_per_base_unit&category=eq.coffee_bean'),
-      sb('packaging_type_items?select=type_key,quantity,ingredients(cost_per_base_unit)'),
-      sb(`purchase_log?select=*&cost_type=eq.fixed&purchase_date=gte.${fromDateStr}&purchase_date=lte.${toDateStr}&order=purchase_date.desc`),
-      sb(`marketing_spend?select=*&spend_date=gte.${fromDateStr}&spend_date=lte.${toDateStr}&order=spend_date.desc`),
+    const a1 = fmtD(from), b1 = fmtD(to);
+    const [pnl, finEntries, menuRows] = await Promise.all([
+      fetchPnl(from, to),
+      sb(`purchase_log?select=*&cost_type=eq.fixed&purchase_date=gte.${a1}&purchase_date=lte.${b1}&order=purchase_date.desc`),
+      sb(`v_cup_pnl?select=menu_item_name,price,bean_surcharge,platform_promo,platform_fee,ingredients,packaging,delivery_pkg&bucket=eq.customer&brewed_date=gte.${a1}&brewed_date=lte.${b1}`),
     ]);
-
-    const menuByName = {}; menuItems.forEach(m => menuByName[m.name] = m);
-    const recipeByMenuId = {};
-    recipes.forEach(r => { (recipeByMenuId[r.menu_item_id] = recipeByMenuId[r.menu_item_id] || []).push(r); });
-    const beanCost = {}; beans.forEach(b => beanCost[b.name] = Number(b.cost_per_base_unit));
-    const packagingCostByType = { tumbler: 0, bag: 0, cup_small: 0, cup_large: 0 };
-    packagingTypeItems.forEach(row => {
-      packagingCostByType[row.type_key] = (packagingCostByType[row.type_key] || 0) + row.quantity * (row.ingredients?.cost_per_base_unit || 0);
-    });
-    const FLAT_BEAN_COST_F = 20, BEAN_DOSE_G_F = 20;
-    function parseBlendCostF(beanName) {
-      if (!beanName || !beanName.startsWith('เบลนด์:')) return null;
-      const parts = beanName.replace('เบลนด์:', '').split('+').map(s => s.trim());
-      let cost = 0;
-      parts.forEach(p => {
-        const m = p.match(/^(.+?)\s+([\d.]+)\s*g$/i);
-        if (m) cost += (beanCost[m[1].trim()] !== undefined ? beanCost[m[1].trim()] : 0) * Number(m[2]);
-      });
-      return cost;
-    }
-    let recipeCogsF = 0, packagingCogsF = 0;
-    brewedOrders.forEach(o => {
-      const menu = menuByName[o.menu_item_name];
-      const pkgCost = (o.packaging_cost !== null && o.packaging_cost !== undefined)
-        ? Number(o.packaging_cost)
-        : (packagingCostByType[o.packaging_type] !== undefined ? packagingCostByType[o.packaging_type] : packagingCostByType.bag);
-      packagingCogsF += pkgCost;
-      if (!menu) return;
-      let rCost = 0;
-      if (menu.needs_bean) {
-        const blendCost = parseBlendCostF(o.bean_name);
-        rCost += blendCost !== null ? blendCost : ((o.bean_name && beanCost[o.bean_name] !== undefined) ? beanCost[o.bean_name] * BEAN_DOSE_G_F : FLAT_BEAN_COST_F);
-      }
-      (recipeByMenuId[menu.id] || []).forEach(r => {
-        if (!r.ingredients || r.ingredients.category === 'coffee_bean') return;
-        rCost += Number(r.quantity) * Number(r.ingredients.cost_per_base_unit || 0);
-      });
-      if (o.misc_cost_estimate) rCost += Number(o.misc_cost_estimate);
-      recipeCogsF += rCost;
-    });
-    // รายได้ = ยอดขายสุทธิ (Net sales): ออเดอร์แพลตฟอร์ม (Grab) หักส่วนลดค่าส่งที่ร้านออกแล้ว · ค่า GP แพลตฟอร์มแยกเป็นบรรทัดค่าธรรมเนียมด้านล่าง
-    const isPlatF = (o) => o.platform_gp_pct !== null && o.platform_gp_pct !== undefined;
-    const paidOrdersF = brewedOrders.filter(o => o.paid);
-    const revenueF = paidOrdersF.reduce((s, o) => s + Number(o.price || 0) + Number(o.bean_surcharge || 0) - (isPlatF(o) ? Number(o.order_discount_share || 0) : 0), 0);
-    const platformFeeF = paidOrdersF.filter(isPlatF).reduce((s, o) => s + (Number(o.price || 0) - Number(o.order_discount_share || 0)) * Number(o.platform_gp_pct) / 100, 0);
-    const cogsF = recipeCogsF + packagingCogsF;
-    const grossProfit = revenueF - cogsF;
-    // ค่าการตลาดนอกยอดขาย (เลี้ยง/โฆษณา/อื่นๆ) ที่บันทึกใน marketing_spend — ส่วนลดที่หักในบิลแล้วไม่นับซ้ำ
-    const MK_KIND_TH = { treat: 'เลี้ยง/แจกลอง', ads: 'โฆษณา/แคมเปญ', delivery: 'ค่าส่งที่ร้านออก', other: 'อื่นๆ' };
-    const totalMarketing = (mkSpend || []).reduce((s, x) => s + Number(x.amount || 0), 0);
-    const mkRows = (mkSpend || []).map(x => `<div style="display:flex;justify-content:space-between;font-size:11.5px;padding:3px 0;color:#8a6a4a;"><span>${MK_KIND_TH[x.kind] || x.kind} · ${x.spend_date}${x.campaign ? ' · ' + x.campaign : ''}</span><span>฿${Number(x.amount).toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>`).join('');
-
-    // ---- ค่าใช้จ่ายคงที่: เฉพาะรายการที่ติ๊ก include_in_financials ----
-    const includedEntries = finEntries.filter(e => e.include_in_financials);
-    const totalFixed = includedEntries.reduce((s, e) => s + Number(e.total_cost || 0), 0);
-    const netProfit = grossProfit - platformFeeF - totalMarketing - totalFixed;
-
-    const byCat = {};
-    includedEntries.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + Number(e.total_cost || 0); });
-    const catRows = Object.entries(byCat).sort((a, b) => b[1] - a[1])
-      .map(([cat, amt]) => `<div style="display:flex;justify-content:space-between;font-size:11.5px;padding:4px 0;color:#8a6a4a;"><span>${FIN_CAT_LABEL_OWNER[cat] || cat}</span><span>฿${amt.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>`)
-      .join('');
-
+    const t = pnl.total;
+    const N = Number(t.net_sales) || 0;
+    const line = (label, amt, o = {}) => `<div style="display:flex;justify-content:space-between;padding:${o.big ? '9px' : '5px'} 0;font-size:${o.big ? '14px' : '12.5px'};${o.bold ? 'font-weight:700;' : ''}${o.top ? 'border-top:1px solid #E4DCC8;' : ''}${o.dbl ? 'border-top:2px solid #4A3428;margin-top:4px;' : ''}${o.color ? 'color:' + o.color + ';' : ''}">
+      <span style="${o.indent ? 'padding-left:12px;' : ''}">${label}</span><span style="white-space:nowrap;"><span style="color:#A8876F;font-size:10.5px;margin-right:8px;">${PCT(amt, N)}</span>${o.neg ? '(' + THB(amt) + ')' : THB(amt)}</span></div>`;
+    const head = s => `<div style="padding:12px 0 2px;font-size:11px;font-weight:700;color:#A8876F;letter-spacing:.5px;">${s}</div>`;
+    const red = '#B5483A';
+    const ebit = Number(t.ebit);
     statementEl.innerHTML = `
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;"><span>รายได้ (ยอดขายสุทธิ ก่อนหัก GP)</span><span style="font-weight:700;">฿${revenueF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;"><span>− ต้นทุนขาย (COGS)</span><span>฿${cogsF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:700;border-top:1px solid #E4DCC8;border-bottom:2px solid #4A3428;margin:4px 0;"><span>= กำไรขั้นต้น</span><span class="${grossProfit>=0?'good':'bad'}">฿${grossProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;"><span>− ค่าธรรมเนียมแพลตฟอร์ม (GP Grab ฯลฯ)</span><span>฿${platformFeeF.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;"><span>− ค่าการตลาด (เลี้ยง/โฆษณา)</span><span>฿${totalMarketing.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
-      ${mkRows}
-      <div style="padding:8px 0 2px;font-size:11px;color:#A8876F;font-weight:600;">− ค่าใช้จ่ายคงที่ (เฉพาะที่ติ๊ก "รวมในงบ")</div>
-      ${catRows || '<div style="font-size:11.5px;color:#C4B39E;padding:4px 0;">ไม่มีรายการในช่วงนี้</div>'}
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#D64545;border-top:1px solid #E4DCC8;"><span>รวมค่าใช้จ่ายคงที่</span><span>฿${totalFixed.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:15px;font-weight:700;border-top:2px solid #4A3428;margin-top:4px;"><span>= กำไรสุทธิ</span><span class="${netProfit>=0?'good':'bad'}">฿${netProfit.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
-    `;
+      <div style="font-size:11px;color:#A8876F;margin-bottom:6px;">${a1} → ${b1} · ตามหลักค้างรับ (ยอดขายนับเมื่อชงแล้ว) · % = สัดส่วนของยอดขายสุทธิ</div>
+      ${line('ยอดขายรวม (ก่อนส่วนลด)', t.gross)}
+      ${line('หัก: ส่วนลด (รวมโปรที่ร้านออกบน Grab)', t.discount, { neg: true, color: red, indent: true })}
+      ${line('ยอดขายสุทธิ', t.net_sales, { bold: true, top: true })}
+      ${head('ต้นทุนผันแปร')}
+      ${line('GP แพลตฟอร์ม (Grab)', t.platform_fee, { neg: true, color: red, indent: true })}
+      ${line('ค่าส่งที่ร้านออก (ไรเดอร์/Grab)', t.delivery_fee, { neg: true, color: red, indent: true })}
+      ${line('วัตถุดิบ รวมเมล็ดกาแฟ', t.ingredients, { neg: true, color: red, indent: true })}
+      ${line('บรรจุภัณฑ์ (แก้ว/ถุง ตามที่บาริสต้าเลือก)', t.packaging, { neg: true, color: red, indent: true })}
+      ${line('บรรจุภัณฑ์เดลิเวอรี่ (ถุงเก็บความเย็น + ที่รองแก้ว)', t.delivery_pkg, { neg: true, color: red, indent: true })}
+      ${line('กำไรหลังต้นทุนผันแปร (Contribution)', t.contribution, { bold: true, top: true })}
+      ${head('การตลาดและโปรแกรมลูกค้า')}
+      ${line(`แก้ว Our Treat (${t.treat_cups} แก้ว)`, t.treat_cost, { neg: true, color: red, indent: true })}
+      ${line(`แก้วแลกแต้มสะสม (${t.reward_cups} แก้ว)`, t.reward_cost, { neg: true, color: red, indent: true })}
+      ${line('ค่าการตลาดอื่น (เลี้ยง/โฆษณา ใน marketing_spend)', t.mkt_spend, { neg: true, color: red, indent: true })}
+      ${line('กำไรหลังการตลาด', t.profit_after_marketing, { bold: true, top: true })}
+      ${head('ต้นทุนภายในร้าน')}
+      ${line(`แก้วสตาฟ (${t.staff_cups} แก้ว)`, t.staff_cost, { neg: true, color: red, indent: true })}
+      ${line('R&D (แก้วแล็บ + ของทดลองเมนูใหม่)', t.rnd_cost, { neg: true, color: red, indent: true })}
+      ${line('กำไรจากการดำเนินงาน ก่อนค่าใช้จ่ายคงที่', t.operating_before_fixed, { bold: true, top: true })}
+      ${line('ค่าใช้จ่ายคงที่ (ค่าเช่า/น้ำไฟ/เงินเดือน จากหน้าจัดซื้อ)', t.fixed_opex, { neg: true, color: red, indent: true })}
+      ${line(`ค่าเสื่อมราคาอุปกรณ์ (ราคาทุน ${THB(t.equipment_cost)} ÷ 60 เดือน)`, t.depreciation, { neg: true, color: red, indent: true })}
+      ${line('กำไรสุทธิก่อนภาษี (EBIT)', ebit, { big: true, bold: true, dbl: true, color: ebit >= 0 ? '#2E7D46' : red })}
+      <div style="margin-top:10px;background:#FFF3E8;border-radius:10px;padding:9px 12px;font-size:11px;color:#8a6a4a;line-height:1.6;">
+        ⚠️ ตัวเลขนี้เป็น<b>ขอบบน</b>ของกำไรจริง เพราะยังไม่มีบันทึก: ค่าเช่า น้ำไฟ ค่าโฆษณา ค่าแรง ค่าส่งไรเดอร์ทุกรอบ · ยอดค้างเก็บ ${THB(t.receivables)} · มี ${t.cups_without_menu_match} แก้วที่ชื่อไม่ตรงเมนูในระบบ (ต้นทุนเป็น 0)
+      </div>`;
+
+    const chHost = document.getElementById('fin-channels');
+    if (chHost) chHost.innerHTML = channelPnlTable(pnl);
+
+    const byMenu = {};
+    menuRows.forEach(r => {
+      const m = byMenu[r.menu_item_name] = byMenu[r.menu_item_name] || { cups: 0, net: 0, cost: 0 };
+      m.cups++; m.net += Number(r.price) + Number(r.bean_surcharge) - Number(r.platform_promo);
+      m.cost += Number(r.ingredients) + Number(r.packaging) + Number(r.delivery_pkg) + Number(r.platform_fee);
+    });
+    const menus = Object.entries(byMenu).map(([name, m]) => ({ name, ...m, profit: m.net - m.cost, margin: m.net ? (m.net - m.cost) / m.net : 0 }));
+    const topProfit = [...menus].sort((a, b) => b.profit - a.profit).slice(0, 3);
+    const lowMargin = menus.filter(m => m.cups >= 3).sort((a, b) => a.margin - b.margin).slice(0, 3);
+    const chs = pnl.channels || [];
+    const totalPam = chs.reduce((s, c) => s + Number(c.profit_after_marketing), 0);
+    const topCh = [...chs].sort((a, b) => Number(b.profit_after_marketing) - Number(a.profit_after_marketing))[0];
+    const grab = chs.find(c => c.key === 'grab'), store = chs.find(c => c.key === 'store');
+    const bullets = [];
+    if (topCh && totalPam > 0) bullets.push(`<b>${topCh.label}</b> สร้างกำไรหลังการตลาด ${PCT(Number(topCh.profit_after_marketing), totalPam)} ของทุกช่องทางรวมกัน (${THB(topCh.profit_after_marketing)})`);
+    if (grab && store && Number(grab.net_sales) > 0) bullets.push(`Grab ได้กำไรหลังต้นทุนผันแปร ${PCT(Number(grab.contribution), Number(grab.net_sales))} เทียบกับหน้าร้าน/LINE ${PCT(Number(store.contribution), Number(store.net_sales))} — หลังหักโปรที่ร้านออกเหลือ ${PCT(Number(grab.profit_after_marketing), Number(grab.net_sales))}`);
+    if (topProfit.length) bullets.push('เมนูที่ทำกำไรรวมสูงสุด: ' + topProfit.map(m => `${m.name} (${THB(m.profit)}, ${m.cups} แก้ว)`).join(' · '));
+    if (lowMargin.length) bullets.push('เมนูที่มาร์จิ้นต่ำสุด (ขาย ≥3 แก้ว): ' + lowMargin.map(m => `${m.name} (${(m.margin * 100).toFixed(0)}%)`).join(' · ') + ' — ตรวจสูตรว่าลืมใส่วัตถุดิบหรือไม่ก่อนปรับราคา');
+    bullets.push(Number(t.fixed_opex) === 0 ? 'ยังไม่มีค่าใช้จ่ายคงที่ในระบบ จึงยังใช้ตัวเลขนี้ยื่นภาษีไม่ได้จนกว่าจะบันทึกครบ' : `ค่าใช้จ่ายคงที่ ${THB(t.fixed_opex)} รวมในงบแล้ว`);
+    const exEl = document.getElementById('fin-exec');
+    if (exEl) exEl.innerHTML = '<ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.7;">' + bullets.map(x => `<li>${x}</li>`).join('') + '</ul>';
 
     if (!finEntries.length) {
       listEl.innerHTML = '<div class="empty">ยังไม่มีรายการค่าใช้จ่ายคงที่ในช่วงนี้ — กรอกได้ที่หน้าจัดซื้อ (ops)</div>';
