@@ -228,6 +228,37 @@
   .opt-input-row button{background:rgba(232,98,26,0.15);border:1px solid rgba(232,98,26,0.35);color:var(--ol);border-radius:8px;padding:0 12px;font-size:12px;cursor:pointer;}
   .opt-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;background:rgba(74,52,40,0.05);border:1px solid var(--border);border-radius:999px;padding:4px 10px;margin:4px 6px 0 0;color:rgba(74,52,40,0.75);}
   .opt-chip button{background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:0;}
+
+  /* Performance tab — dark panel modelled on Gentler Streak */
+  .gs{background:#121214;color:#fff;border-radius:26px;padding:20px 14px 26px;}
+  .gs h1{font-size:34px;font-weight:800;margin:0 0 14px 4px;letter-spacing:-.5px}
+  .gs-seg{display:flex;background:#2a2a2e;border-radius:18px;padding:4px;gap:2px}
+  .gs-seg button{flex:1;border:none;background:none;color:#fff;font:inherit;font-size:14px;padding:9px 0;border-radius:14px;cursor:pointer}
+  .gs-seg button.on{background:#5e5e66;font-weight:700}
+  .gs-head{display:flex;justify-content:space-between;align-items:center;margin:18px 4px 6px}
+  .gs-title{position:relative;display:inline-block}
+  .gs-title select{appearance:none;-webkit-appearance:none;background:none;border:none;color:#ec8a4a;font:inherit;font-size:24px;font-weight:800;padding:0 22px 0 0;cursor:pointer;max-width:240px}
+  .gs-title:after{content:"⌄";position:absolute;right:2px;top:-4px;color:#ec8a4a;font-size:22px;font-weight:700;pointer-events:none}
+  .gs-vs{color:#9a9aa0;font-size:15px;margin-top:2px}
+  .gs-share{background:#fff;color:#111;border:none;border-radius:16px;font:inherit;font-weight:800;font-size:13px;padding:11px 18px;cursor:pointer}
+  .gs-tip{font-size:12.5px;color:#fff;margin:8px 4px 4px;min-height:18px}
+  .gs-sumhead{margin:20px 4px 10px;font-size:26px;font-weight:800;display:flex;flex-direction:column}
+  .gs-sumhead span{font-size:15px;font-weight:400;color:#9a9aa0;margin-top:2px;letter-spacing:.5px}
+  .gs-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .gs-card{background:#1c1c1f;border-radius:24px;padding:16px 14px;cursor:pointer}
+  .gs-card.on{background:#ec8a4a;color:#1a1208}
+  .gs-cl{font-size:14px;opacity:.85}
+  .gs-cv{display:flex;align-items:center;gap:8px;font-size:24px;font-weight:800;margin:8px 0 2px;white-space:nowrap}
+  .gs-arr{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.1);display:inline-flex;align-items:center;justify-content:center;font-size:20px;line-height:1;flex:none}
+  .gs-card.on .gs-arr{background:rgba(0,0,0,.2)}
+  .gs-cp{font-size:13px;opacity:.7;margin-left:38px}
+  .gs-hist h2{font-size:26px;font-weight:800;margin:24px 4px 0}
+  #gsHistN{color:#9a9aa0;font-size:15px;margin:2px 4px 10px;letter-spacing:.5px}
+  .gs-row{display:flex;align-items:center;gap:12px;background:#1c1c1f;border-radius:20px;padding:13px 14px;margin-bottom:8px}
+  .gs-ic{width:38px;height:38px;border-radius:12px;background:#2a2a2e;display:flex;align-items:center;justify-content:center;font-size:19px}
+  .gs-rt{font-size:15px;font-weight:700}.gs-rs{font-size:12.5px;color:#9a9aa0}
+  .gs-tag{font-size:12px;font-weight:700;color:#9a9aa0;background:#2a2a2e;border-radius:10px;padding:5px 9px}
+  .gs-tag.ok{color:#1a1208;background:#ec8a4a}
 </style>
 </head>
 <body>
@@ -273,6 +304,7 @@
 
 <div class="tabs">
   <div class="tab active" data-tab="target">เป้าหมาย</div>
+<div class="tab" data-tab="perf">Performance</div>
 <div class="tab" data-tab="report">Sales & Customers</div>
   <div class="tab" data-tab="purchasing">Purchasing</div>
   <div class="tab" data-tab="financials">งบการเงิน</div>
@@ -342,6 +374,19 @@
     </details>
   </div>
 
+</div>
+
+<div class="view" id="view-perf">
+  <div class="gs">
+    <h1>Performance</h1>
+    <div class="gs-seg" id="gsSeg"><button data-p="week">สัปดาห์</button><button data-p="month" class="on">เดือน</button><button data-p="year">ปี</button><button data-p="all">ทั้งหมด</button></div>
+    <div class="gs-head"><div><div class="gs-title"><select id="gsSel"></select></div><div class="gs-vs" id="gsVs"></div></div><button type="button" class="gs-share" id="gsShare">SHARE</button></div>
+    <div class="gs-tip" id="gsTip">กำลังโหลด...</div>
+    <svg id="gsChart" viewBox="0 0 360 338" width="100%" style="display:block;touch-action:pan-y;user-select:none;-webkit-user-select:none;"></svg>
+    <div class="gs-sumhead">Summary<span id="gsRange"></span></div>
+    <div class="gs-cards" id="gsCards"></div>
+    <div class="gs-hist"><h2>History</h2><div id="gsHistN"></div><div id="gsHist"></div></div>
+  </div>
 </div>
 
 <div class="view" id="view-report">
@@ -820,6 +865,7 @@ document.querySelectorAll(".tab").forEach(tab => {
       reportLoaded = true;
       loadReportTab();
     }
+    if (tab.dataset.tab === "perf" && !perfLoaded) { perfLoaded = true; loadPerf(); }
     if (tab.dataset.tab === "purchasing" && !purchLoaded) { purchLoaded = true; loadPurchasingTab(); }
     if (tab.dataset.tab === "financials" && !finLoaded) { finLoaded = true; loadFinancialsTab(); }
   });
@@ -845,6 +891,200 @@ reportLoaded = true;
 loadReportTab();
 loadMissionTab();
 loadTargetTab();
+
+// ================= PERFORMANCE TAB (layout & metrics modelled on Gentler Streak "Activities") =================
+let perfLoaded = false;
+const PF = { period: 'month', offset: 0, metric: 'cups', sel: null, cfg: null, first: null, view: null };
+const PF_TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const PF_TH_D = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+const pfU = s => { const [y, m, d] = s.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+const pfS = d => d.toISOString().slice(0, 10);
+const pfAdd = (s, n) => pfS(new Date(pfU(s).getTime() + n * 86400000));
+const pfDiff = (a, b) => Math.round((pfU(b) - pfU(a)) / 86400000);
+const pf2 = n => String(n).padStart(2, '0');
+const pfDim = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+const pfToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+const pfNum = v => Math.round(v).toLocaleString();
+const pfDM = s => `${pfU(s).getUTCDate()} ${PF_TH_M[pfU(s).getUTCMonth()]}`;
+
+function pfBuckets(period, startStr) {
+  const out = [];
+  if (period === 'week') {
+    for (let i = 0; i < 7; i++) { const s = pfAdd(startStr, i); out.push({ s, e: s, lab: PF_TH_D[pfU(s).getUTCDay()], long: `${PF_TH_D[pfU(s).getUTCDay()]} ${pfDM(s)}` }); }
+  } else if (period === 'month') {
+    const [y, m] = startStr.split('-').map(Number);
+    for (let i = 1; i <= pfDim(y, m); i++) { const s = `${y}-${pf2(m)}-${pf2(i)}`; out.push({ s, e: s, lab: String(i), long: `${PF_TH_D[pfU(s).getUTCDay()]} ${pfDM(s)}` }); }
+  } else {
+    const [y, m0] = startStr.split('-').map(Number);
+    return { y, m0 };
+  }
+  return out;
+}
+function pfMonthBuckets(fromY, fromM, toY, toM) {
+  const out = [];
+  for (let y = fromY, m = fromM; y < toY || (y === toY && m <= toM); m++) {
+    if (m > 12) { m = 1; y++; if (y > toY) break; }
+    out.push({ s: `${y}-${pf2(m)}-01`, e: `${y}-${pf2(m)}-${pf2(pfDim(y, m))}`, lab: PF_TH_M[m - 1], long: `${PF_TH_M[m - 1]} ${y + 543}` });
+  }
+  return out;
+}
+function pfRange(period, offset, today, first) {
+  const t = pfU(today); let r;
+  if (period === 'week') {
+    const start = pfAdd(today, -((t.getUTCDay() + 6) % 7) + offset * 7), end = pfAdd(start, 6), pStart = pfAdd(start, -7), pEnd = pfAdd(start, -1);
+    r = { start, end, pStart, pEnd, gran: 'day', buckets: pfBuckets('week', start), pBuckets: pfBuckets('week', pStart), label: `${pfDM(start)} – ${pfDM(end)} ${pfU(end).getUTCFullYear() + 543}`, prevLabel: `${pfDM(pStart)} – ${pfDM(pEnd)}` };
+  } else if (period === 'month') {
+    const dt = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + offset, 1)), y = dt.getUTCFullYear(), m = dt.getUTCMonth() + 1;
+    const pd = new Date(Date.UTC(y, m - 2, 1)), py = pd.getUTCFullYear(), pm = pd.getUTCMonth() + 1;
+    const start = `${y}-${pf2(m)}-01`, pStart = `${py}-${pf2(pm)}-01`;
+    r = { start, end: `${y}-${pf2(m)}-${pf2(pfDim(y, m))}`, pStart, pEnd: `${py}-${pf2(pm)}-${pf2(pfDim(py, pm))}`, gran: 'day', buckets: pfBuckets('month', start), pBuckets: pfBuckets('month', pStart), label: `${PF_TH_M[m - 1]} ${y + 543}`, prevLabel: `${PF_TH_M[pm - 1]} ${py + 543}` };
+  } else if (period === 'year') {
+    const y = t.getUTCFullYear() + offset;
+    r = { start: `${y}-01-01`, end: `${y}-12-31`, pStart: `${y - 1}-01-01`, pEnd: `${y - 1}-12-31`, gran: 'month', buckets: pfMonthBuckets(y, 1, y, 12), pBuckets: pfMonthBuckets(y - 1, 1, y - 1, 12), label: `${y + 543} BE`, prevLabel: `${y + 542} BE` };
+  } else {
+    const f = pfU(first);
+    r = { start: first, end: today, pStart: null, pEnd: null, gran: 'month', buckets: pfMonthBuckets(f.getUTCFullYear(), f.getUTCMonth() + 1, t.getUTCFullYear(), t.getUTCMonth() + 1), pBuckets: [], label: 'ทั้งหมด', prevLabel: '' };
+  }
+  return r;
+}
+
+async function loadPerf() {
+  try {
+    const rows = await sb('system_settings?select=key,value&key=like.target.*');
+    const S = {}; rows.forEach(r => S[r.key] = Number(r.value));
+    const rev = S['target.monthly_revenue'] || 20000, avg = S['target.avg_price_per_cup'] || 80, pctT = S['target.profit_pct'] || 50;
+    const cupsT = Math.ceil(rev / avg), dayCups = Math.floor(cupsT / 4) / 7;
+    PF.cfg = { rev, avg, pctT, cupsT, dayCups, dayNet: dayCups * avg, dayProfit: dayCups * avg * pctT / 100, monthProfit: rev * pctT / 100 };
+    const f = await sb('v_cup_pnl?select=brewed_date&order=brewed_date.asc&limit=1');
+    PF.first = (f && f[0] && f[0].brewed_date) || pfToday();
+    document.querySelectorAll('#gsSeg button').forEach(b => b.addEventListener('click', () => { PF.period = b.dataset.p; PF.offset = 0; PF.sel = null; renderPerf(); }));
+    document.getElementById('gsSel').addEventListener('change', e => { PF.offset = Number(e.target.value); PF.sel = null; renderPerf(); });
+    document.getElementById('gsShare').addEventListener('click', pfShare);
+    const svg = document.getElementById('gsChart');
+    const pick = ev => {
+      if (!PF.view) return; const rc = svg.getBoundingClientRect(); const x = (ev.clientX - rc.left) / rc.width * 360;
+      const i = Math.max(0, Math.min(PF.view.n - 1, Math.floor(x / (PF.view.pw / PF.view.n)))); if (i !== PF.sel) { PF.sel = i; pfDrawChart(); }
+    };
+    svg.addEventListener('pointerdown', pick); svg.addEventListener('pointermove', ev => { if (ev.buttons || ev.pointerType === 'touch') pick(ev); });
+    await renderPerf();
+  } catch (e) { document.getElementById('gsTip').textContent = 'โหลดไม่สำเร็จ: ' + e.message; }
+}
+
+async function renderPerf() {
+  const today = pfToday(), P = PF.period;
+  document.querySelectorAll('#gsSeg button').forEach(b => b.classList.toggle('on', b.dataset.p === P));
+  const R = pfRange(P, PF.offset, today, PF.first);
+  // period dropdown
+  const sel = document.getElementById('gsSel'); sel.innerHTML = '';
+  const choices = P === 'all' ? [0] : Array.from({ length: P === 'year' ? 2 : 12 }, (_, i) => -i);
+  choices.forEach(o => { const rr = pfRange(P, o, today, PF.first); const op = document.createElement('option'); op.value = o; op.textContent = rr.label; if (o === PF.offset) op.selected = true; sel.appendChild(op); });
+  document.getElementById('gsVs').textContent = R.prevLabel ? 'vs. ' + R.prevLabel : 'ตั้งแต่เปิดร้าน';
+  // data
+  const upTo = R.end < today ? R.end : today;
+  const from = R.pStart || R.start, to = upTo > (R.pEnd || '') ? upTo : R.pEnd;
+  const days = await sb('rpc/get_perf_daily', { method: 'POST', body: JSON.stringify({ p_from: from, p_to: to }) });
+  const map = {}; days.forEach(r => map[r.d] = r);
+  const sumRange = (a, b, k) => { let t = 0; for (let d = a; d <= b; d = pfAdd(d, 1)) if (map[d]) t += Number(map[d][k]); return t; };
+  const val = (b, m) => { const c = sumRange(b.s, b.e, 'cups'), n = sumRange(b.s, b.e, 'net'); return m === 'avg' ? (c ? n / c : 0) : sumRange(b.s, b.e, m === 'cups' ? 'cups' : m === 'net' ? 'net' : 'profit'); };
+  const n = R.buckets.length;
+  let lastIdx = -1; R.buckets.forEach((b, i) => { if (b.s <= today) lastIdx = i; });
+  // summary: same elapsed span of the previous period (apples to apples)
+  const elapsed = R.pStart ? pfDiff(R.start, upTo) + 1 : 0;
+  const cmpEnd = R.pStart ? pfAdd(R.pStart, elapsed - 1) : null;
+  const tot = { cur: {}, prev: {} };
+  ['cups', 'net', 'profit'].forEach(k => { tot.cur[k] = sumRange(R.start, upTo, k); tot.prev[k] = R.pStart ? sumRange(R.pStart, cmpEnd, k) : null; });
+  tot.cur.avg = tot.cur.cups ? tot.cur.net / tot.cur.cups : 0; tot.prev.avg = R.pStart && tot.prev.cups ? tot.prev.net / tot.prev.cups : (R.pStart ? 0 : null);
+  PF.view = { R, n, lastIdx, map, val, tot, today, upTo, pw: 322 };
+  if (PF.sel === null || PF.sel >= n) PF.sel = Math.max(0, lastIdx);
+  pfDrawCards(); pfDrawChart(); pfDrawHistory();
+  document.getElementById('gsRange').textContent = `${pfDM(R.start)} – ${pfDM(upTo)}`.toUpperCase();
+}
+
+const PF_M = { cups: { lab: 'แก้ว', f: v => pfNum(v) }, net: { lab: 'ยอดขายสุทธิ', f: v => '฿' + pfNum(v) }, profit: { lab: 'กำไร', f: v => '฿' + pfNum(v) }, avg: { lab: 'เฉลี่ย / แก้ว', f: v => '฿' + pfNum(v) } };
+function pfGoal(m, gran) {
+  const c = PF.cfg;
+  if (m === 'avg') return c.avg;
+  const d = gran === 'day';
+  return m === 'cups' ? (d ? c.dayCups : c.cupsT) : m === 'net' ? (d ? c.dayNet : c.rev) : (d ? c.dayProfit : c.monthProfit);
+}
+function pfDrawCards() {
+  const { R, tot } = PF.view, box = document.getElementById('gsCards'); box.innerHTML = '';
+  ['cups', 'net', 'profit', 'avg'].forEach(m => {
+    const cur = tot.cur[m], prev = tot.prev[m], has = prev !== null && prev !== undefined;
+    const up = !has || cur >= prev;
+    const el = document.createElement('div'); el.className = 'gs-card' + (PF.metric === m ? ' on' : '');
+    el.innerHTML = `<div class="gs-cl">${PF_M[m].lab}</div><div class="gs-cv">${has ? `<span class="gs-arr">${up ? '⌃' : '⌄'}</span>` : ''}<span>${PF_M[m].f(cur)}</span></div>${has ? `<div class="gs-cp">${PF_M[m].f(prev)}</div>` : '<div class="gs-cp">&nbsp;</div>'}`;
+    el.addEventListener('click', () => { PF.metric = m; pfDrawCards(); pfDrawChart(); });
+    box.appendChild(el);
+  });
+}
+function pfNice(max) { if (max <= 0) return 4; const p = Math.pow(10, Math.floor(Math.log10(max))); const f = max / p; const s = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10; return s * p; }
+function pfDrawChart() {
+  const V = PF.view; if (!V) return; const { R, n, lastIdx, val, pw } = V, m = PF.metric, sel = PF.sel, goal = pfGoal(m, R.gran);
+  const cur = [], prv = [];
+  for (let i = 0; i < n; i++) { cur.push(i <= lastIdx ? val(R.buckets[i], m) : null); prv.push(R.pBuckets[i] ? val(R.pBuckets[i], m) : null); }
+  // cumulative series
+  const cumul = (bks, valid) => {
+    let a = 0, b = 0; return bks.map((bk, i) => {
+      if (!valid(i)) return null;
+      const c = [bk.s, bk.e]; const cups = (() => { let t = 0; for (let d = bk.s; d <= bk.e; d = pfAdd(d, 1)) if (V.map[d]) t += Number(V.map[d].cups); return t; })();
+      const net = (() => { let t = 0; for (let d = bk.s; d <= bk.e; d = pfAdd(d, 1)) if (V.map[d]) t += Number(V.map[d].net); return t; })();
+      const prof = (() => { let t = 0; for (let d = bk.s; d <= bk.e; d = pfAdd(d, 1)) if (V.map[d]) t += Number(V.map[d].profit); return t; })();
+      if (m === 'avg') { a += net; b += cups; return b ? a / b : 0; }
+      a += m === 'cups' ? cups : m === 'net' ? net : prof; return a;
+    });
+  };
+  const cumCur = cumul(R.buckets, i => i <= lastIdx), cumPrv = cumul(R.pBuckets, () => true);
+  const W = 360, ax = 326, step = pw / n;
+  const Ltop = 12, Lh = 150, Btop = 196, Bh = 112, Bbot = Btop + Bh;
+  const lineMax = pfNice(Math.max(1, ...cumCur.filter(v => v !== null), ...cumPrv.filter(v => v !== null)));
+  const barMax = pfNice(Math.max(1, goal, ...cur.filter(v => v !== null), ...prv.filter(v => v !== null)));
+  const ly = v => Ltop + Lh - (v / lineMax) * Lh, by = v => Bbot - (v / barMax) * Bh, cx = i => (i + 0.5) * step;
+  const f = PF_M[m].f, short = v => v >= 10000 ? (v / 1000).toFixed(0) + 'k' : v >= 1000 ? (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(Math.round(v * 10) / 10);
+  let s = '';
+  for (let k = 0; k <= 4; k++) { const v = lineMax * k / 4, y = ly(v); s += `<line x1="0" x2="${pw + 6}" y1="${y}" y2="${y}" stroke="#2c2c30" stroke-width="1"/>` + (k > 0 ? `<text x="${ax}" y="${y + 4}" fill="#8e8e93" font-size="11" text-anchor="start">${short(v)}</text>` : ''); }
+  const path = (arr, off) => { let d = `M0 ${ly(0)}`; arr.forEach((v, i) => { if (v !== null) d += ` L${cx(i)} ${ly(v)}`; }); return d; };
+  s += `<path d="${path(cumPrv)}" fill="none" stroke="#5c5c62" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s += `<path d="${path(cumCur)}" fill="none" stroke="#ec8a4a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
+  for (let k = 0; k <= 4; k++) { const v = barMax * k / 4, y = by(v); s += `<line x1="0" x2="${pw + 6}" y1="${y}" y2="${y}" stroke="#2c2c30" stroke-dasharray="3 4"/>` + (k > 0 && Math.abs(y - by(goal)) > 11 ? `<text x="${ax}" y="${y + 4}" fill="#8e8e93" font-size="11">${short(v)}</text>` : ''); }
+  const bw = Math.max(2, Math.min(14, step * 0.38));
+  for (let i = 0; i < n; i++) {
+    if (prv[i] !== null) s += `<rect x="${cx(i) - bw - 0.5}" y="${by(prv[i])}" width="${bw}" height="${Math.max(0, Bbot - by(prv[i]))}" rx="${Math.min(3, bw / 2)}" fill="${i === sel ? '#5d5d63' : '#3a3a3f'}"/>`;
+    if (cur[i] !== null && cur[i] > 0) s += `<rect x="${cx(i) + 0.5}" y="${by(cur[i])}" width="${bw}" height="${Math.max(0, Bbot - by(cur[i]))}" rx="${Math.min(3, bw / 2)}" fill="#ec8a4a"/>`;
+  }
+  s += `<line x1="0" x2="${pw + 6}" y1="${by(goal)}" y2="${by(goal)}" stroke="#ec8a4a" stroke-width="1.6"/><text x="${ax}" y="${by(goal) + 4}" fill="#ec8a4a" font-size="12" font-weight="700">${short(goal)}</text>`;
+  // selection marker + guide line
+  const cv = cumCur[sel], pv = cumPrv[sel];
+  if (pv !== null && pv !== undefined) s += `<circle cx="${cx(sel)}" cy="${ly(pv)}" r="5" fill="#6a6a70"/>`;
+  if (cv !== null && cv !== undefined) {
+    const top = Math.min(by(cur[sel] || 0), by(prv[sel] || 0)) - 10;
+    s += `<path d="M${cx(sel)} ${ly(cv) + 6} V${Math.max(ly(cv) + 8, top)}" stroke="#7a7a80" stroke-width="1.5" fill="none"/>`;
+    s += `<circle cx="${cx(sel)}" cy="${ly(cv)}" r="6" fill="#121214" stroke="#ec8a4a" stroke-width="3"/>`;
+  }
+  const every = n > 14 ? 5 : 1;
+  R.buckets.forEach((b, i) => { if (i % every === 0 || i === n - 1 || i === sel) s += `<text x="${cx(i)}" y="${Bbot + 20}" text-anchor="middle" font-size="${n > 14 ? 10.5 : 12}" fill="${i === sel ? '#fff' : '#8e8e93'}" font-weight="${i === sel ? 700 : 400}">${b.lab}</text>`; });
+  document.getElementById('gsChart').innerHTML = s;
+  V.pw = pw;
+  const b = R.buckets[sel], pb = R.pBuckets[sel];
+  document.getElementById('gsTip').innerHTML = `<b>${b.long}</b> · ${PF_M[m].lab} ${cur[sel] === null ? '–' : f(cur[sel])}${pb && prv[sel] !== null ? ` <span style="color:#8e8e93">· ก่อนหน้า ${f(prv[sel])}</span>` : ''} <span style="color:#ec8a4a">· เป้า ${f(goal)}</span>`;
+}
+function pfDrawHistory() {
+  const { R, n, lastIdx, val, map } = PF.view, el = document.getElementById('gsHist'); let h = '', cnt = 0;
+  const goalC = pfGoal('cups', R.gran);
+  for (let i = lastIdx; i >= 0; i--) {
+    const b = R.buckets[i], cups = val(b, 'cups'); if (!cups && R.gran === 'day') continue; cnt++;
+    const net = val(b, 'net'), hit = cups >= goalC;
+    h += `<div class="gs-row"><div class="gs-ic">☕</div><div style="flex:1;"><div class="gs-rt">${cups} แก้ว · ฿${pfNum(net)}</div><div class="gs-rs">${b.long}</div></div><div class="gs-tag ${hit ? 'ok' : ''}">${hit ? '✓ ถึงเป้า' : Math.round(cups / goalC * 100) + '%'}</div></div>`;
+  }
+  el.innerHTML = h || '<div class="gs-rs" style="padding:12px 0;">ยังไม่มีข้อมูลในช่วงนี้</div>';
+  document.getElementById('gsHistN').textContent = `${cnt} ${R.gran === 'day' ? 'DAYS' : 'MONTHS'}`;
+}
+function pfShare() {
+  const { R, tot } = PF.view, t = tot.cur;
+  const text = `กาแฟแมวส้ม · ${R.label}\n${pfNum(t.cups)} แก้ว · ยอดขาย ฿${pfNum(t.net)} · กำไร ฿${pfNum(t.profit)} · เฉลี่ย ฿${pfNum(t.avg)}/แก้ว` + (R.prevLabel && tot.prev.cups !== null ? `\nเทียบ ${R.prevLabel}: ${pfNum(tot.prev.cups)} แก้ว · ฿${pfNum(tot.prev.net)}` : '');
+  if (navigator.share) navigator.share({ text }).catch(() => {}); else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => alert('คัดลอกสรุปแล้ว'));
+}
+
 
 async function loadTargetTab() {
   const el = document.getElementById('tgBig');
