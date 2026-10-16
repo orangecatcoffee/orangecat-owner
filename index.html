@@ -583,6 +583,11 @@
 
   <div class="card">
     <div class="card-title">ช่วงเวลา</div>
+    <div class="chip-row" id="finPresetRow" style="margin-bottom:12px;">
+      <button type="button" class="chip" data-fp="all">All time</button>
+      <button type="button" class="chip" data-fp="ytd">YTD</button>
+      <button type="button" class="chip selected" data-fp="mtd">MTD</button>
+    </div>
     <div class="row2">
       <div><label>จาก</label><input type="date" id="fin-from"></div>
       <div><label>ถึง</label><input type="date" id="fin-to"></div>
@@ -1096,8 +1101,8 @@ async function loadTargetTab() {
     document.getElementById('tgInRev').value = rev; document.getElementById('tgInAvg').value = avg; document.getElementById('tgInPct').value = pctT;
 
     const today = new Date(), d30 = new Date(today.getTime() - 29 * 86400000), d7 = new Date(today.getTime() - 6 * 86400000);
-    const [p30, p7, p1] = await Promise.all([fetchPnl(d30, today), fetchPnl(d7, today), fetchPnl(today, today)]);
-    const t30 = p30.total, t7 = p7.total, t1 = p1.total;
+    const [p30, p7] = await Promise.all([fetchPnl(d30, today), fetchPnl(d7, today)]);
+    const t30 = p30.total, t7 = p7.total;
     const n0 = v => Math.round(v).toLocaleString(), n1 = v => (Math.round(v * 10) / 10).toLocaleString(), baht = v => '฿' + Math.round(v).toLocaleString();
 
     // One row = target on the left, the measured result for that exact KPI on the right
@@ -1124,7 +1129,7 @@ async function loadTargetTab() {
       `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;font-size:10.5px;font-weight:700;color:#A8876F;letter-spacing:.5px;"><div>เป้าหมาย</div><div>ผลจริงตอนนี้</div></div>` +
       line({ label: 'แก้ว / เดือน', target: cupsT, sub: '= ' + rev.toLocaleString() + ' ÷ ' + avg, actual: Number(t30.cups), period: '30 วันล่าสุด', fmt: n0, cups: true }) +
       line({ label: 'แก้ว / สัปดาห์', target: weekT, sub: '1 เดือน = 4 สัปดาห์', actual: Number(t7.cups), period: '7 วันล่าสุด', fmt: n0, cups: true }) +
-      line({ label: 'แก้ว / วัน', target: dayT, sub: 'ถ้านับ 30 วัน = ' + (cupsT / 30).toFixed(1), actual: Number(t1.cups), period: 'วันนี้', fmt: n1, cups: true, perDay: true }) +
+      line({ label: 'แก้ว / วัน', target: dayT, sub: 'ถ้านับ 30 วัน = ' + (cupsT / 30).toFixed(1), actual: Number(t30.cups) / 30, period: 'เฉลี่ย 30 วันล่าสุด', fmt: n1, cups: true, perDay: true }) +
       line({ label: 'ยอดขาย / เดือน', target: rev, sub: 'ราคาเฉลี่ย ฿' + avg + ' ต่อแก้ว', actual: Number(t30.net_sales), period: '30 วันล่าสุด', fmt: baht }) +
       line({ label: 'กำไร / เดือน', target: profitT, sub: pctT + '% ของยอดขาย (หลังต้นทุนผันแปรและการตลาด)', actual: Number(t30.profit_after_marketing), period: '30 วันล่าสุด', fmt: baht }) +
       `<div style="font-size:10.5px;color:#A8876F;">30 วันล่าสุด = ${fmtD(d30)} → ${fmtD(today)} · เฉลี่ยวันละ ${(Number(t30.cups) / 30).toFixed(1)} แก้ว · "≈ ฿" = จำนวนแก้วที่ขาด × ราคาเฉลี่ย ฿${avg}</div>`;
@@ -2310,9 +2315,9 @@ function finDateRange() {
   const fromEl = document.getElementById('fin-from');
   const toEl = document.getElementById('fin-to');
   if (!fromEl.value) {
-    const now = new Date();
-    fromEl.value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    toEl.value = now.toISOString().slice(0, 10);
+    const t = pfToday();   // Bangkok date (the old UTC version could be a day behind early in the morning)
+    fromEl.value = t.slice(0, 8) + '01';
+    toEl.value = t;
   }
   return { from: new Date(fromEl.value + 'T00:00:00'), to: new Date(toEl.value + 'T23:59:59') };
 }
@@ -2324,9 +2329,9 @@ async function loadFinancialsTab() {
   statementEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
   listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
   try {
-    const a1 = fmtD(from), b1 = fmtD(to);
+    const a1 = document.getElementById('fin-from').value, b1 = document.getElementById('fin-to').value;  // use the typed dates as-is (no timezone shifting)
     const [pnl, finEntries, menuRows] = await Promise.all([
-      fetchPnl(from, to),
+      sb('rpc/get_pnl', { method: 'POST', body: JSON.stringify({ p_from: a1, p_to: b1 }) }),
       sb(`purchase_log?select=*&cost_type=eq.fixed&purchase_date=gte.${a1}&purchase_date=lte.${b1}&order=purchase_date.desc`),
       sb(`v_cup_pnl?select=menu_item_name,price,bean_surcharge,platform_promo,platform_fee,ingredients,packaging,delivery_pkg&bucket=eq.customer&brewed_date=gte.${a1}&brewed_date=lte.${b1}`),
     ]);
@@ -2414,8 +2419,26 @@ async function loadFinancialsTab() {
     statementEl.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
   }
 }
-document.getElementById('fin-from').addEventListener('change', loadFinancialsTab);
-document.getElementById('fin-to').addEventListener('change', loadFinancialsTab);
+let finFirstDate = null;
+async function finEarliestDate() {
+  if (finFirstDate) return finFirstDate;
+  const [a, b] = await Promise.all([
+    sb('v_cup_pnl?select=brewed_date&order=brewed_date.asc&limit=1'),
+    sb('purchase_log?select=purchase_date&cost_type=eq.fixed&include_in_financials=eq.true&order=purchase_date.asc&limit=1'),
+  ]);
+  const c = [a && a[0] && a[0].brewed_date, b && b[0] && b[0].purchase_date].filter(Boolean).sort();
+  return (finFirstDate = c[0] || pfToday());
+}
+function finSelectPreset(key) {
+  document.querySelectorAll('#finPresetRow .chip').forEach(c => c.classList.toggle('selected', c.dataset.fp === key));
+}
+document.querySelectorAll('#finPresetRow .chip').forEach(chip => chip.addEventListener('click', async () => {
+  const t = pfToday(), k = chip.dataset.fp;
+  const from = k === 'mtd' ? t.slice(0, 8) + '01' : k === 'ytd' ? t.slice(0, 5) + '01-01' : await finEarliestDate();
+  document.getElementById('fin-from').value = from; document.getElementById('fin-to').value = t;
+  finSelectPreset(k); loadFinancialsTab();
+}));
+['fin-from', 'fin-to'].forEach(id => document.getElementById(id).addEventListener('change', () => { finSelectPreset(null); loadFinancialsTab(); }));
 
 </script>
 
