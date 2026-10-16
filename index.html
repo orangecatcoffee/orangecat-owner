@@ -282,14 +282,10 @@
 <div class="view active" id="view-target">
 
   <div class="card">
-    <div class="card-title">🎯 เป้าหมายรายเดือน</div>
+    <div class="card-title">🎯 เป้าหมาย เทียบผลจริง</div>
     <div id="tgBig"><div class="loading">กำลังโหลด...</div></div>
   </div>
 
-  <div class="card">
-    <div class="card-title">ตอนนี้อยู่ห่างจากเป้าแค่ไหน</div>
-    <div id="tgKpi"><div class="loading">กำลังโหลด...</div></div>
-  </div>
 
   <div class="card">
     <div class="card-title">🎯 ภารกิจ 975 แก้ว</div>
@@ -851,41 +847,49 @@ loadMissionTab();
 loadTargetTab();
 
 async function loadTargetTab() {
-  const bigEl = document.getElementById('tgBig'), kpiEl = document.getElementById('tgKpi');
+  const el = document.getElementById('tgBig');
   try {
     const rows = await sb('system_settings?select=key,value&key=like.target.*');
     const S = {}; rows.forEach(r => S[r.key] = Number(r.value));
     const rev = S['target.monthly_revenue'] || 20000, avg = S['target.avg_price_per_cup'] || 80, pctT = S['target.profit_pct'] || 50;
     const profitT = rev * pctT / 100, cupsT = Math.ceil(rev / avg), weekT = Math.floor(cupsT / 4), dayT = weekT / 7;
     document.getElementById('tgInRev').value = rev; document.getElementById('tgInAvg').value = avg; document.getElementById('tgInPct').value = pctT;
-    const box = (big, label, sub) => `<div style="flex:1;background:#FFF3E8;border-radius:12px;padding:12px 8px;text-align:center;"><div style="font-size:30px;font-weight:800;color:#C2541A;line-height:1.1;">${big}</div><div style="font-size:12px;font-weight:700;color:#4A3428;margin-top:2px;">${label}</div><div style="font-size:10.5px;color:#A8876F;margin-top:2px;">${sub}</div></div>`;
-    bigEl.innerHTML = `
-      <div style="display:flex;gap:8px;">${box(cupsT, 'แก้ว / เดือน', '= ' + rev.toLocaleString() + ' ÷ ' + avg)}${box(weekT, 'แก้ว / สัปดาห์', '1 เดือน = 4 สัปดาห์')}${box(dayT.toFixed(1), 'แก้ว / วัน', 'ถ้านับ 30 วัน = ' + (cupsT / 30).toFixed(1))}</div>
-      <div style="display:flex;gap:8px;margin-top:8px;">${box('฿' + rev.toLocaleString(), 'ยอดขาย / เดือน', 'ราคาเฉลี่ย ฿' + avg + ' ต่อแก้ว')}${box('฿' + profitT.toLocaleString(), 'กำไร / เดือน', pctT + '% ของยอดขาย')}</div>`;
 
     const today = new Date(), d30 = new Date(today.getTime() - 29 * 86400000), d7 = new Date(today.getTime() - 6 * 86400000);
-    const [p30, p7] = await Promise.all([fetchPnl(d30, today), fetchPnl(d7, today)]);
-    const t30 = p30.total, t7 = p7.total;
-    const row = (label, actual, target, fmt, extra) => {
-      const pct = target ? actual / target * 100 : 0, gap = target - actual;
+    const [p30, p7, p1] = await Promise.all([fetchPnl(d30, today), fetchPnl(d7, today), fetchPnl(today, today)]);
+    const t30 = p30.total, t7 = p7.total, t1 = p1.total;
+    const n0 = v => Math.round(v).toLocaleString(), n1 = v => (Math.round(v * 10) / 10).toLocaleString(), baht = v => '฿' + Math.round(v).toLocaleString();
+
+    // One row = target on the left, the measured result for that exact KPI on the right
+    const line = o => {
+      const pct = o.target ? o.actual / o.target * 100 : 0, gap = o.target - o.actual;
       const color = pct >= 100 ? '#2E7D46' : pct >= 70 ? '#E8863A' : '#B5483A';
-      return `<div style="margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:12.5px;font-weight:700;">${label}</span><span style="font-size:12px;color:${color};font-weight:700;">${pct.toFixed(0)}%</span></div>
-        <div style="display:flex;align-items:baseline;gap:6px;margin:2px 0 6px;"><span style="font-size:26px;font-weight:800;color:${color};">${fmt(actual)}</span><span style="font-size:12px;color:#A8876F;">จากเป้า ${fmt(target)}</span></div>
-        <div style="height:8px;background:#F0E4D8;border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.min(pct, 100)}%;background:${color};"></div></div>
-        <div style="font-size:11.5px;color:#8a6a4a;margin-top:4px;">${gap > 0 ? 'ขาดอีก ' + fmt(gap) : '✅ ถึงเป้าแล้ว (เกิน ' + fmt(-gap) + ')'}${extra ? ' · ' + extra : ''}</div>
+      const gapTxt = gap <= 0 ? '✅ ถึงเป้าแล้ว' :
+        (o.cups ? `ขาดอีก ${o.fmt(gap)} แก้ว<br><b>≈ ${baht(gap * avg)}${o.perDay ? ' ต่อวัน' : ''}</b>` : `ขาดอีก <b>${o.fmt(gap)}</b>`);
+      return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div style="background:#FFF3E8;border-radius:12px;padding:12px 10px;">
+          <div style="font-size:11px;font-weight:700;color:#8a6a4a;">${o.label}</div>
+          <div style="font-size:28px;font-weight:800;color:#C2541A;line-height:1.15;margin-top:2px;">${o.fmt(o.target)}</div>
+          <div style="font-size:10.5px;color:#A8876F;margin-top:2px;">${o.sub}</div>
+        </div>
+        <div style="background:#fff;border:2px solid ${color}33;border-radius:12px;padding:12px 10px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:11px;font-weight:700;color:#8a6a4a;">${o.period}</span><span style="font-size:13px;font-weight:800;color:${color};">${pct.toFixed(0)}%</span></div>
+          <div style="font-size:28px;font-weight:800;color:${color};line-height:1.15;margin-top:2px;">${o.fmt(o.actual)}</div>
+          <div style="height:6px;background:#F0E4D8;border-radius:3px;overflow:hidden;margin:6px 0 5px;"><div style="height:100%;width:${Math.min(pct, 100)}%;background:${color};"></div></div>
+          <div style="font-size:11px;color:#8a6a4a;line-height:1.5;">${gapTxt}</div>
+        </div>
       </div>`;
     };
-    const n0 = v => Math.round(v).toLocaleString(), baht = v => '฿' + Math.round(v).toLocaleString();
-    const cups30 = Number(t30.cups), need = Math.max(0, (cupsT - cups30) / 30);
-    kpiEl.innerHTML =
-      `<div style="font-size:11px;color:#A8876F;margin-bottom:10px;">ย้อนหลัง 30 วัน (${fmtD(d30)} → ${fmtD(today)}) · เฉลี่ยวันละ ${(cups30 / 30).toFixed(1)} แก้ว</div>` +
-      row('จำนวนแก้ว 30 วันล่าสุด', cups30, cupsT, n0, need > 0 ? 'ต้องเพิ่มอีกวันละ ' + need.toFixed(1) + ' แก้ว' : '') +
-      row('ยอดขายสุทธิ 30 วันล่าสุด', Number(t30.net_sales), rev, baht) +
-      row('กำไร (หลังต้นทุนผันแปรและการตลาด) 30 วันล่าสุด', Number(t30.profit_after_marketing), profitT, baht) +
-      `<div style="border-top:1px solid #F0E4D8;padding-top:12px;">` + row('จำนวนแก้ว 7 วันล่าสุด', Number(t7.cups), weekT, n0) + `</div>`;
+    el.innerHTML =
+      `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;font-size:10.5px;font-weight:700;color:#A8876F;letter-spacing:.5px;"><div>เป้าหมาย</div><div>ผลจริงตอนนี้</div></div>` +
+      line({ label: 'แก้ว / เดือน', target: cupsT, sub: '= ' + rev.toLocaleString() + ' ÷ ' + avg, actual: Number(t30.cups), period: '30 วันล่าสุด', fmt: n0, cups: true }) +
+      line({ label: 'แก้ว / สัปดาห์', target: weekT, sub: '1 เดือน = 4 สัปดาห์', actual: Number(t7.cups), period: '7 วันล่าสุด', fmt: n0, cups: true }) +
+      line({ label: 'แก้ว / วัน', target: dayT, sub: 'ถ้านับ 30 วัน = ' + (cupsT / 30).toFixed(1), actual: Number(t1.cups), period: 'วันนี้', fmt: n1, cups: true, perDay: true }) +
+      line({ label: 'ยอดขาย / เดือน', target: rev, sub: 'ราคาเฉลี่ย ฿' + avg + ' ต่อแก้ว', actual: Number(t30.net_sales), period: '30 วันล่าสุด', fmt: baht }) +
+      line({ label: 'กำไร / เดือน', target: profitT, sub: pctT + '% ของยอดขาย (หลังต้นทุนผันแปรและการตลาด)', actual: Number(t30.profit_after_marketing), period: '30 วันล่าสุด', fmt: baht }) +
+      `<div style="font-size:10.5px;color:#A8876F;">30 วันล่าสุด = ${fmtD(d30)} → ${fmtD(today)} · เฉลี่ยวันละ ${(Number(t30.cups) / 30).toFixed(1)} แก้ว · "≈ ฿" = จำนวนแก้วที่ขาด × ราคาเฉลี่ย ฿${avg}</div>`;
   } catch (e) {
-    bigEl.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`; kpiEl.innerHTML = '';
+    el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${e.message}</div>`;
   }
 }
 document.getElementById('tgSave').addEventListener('click', async () => {
