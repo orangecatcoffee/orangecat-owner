@@ -1049,7 +1049,7 @@ async function fetchPnl(from, to) { return sb('rpc/get_pnl', { method: 'POST', b
 const THB = (n, dp = 0) => '฿' + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: dp, minimumFractionDigits: dp });
 const PCT = (n, d) => d ? (n / d * 100).toFixed(1) + '%' : '–';
 function pnlSubset(pnl, mode) {
-  const keys = mode === 'all' ? ['store','office','standard','grab'] : mode === 'own' ? ['store','office','standard'] : [mode];
+  const keys = mode === 'all' ? ['store','standard','grab'] : mode === 'own' ? ['store','standard'] : [mode];
   const rows = (pnl.channels || []).filter(c => keys.includes(c.key));
   const sum = f => rows.reduce((s, c) => s + Number(c[f] || 0), 0);
   return { cups: sum('cups'), net: sum('net_sales'), cost: sum('ingredients') + sum('packaging') + sum('delivery_pkg'), fees: sum('platform_fee') + sum('delivery_fee'), contribution: sum('contribution'), pam: sum('profit_after_marketing') };
