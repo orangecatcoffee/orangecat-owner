@@ -308,7 +308,6 @@
 <div class="tab" data-tab="report">Sales & Customers</div>
   <div class="tab" data-tab="purchasing">Purchasing</div>
   <div class="tab" data-tab="financials">งบการเงิน</div>
-<div class="tab" data-tab="story">MAEWSOM OS</div>
 </div>
 
 <!-- ============ TAB 1: SALES & CUSTOMER PERFORMANCE ============ -->
@@ -388,14 +387,6 @@
     <div class="gs-cards" id="gsCards"></div>
     <div class="gs-hist"><h2>History</h2><div id="gsHistN"></div><div id="gsHist"></div></div>
   </div>
-</div>
-
-<div class="view" id="view-story">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin:0 4px 8px;font-size:13px;color:#A8876F;">
-    <span>เรื่องราวของระบบ MAEWSOM OS</span>
-    <a href="story.html" target="_blank" rel="noopener" style="color:#E8863A;font-weight:600;text-decoration:none;">เปิดเต็มหน้าจอ ↗</a>
-  </div>
-  <iframe id="storyFrame" title="MAEWSOM OS" style="width:100%;height:calc(100vh - 220px);min-height:520px;border:1px solid #F0E4D8;border-radius:16px;background:#fff;"></iframe>
 </div>
 
 <div class="view" id="view-report">
@@ -879,7 +870,6 @@ document.querySelectorAll(".tab").forEach(tab => {
       reportLoaded = true;
       loadReportTab();
     }
-    if (tab.dataset.tab === "story") { const f = document.getElementById("storyFrame"); if (!f.getAttribute("src")) f.setAttribute("src", "story.html"); }
     if (tab.dataset.tab === "perf" && !perfLoaded) { perfLoaded = true; loadPerf(); }
     if (tab.dataset.tab === "purchasing" && !purchLoaded) { purchLoaded = true; loadPurchasingTab(); }
     if (tab.dataset.tab === "financials" && !finLoaded) { finLoaded = true; loadFinancialsTab(); }
