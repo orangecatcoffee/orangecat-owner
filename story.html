@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MAEWSOM OS — the system behind Orange Cat Coffee</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;600&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#F6EFE6; --bg2:#EFE5D8; --surface:#FFFFFF; --line:#E2D4C3; --ink:#2A1F17; --muted:#76665A;
+  --accent:#C2601C; --accent-ink:#FFFFFF; --soft:#FBE3CD; --good:#2E7D4F; --bad:#B4432F;
+  --serif:"Fraunces", Georgia, "Times New Roman", serif;
+  --sans:"IBM Plex Sans", "IBM Plex Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#15121A; --bg2:#1C1822; --surface:#221E29; --line:#3A3442; --ink:#F3ECE3; --muted:#A99D92;
+    --accent:#E8863A; --accent-ink:#1B120A; --soft:#3A2618; --good:#6CC08B; --bad:#E57B66;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#15121A; --bg2:#1C1822; --surface:#221E29; --line:#3A3442; --ink:#F3ECE3; --muted:#A99D92;
+  --accent:#E8863A; --accent-ink:#1B120A; --soft:#3A2618; --good:#6CC08B; --bad:#E57B66;
+}
+*,*:before,*:after{box-sizing:inherit}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 56px);scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+img,svg,canvas{max-width:100%}
+a{color:var(--accent)}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* progress rail */
+.rail{position:fixed;top:0;left:0;right:0;z-index:20;padding-top:env(safe-area-inset-top,0px);background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:21;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(10px)}
+.rail-in{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:14px;padding:10px 18px}
+.brand{font-family:var(--serif);font-weight:800;font-size:18px;white-space:nowrap;color:var(--ink);text-decoration:none}
+.rail nav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1}
+.rail nav::-webkit-scrollbar{display:none}
+.rail nav a{font-size:13.5px;color:var(--muted);text-decoration:none;padding:6px 11px;border-radius:999px;white-space:nowrap}
+.rail nav a.on{background:var(--soft);color:var(--ink);font-weight:600}
+.bar{position:absolute;left:0;bottom:-1px;height:2px;background:var(--accent);width:0}
+
+/* hero */
+.hero{position:relative;min-height:100svh;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:110px 22px 80px}
+#net{position:absolute;inset:0;width:100%;height:100%}
+.hero-in{position:relative;max-width:820px;text-align:center}
+.kicker{font-family:var(--mono);font-size:14px;color:var(--accent);margin:0 0 18px}
+.hero h1{font-family:var(--serif);font-weight:800;font-size:clamp(44px,9vw,96px);line-height:1;letter-spacing:-.02em;margin:0 0 22px}
+.hero h1 em{display:block;font-weight:500;font-style:italic;color:var(--accent)}
+.lede{font-family:var(--serif);font-size:clamp(19px,2.6vw,23px);line-height:1.55;color:var(--muted);max-width:640px;margin:0 auto 34px}
+.cta{display:inline-flex;align-items:center;gap:10px;background:var(--accent);color:var(--accent-ink);border:none;padding:16px 28px;border-radius:4px;font-family:var(--mono);font-size:15px;font-weight:500;text-decoration:none}
+.cta.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.hero-note{margin-top:46px;font-size:14px;color:var(--muted)}
+
+/* sections */
+section.part{max-width:1080px;margin:0 auto;padding:96px 22px 40px}
+.part-head{max-width:720px;margin-bottom:46px}
+.who{font-family:var(--mono);font-size:14px;color:var(--accent);margin:0 0 10px}
+.part-head h2{font-family:var(--serif);font-weight:800;font-size:clamp(34px,6vw,58px);line-height:1.05;letter-spacing:-.015em;margin:0 0 16px}
+.part-head p{font-family:var(--serif);font-size:20px;line-height:1.6;color:var(--muted);margin:0}
+.step{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:44px;align-items:start;padding:44px 0;border-top:1px solid var(--line)}
+.step-n{font-family:var(--mono);font-size:13px;color:var(--muted);margin-bottom:8px}
+.step h3{font-family:var(--serif);font-weight:600;font-size:29px;line-height:1.2;margin:0 0 12px}
+.step p{margin:0 0 14px;max-width:62ch}
+.sys{border-left:3px solid var(--accent);background:var(--bg2);padding:14px 16px;margin:18px 0 0;font-family:var(--mono);font-size:13.5px;line-height:1.65;color:var(--ink)}
+.sys b{color:var(--accent);font-weight:500;display:block;margin-bottom:2px}
+@media (max-width:820px){.step{grid-template-columns:1fr;gap:22px}}
+
+/* demo surfaces */
+.demo{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;position:relative}
+.demo-cap{font-size:12.5px;color:var(--muted);margin-top:10px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:var(--accent-ink);border:none;border-radius:4px;padding:11px 18px;font-family:var(--mono);font-size:14px;font-weight:500}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* phone */
+.phone{width:min(300px,100%);margin:0 auto;border-radius:34px;background:#0E0C10;padding:10px;box-shadow:0 0 0 1px var(--line)}
+.screen{border-radius:26px;background:#F3EEE8;color:#2A1F17;min-height:430px;overflow:hidden;display:flex;flex-direction:column;font-family:var(--sans)}
+.scr-top{background:#06C755;color:#fff;font-size:13px;font-weight:600;padding:12px 14px;display:flex;justify-content:space-between}
+.chat{flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.45}
+.msg{max-width:84%;padding:9px 12px;border-radius:16px;background:#fff;align-self:flex-start;opacity:0;transform:translateY(6px);transition:opacity .3s,transform .3s}
+.msg.me{align-self:flex-end;background:#B9F09B}
+.msg.in{opacity:1;transform:none}
+.msg small{display:block;color:#7A6A5C;font-size:11px;margin-top:3px}
+
+/* pipeline */
+.pipe{width:100%;max-width:420px;height:auto;display:block;margin:0 auto}
+.pipe .node rect{fill:var(--bg2);stroke:var(--line);stroke-width:1.5;transition:fill .25s,stroke .25s}
+.pipe .node text{fill:var(--ink);font-family:var(--mono);font-size:15px}
+.pipe .node.hot rect{fill:var(--soft);stroke:var(--accent)}
+.pipe path.wire{fill:none;stroke:var(--line);stroke-width:2}
+.pipe circle.pulse{fill:var(--accent)}
+.log{font-family:var(--mono);font-size:12.5px;line-height:1.7;background:var(--bg2);border-radius:10px;padding:10px 12px;margin-top:12px;min-height:120px;color:var(--muted)}
+.log div.new{color:var(--ink)}
+
+/* passport */
+.stamps{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:6px 0 14px}
+.stamp{aspect-ratio:1;border-radius:50%;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:20px;transition:background .25s,border-color .25s}
+.stamp.on{background:var(--soft);border:2px solid var(--accent)}
+.unlock{border-radius:12px;padding:12px 14px;background:var(--soft);display:none;font-size:14.5px;margin-top:10px}
+.unlock.show{display:block}
+select,input[type=text],input[type=range]{font:inherit}
+select,input[type=text]{background:var(--bg2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
+
+/* barista queue */
+.queue{display:flex;flex-direction:column;gap:10px}
+.cup{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg2);transition:opacity .3s}
+.cup.done{opacity:.45}
+.cup .ttl{font-weight:600}
+.cup .sub{font-size:13px;color:var(--muted)}
+.cup .btn{margin-left:auto;padding:9px 12px;font-size:13px}
+.chan{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin-left:6px;color:var(--muted)}
+.stock{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.stock div{background:var(--bg2);border-radius:10px;padding:9px 8px;text-align:center}
+.stock b{display:block;font-family:var(--mono);font-size:18px;font-weight:500;transition:color .3s}
+.stock b.hit{color:var(--accent)}
+.stock span{font-size:11.5px;color:var(--muted)}
+@media (max-width:420px){.stock{grid-template-columns:repeat(2,1fr)}}
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .25s,transform .25s;z-index:30;max-width:calc(100vw - 32px)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chip{border:1px solid var(--line);background:var(--bg2);color:var(--ink);border-radius:999px;padding:7px 13px;font-size:14px}
+.chip.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.gift{border-color:var(--accent)}
+.hint{font-size:13.5px;margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.hint button{text-align:left;border:1px dashed var(--accent);background:var(--soft);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:14px}
+
+/* target */
+.sl{margin:10px 0 16px}
+.sl label{display:flex;justify-content:space-between;font-size:14px;color:var(--muted)}
+.sl label b{color:var(--ink);font-family:var(--mono);font-weight:500}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.goals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.goals div{background:var(--soft);border-radius:12px;padding:12px 8px;text-align:center}
+.goals b{display:block;font-family:var(--serif);font-weight:800;font-size:30px;line-height:1.1;color:var(--accent)}
+.goals span{font-size:12.5px;color:var(--ink)}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.vs > div{border:1px solid var(--line);border-radius:12px;padding:10px}
+.meter{height:7px;background:var(--line);border-radius:4px;overflow:hidden;margin:6px 0 4px}
+.meter i{display:block;height:100%;background:var(--accent);transition:width .4s}
+
+/* margins */
+.seg{display:flex;background:var(--bg2);border-radius:12px;padding:4px;gap:4px;margin-bottom:16px}
+.seg button{flex:1;border:none;background:none;color:var(--muted);border-radius:9px;padding:9px 4px;font-size:14px}
+.seg button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.stack{display:flex;height:46px;border-radius:10px;overflow:hidden}
+.stack div{height:100%;transition:width .5s ease;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:#fff;white-space:nowrap;overflow:hidden}
+.legend{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:14px;margin-top:14px}
+.legend .k{display:flex;align-items:center;gap:8px}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+.keep{font-family:var(--serif);font-size:42px;font-weight:800;color:var(--accent);line-height:1}
+
+/* brief */
+.brief{white-space:pre-line}
+
+/* arch */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:8px 0 40px}
+.stats div{border-top:2px solid var(--accent);padding-top:10px}
+.stats b{display:block;font-family:var(--serif);font-weight:800;font-size:clamp(34px,5vw,52px);line-height:1}
+.stats span{color:var(--muted);font-size:14.5px}
+@media (max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+.arch{width:100%;height:auto;display:block;background:var(--surface);border:1px solid var(--line);border-radius:18px}
+.arch text{font-family:var(--sans);fill:var(--ink)}
+.arch .lbl{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+.arch rect.box{fill:var(--bg2);stroke:var(--line)}
+.arch rect.zone{fill:none;stroke:var(--line);stroke-dasharray:4 5}
+.arch path.flow{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:6 10;animation:flow 1.6s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-32}}
+@media (prefers-reduced-motion: reduce){.arch path.flow{animation:none}}
+.wrapx{overflow-x:auto}
+
+/* timeline */
+.day{list-style:none;padding:0;margin:0;border-left:2px solid var(--line)}
+.day li{position:relative;padding:0 0 24px 26px}
+.day li::before{content:"";position:absolute;left:-7px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:2px solid var(--accent)}
+.day time{font-family:var(--mono);color:var(--accent);font-size:14px}
+.day p{margin:2px 0 0;max-width:60ch}
+
+/* capability grid */
+.caps{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line)}
+.caps div{padding:20px 18px 22px 0;border-bottom:1px solid var(--line)}
+.caps h4{font-family:var(--serif);font-size:20px;font-weight:600;margin:0 0 6px}
+.caps p{margin:0;color:var(--muted);font-size:15px}
+@media (max-width:820px){.caps{grid-template-columns:1fr 1fr}}
+@media (max-width:520px){.caps{grid-template-columns:1fr}}
+
+.close{text-align:center;max-width:760px;margin:0 auto;padding:110px 22px 120px}
+.close h2{font-family:var(--serif);font-weight:800;font-size:clamp(36px,7vw,64px);line-height:1.05;margin:0 0 18px}
+.close p{font-family:var(--serif);font-size:20px;color:var(--muted);margin:0 0 30px}
+footer{text-align:center;font-size:13px;color:var(--muted);padding:0 22px 40px}
+</style>
+</head>
+<body>
+
+<header class="rail">
+  <div class="rail-in">
+    <a class="brand" href="#top">MAEWSOM OS</a>
+    <nav id="railnav">
+      <a href="#customer">Customer</a><a href="#barista">Barista</a><a href="#owner">Owner</a><a href="#engine">Under the hood</a><a href="#start">Get it</a>
+    </nav>
+  </div>
+  <div class="bar" id="bar"></div>
+</header>
+
+<main id="top">
+<section class="hero">
+  <canvas id="net" aria-hidden="true"></canvas>
+  <div class="hero-in">
+    <p class="kicker">The system behind Orange Cat Coffee</p>
+    <h1>Your café, with a back office <em>that never sleeps.</em></h1>
+    <p class="lede">Orders from LINE and Grab, the barista's queue, loyalty cups, stock, delivery packing and a real profit-and-loss — wired together and running every day in a working café in Nonthaburi.</p>
+    <a class="cta" href="#customer">Take the tour ↓</a>
+    <p class="hero-note">Follow one cup through three people: the customer who orders it, the barista who makes it, and the owner who runs the shop.</p>
+  </div>
+</section>
+
+<!-- ===================== CUSTOMER ===================== -->
+<section class="part" id="customer">
+  <div class="part-head">
+    <p class="who">Journey 1 of 3 · the customer</p>
+    <h2>Ordering feels like texting a friend.</h2>
+    <p>No app to download. Everything lives inside LINE, the app your customers already open fifty times a day.</p>
+  </div>
+
+  <div class="step">
+    <div>
+      <div class="step-n">Step 1 of 4</div>
+      <h3>Order from a photo menu inside LINE</h3>
+      <p>Customers tap the shop's LINE, browse every drink with real photos, pick sweetness, milk and beans, and choose a pickup day — or ask for a secret cup, or a three-cup omakase set for the week.</p>
+      <p>Press the button to send one order and watch where it goes.</p>
+      <div class="sys"><b>What the system does</b>Saves the order, puts it in tomorrow's barista queue, confirms to the customer in LINE, and counts it toward their loyalty card.</div>
+    </div>
+    <div class="demo">
+      <svg class="pipe" id="pipe" viewBox="0 0 360 236" role="img" aria-label="Order flow from LINE to the barista queue">
+        <path class="wire" d="M150 62 V92 M150 140 V170"/>
+        <path class="wire" d="M240 194 H300 V38 H240" opacity=".6"/>
+        <text x="312" y="120" text-anchor="middle" transform="rotate(90 312 120)" style="font-family:var(--mono);font-size:12px;fill:var(--muted)">reply to the customer</text>
+        <g class="node" data-i="0"><rect x="60" y="14" width="180" height="48" rx="10"/><text x="150" y="43" text-anchor="middle">LINE menu</text></g>
+        <g class="node" data-i="1"><rect x="60" y="92" width="180" height="48" rx="10"/><text x="150" y="121" text-anchor="middle">Order saved</text></g>
+        <g class="node" data-i="2"><rect x="60" y="170" width="180" height="48" rx="10"/><text x="150" y="199" text-anchor="middle">Barista queue</text></g>
+        <circle class="pulse" id="pulse" r="7" cx="48" cy="38" opacity="0"/>
+      </svg>
+      <div class="row" style="margin-top:12px"><button class="btn" id="sendOrder">Send an order</button><button class="btn ghost" id="resetOrder">Reset</button></div>
+      <div class="log" id="orderLog"><div>Waiting for an order…</div></div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div>
+      <div class="step-n">Step 2 of 4</div>
+      <h3>Pay with one tap, get reminded politely</h3>
+      <p>When the barista closes the bill, the customer gets a LINE message with the exact amount and a payment link. They send the slip back in the same chat. No chasing in person, no awkward reminders.</p>
+      <div class="sys"><b>What the system does</b>Sends the bill, records the slip, and marks it paid. Unpaid bills show up in the owner's morning summary until they're collected.</div>
+    </div>
+    <div class="phone"><div class="screen">
+      <div class="scr-top"><span>Orange Cat Coffee</span><span>LINE</span></div>
+      <div class="chat" id="payChat">
+        <div class="msg">Your bill this week: 3 cups · ฿255<small>Tap to pay with PromptPay</small></div>
+        <div class="msg me">📎 slip.jpg</div>
+        <div class="msg">Received, thank you! ☕<small>Paid · 3 cups</small></div>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="step">
+    <div>
+      <div class="step-n">Step 3 of 4</div>
+      <h3>A loyalty card they never lose</h3>
+      <p>Every paid cup is stamped automatically. At ten, the customer gets a LINE message and a free cup. The card shows a photo of each drink they had, so it reads like a diary of their coffee.</p>
+      <p>The shop sets the value of the free cup. If the customer picks something pricier, they pay only the difference — no arguments at the counter.</p>
+      <div class="sys"><b>What the system does</b>Counts cups, unlocks the reward, tells the barista with a 🎁 on the customer's name, and records the redemption the moment the free cup is made.</div>
+    </div>
+    <div class="demo">
+      <div class="stamps" id="stamps"></div>
+      <div class="row"><button class="btn" id="addCup">Buy a cup</button>
+        <select id="rewardMenu" aria-label="Free cup choice"><option value="65">Iced Americano ฿65</option><option value="95">Dirty ฿95</option><option value="135">Signature ฿135</option></select>
+        <button class="btn ghost" id="redeem" disabled>Redeem free cup</button></div>
+      <div class="unlock" id="unlock"></div>
+      <div class="demo-cap">Free cup value set to ฿70 in this demo.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div>
+      <div class="step-n">Step 4 of 4</div>
+      <h3>The shop remembers them</h3>
+      <p>After a cup, the customer is asked how it tasted. Short "get to know you" questions arrive over time — favourite flavours, birthday, what they'd love to try. If a regular disappears for two weeks, a warm message invites them back. On their birthday, a treat.</p>
+      <div class="sys"><b>What the system does</b>Feedback, getting-to-know-you, win-back and birthday messages all run on their own. Any batch to more than five people waits for the owner's approval first.</div>
+    </div>
+    <div class="phone"><div class="screen">
+      <div class="scr-top"><span>Orange Cat Coffee</span><span>LINE</span></div>
+      <div class="chat">
+        <div class="msg in">How was your Iced Latte today? Tap a star ⭐⭐⭐⭐⭐</div>
+        <div class="msg me in">⭐⭐⭐⭐⭐ perfect sweetness!</div>
+        <div class="msg in">Quick one: fruity or chocolatey coffee? 🍓 / 🍫</div>
+        <div class="msg in">We miss you, Ploy! Your usual Iced Latte is waiting ☕<small>Win-back · sent after 14 quiet days</small></div>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+<!-- ===================== BARISTA ===================== -->
+<section class="part" id="barista">
+  <div class="part-head">
+    <p class="who">Journey 2 of 3 · the barista</p>
+    <h2>One screen, from first cup to last bill.</h2>
+    <p>Built for a phone on the counter, with wet hands and a queue. Three taps to take an order, one tap to finish a cup.</p>
+  </div>
+
+  <div class="step">
+    <div>
+      <div class="step-n">Step 1 of 3</div>
+      <h3>Today's queue, already sorted</h3>
+      <p>Pre-orders from LINE, walk-ins, Grab orders and office deliveries land in one list. The barista picks the cup or bag, taps <i>Brewed</i>, and moves on.</p>
+      <p>Tap <i>Brewed</i> on each cup and watch the stock change.</p>
+      <div class="sys"><b>What the system does</b>Deducts beans by recipe, deducts cups and lids, adds a delivery kit (cooler bag and cup holder) for Grab and office orders, and asks the customer for feedback.</div>
+    </div>
+    <div class="demo">
+      <div class="queue" id="queue"></div>
+      <div class="stock" id="stock"></div>
+      <div class="row" style="margin-top:12px"><button class="btn ghost" id="resetQueue">Reset queue</button></div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div>
+      <div class="step-n">Step 2 of 3</div>
+      <h3>Take an order in three taps</h3>
+      <p>Type two letters of a regular's name. The system shows who has a free cup waiting and offers their usual drink with their usual sweetness.</p>
+      <div class="sys"><b>What the system does</b>Finds the member, flags rewards, repeats the last order, and applies the shop's pricing rules for the channel.</div>
+    </div>
+    <div class="demo">
+      <input type="text" id="memberQ" placeholder="Search a regular (try “p”)" aria-label="Search a regular" style="width:100%">
+      <div class="chips" id="memberChips"></div>
+      <div class="hint" id="memberHint"></div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div>
+      <div class="step-n">Step 3 of 3</div>
+      <h3>A lab for the next signature</h3>
+      <p>New drink ideas are tested as real cups, rated, and promoted to the menu when they're ready. When a recipe goes live, a social post draft is written for the owner automatically.</p>
+      <div class="sys"><b>What the system does</b>Tracks every trial, its ingredients and tasting notes, then turns launches into ready-to-edit posts for Facebook and Instagram.</div>
+    </div>
+    <div class="demo">
+      <div class="log" style="min-height:0">
+        <div class="new">trial #48 · Orange burnt cold brew</div>
+        <div>tasted 3× · avg ★ 4.6 · notes: “bright, not bitter”</div>
+        <div class="new">status → live on the menu</div>
+        <div>draft post created: “New on the menu…” (awaiting a photo)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== OWNER ===================== -->
+<section class="part" id="owner">
+  <div class="part-head">
+    <p class="who">Journey 3 of 3 · the owner</p>
+    <h2>Know where every baht goes.</h2>
+    <p>The owner sees the shop the way a finance team would: targets, trends, channel margins and a full profit-and-loss — from the same numbers, on every screen.</p>
+  </div>
+
+  <div class="step">
+    <div>
+      <div class="step-n">Step 1 of 4</div>
+      <h3>A morning brief at 6:00</h3>
+      <p>Before opening, the owner gets one LINE message: what to brew today, what's running low, who hasn't come back, and which bills are still open. The time is adjustable.</p>
+      <div class="sys"><b>What the system does</b>Reads orders, stock, customers and payments overnight and writes the brief. A narrated weekly review arrives every Monday.</div>
+    </div>
+    <div class="phone"><div class="screen">
+      <div class="scr-top"><span>Daily brief</span><span id="briefClock">05:59</span></div>
+      <div class="chat"><div class="msg brief" id="brief"></div></div>
+      <div style="padding:10px 12px"><button class="btn" id="playBrief" style="width:100%;justify-content:center">Play 06:00</button></div>
+    </div></div>
+  </div>
+
+  <div class="step">
+    <div>
+      <div class="step-n">Step 2 of 4</div>
+      <h3>Targets you can feel</h3>
+      <p>Set a monthly sales goal and an average price. The system turns it into cups per month, week and day, then puts the last 30 days right next to each target so the gap is obvious.</p>
+      <div class="sys"><b>What the system does</b>Recalculates targets instantly and compares them with live sales from the same ledger as the accounts.</div>
+    </div>
+    <div class="demo">
+      <div class="sl"><label>Monthly sales goal <b id="revV"></b></label><input type="range" id="rev" min="10000" max="80000" step="1000" value="20000"></div>
+      <div class="sl"><label>Average price per cup <b id="avgV"></b></label><input type="range" id="avg" min="50" max="140" step="5" value="80"></div>
+      <div class="goals"><div><b id="gM"></b><span>cups / month</span></div><div><b id="gW"></b><span>cups / week</span></div><div><b id="gD"></b><span>cups / day</span></div></div>
+      <div class="vs">
+        <div><span style="font-size:13px;color:var(--muted)">Last 30 days (demo)</span><div class="meter"><i id="mCups"></i></div><b id="tCups" style="font-family:var(--mono);font-weight:500"></b></div>
+        <div><span style="font-size:13px;color:var(--muted)">Daily average (demo)</span><div class="meter"><i id="mDay"></i></div><b id="tDay" style="font-family:var(--mono);font-weight:500"></b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div>
+      <div class="step-n">Step 3 of 4</div>
+      <h3>What a ฿100 sale really leaves you</h3>
+      <p>The same latte earns very different money in the shop, on an office delivery, and on Grab. Platform commission, rider fees, delivery packaging and promotions are all counted per cup, so each channel shows what it truly contributes.</p>
+      <div class="sys"><b>What the system does</b>Costs every cup from its recipe, packaging and channel, then rolls it into a P&amp;L by channel: sales → variable costs → marketing → staff and R&amp;D → fixed costs and depreciation → profit before tax.</div>
+    </div>
+    <div class="demo">
+      <div class="seg" id="chanSeg"><button data-k="store" class="on">In store</button><button data-k="office">Office delivery</button><button data-k="grab">Grab</button></div>
+      <div class="stack" id="stack"></div>
+      <div class="legend" id="legend"></div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-top:16px"><span class="keep" id="keep"></span><span style="color:var(--muted)">kept from every ฿100</span></div>
+      <div class="demo-cap">Example split for illustration.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div>
+      <div class="step-n">Step 4 of 4</div>
+      <h3>Automation with a safety catch</h3>
+      <p>Messages to customers run on their own, but anything that would reach more than five people pauses for a human. The owner approves in one tap — or doesn't.</p>
+      <div class="sys"><b>What the system does</b>Holds large batches in an approval list, logs every message ever sent, and lets the owner switch any automation on or off from a control panel without touching code.</div>
+    </div>
+    <div class="demo">
+      <div class="row"><button class="btn" id="sendSmall">Win-back to 3 people</button><button class="btn" id="sendBig">Win-back to 8 people</button></div>
+      <div class="log" id="gateLog"><div>Nothing sent yet.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== ENGINE ===================== -->
+<section class="part" id="engine">
+  <div class="part-head">
+    <p class="who">Under the hood</p>
+    <h2>Eight apps. One source of truth.</h2>
+    <p>Every screen reads from the same database, so the barista's queue, the customer's loyalty card and the owner's accounts can never disagree.</p>
+  </div>
+  <div class="stats">
+    <div><b>8</b><span>apps for customers, baristas, buying and the owner</span></div>
+    <div><b>60</b><span>connected tables, from recipes to receipts</span></div>
+    <div><b>21</b><span>automations that send, check and calculate</span></div>
+    <div><b>6</b><span>scheduled jobs that run while you sleep</span></div>
+  </div>
+  <div class="wrapx">
+  <svg class="arch" viewBox="0 0 900 360" role="img" aria-label="System architecture" style="min-width:640px">
+    <rect class="zone" x="16" y="16" width="190" height="328" rx="14"/><text class="lbl" x="30" y="40">People &amp; channels</text>
+    <rect class="zone" x="236" y="16" width="250" height="328" rx="14"/><text class="lbl" x="250" y="40">Apps</text>
+    <rect class="zone" x="516" y="16" width="190" height="328" rx="14"/><text class="lbl" x="530" y="40">One database</text>
+    <rect class="zone" x="736" y="16" width="148" height="328" rx="14"/><text class="lbl" x="750" y="40">Out to people</text>
+    <g font-size="14">
+      <rect class="box" x="32" y="60" width="158" height="52" rx="10"/><text x="46" y="91">Customers on LINE</text>
+      <rect class="box" x="32" y="130" width="158" height="52" rx="10"/><text x="46" y="161">Grab &amp; offices</text>
+      <rect class="box" x="32" y="200" width="158" height="52" rx="10"/><text x="46" y="231">Barista</text>
+      <rect class="box" x="32" y="270" width="158" height="52" rx="10"/><text x="46" y="301">Owner</text>
+      <rect class="box" x="252" y="60" width="218" height="52" rx="10"/><text x="266" y="91">Order · Loyalty card · Pay</text>
+      <rect class="box" x="252" y="130" width="218" height="52" rx="10"/><text x="266" y="161">Barista queue · Bills · Lab</text>
+      <rect class="box" x="252" y="200" width="218" height="52" rx="10"/><text x="266" y="231">Buying · Stock</text>
+      <rect class="box" x="252" y="270" width="218" height="52" rx="10"/><text x="266" y="301">Owner · Accounts · Admin</text>
+      <rect class="box" x="532" y="60" width="158" height="262" rx="10"/>
+      <text x="546" y="92">Orders</text><text x="546" y="122">Members</text><text x="546" y="152">Recipes &amp; stock</text><text x="546" y="182">Rewards</text><text x="546" y="212">Ledger &amp; P&amp;L</text><text x="546" y="242">Automations</text><text x="546" y="272">Settings</text>
+      <rect class="box" x="752" y="60" width="116" height="122" rx="10"/><text x="766" y="91">LINE</text><text class="lbl" x="766" y="114">bills, rewards,</text><text class="lbl" x="766" y="130">feedback, brief</text>
+      <rect class="box" x="752" y="200" width="116" height="122" rx="10"/><text x="766" y="231">Social</text><text class="lbl" x="766" y="254">post drafts for</text><text class="lbl" x="766" y="270">Facebook / IG</text>
+    </g>
+    <path class="flow" d="M190 86 H252"/><path class="flow" d="M190 156 H252"/><path class="flow" d="M190 226 H252"/><path class="flow" d="M190 296 H252"/>
+    <path class="flow" d="M470 86 H532"/><path class="flow" d="M470 156 H532"/><path class="flow" d="M470 226 H532"/><path class="flow" d="M470 296 H532"/>
+    <path class="flow" d="M690 120 H752"/><path class="flow" d="M690 260 H752"/>
+  </svg>
+  </div>
+
+  <div class="step" style="border-top:none;margin-top:40px">
+    <div>
+      <h3>A day in the life of the system</h3>
+      <p>Most of the work happens before the shop opens and after it closes. Nobody has to remember to do any of it.</p>
+    </div>
+    <ol class="day">
+      <li><time>06:00</time><p>Weekly subscription cups are created for the day; the owner's brief goes out.</p></li>
+      <li><time>07:05</time><p>Win-back and birthday messages are prepared — sent automatically, or held for approval if the list is long.</p></li>
+      <li><time>All day</time><p>Every brewed cup deducts stock, adds packaging and asks its customer for feedback.</p></li>
+      <li><time>At 10 cups</time><p>The customer is told their free cup is ready; the barista sees 🎁 on their name.</p></li>
+      <li><time>23:59</time><p>Leftover staff cups are tidied so tomorrow's numbers start clean.</p></li>
+      <li><time>Mondays</time><p>A narrated weekly review compares this week with last week.</p></li>
+    </ol>
+  </div>
+
+  <div class="caps" style="margin-top:30px">
+    <div><h4>LINE ordering</h4><p>Photo menu, secret cups, weekly omakase sets, pickup dates.</p></div>
+    <div><h4>Loyalty that runs itself</h4><p>Ten-cup cards, reward value cap, redemptions recorded automatically.</p></div>
+    <div><h4>Customer memory</h4><p>Feedback, getting-to-know-you answers, notes from the counter.</p></div>
+    <div><h4>Grab &amp; delivery</h4><p>Platform commission, rider fees and delivery kits costed per cup.</p></div>
+    <div><h4>Recipe costing</h4><p>Every drink costed from its recipe, beans and packaging.</p></div>
+    <div><h4>Stock &amp; buying</h4><p>Purchases add stock, brewing deducts it, low stock gets flagged.</p></div>
+    <div><h4>Owner targets</h4><p>Monthly goals broken into weeks and days, with the gap in baht.</p></div>
+    <div><h4>Real accounts</h4><p>Accrual P&amp;L with depreciation, by channel, any date range.</p></div>
+    <div><h4>Social content</h4><p>Launches, lab tests and milestones turned into post drafts.</p></div>
+  </div>
+</section>
+
+<section class="close" id="start">
+  <h2>Run your café on the system that runs ours.</h2>
+  <p>MAEWSOM OS was built cup by cup inside Orange Cat Coffee. We'll set it up with your menu, your recipes and your LINE.</p>
+  <div class="row" style="justify-content:center">
+    <a class="cta" href="https://lin.ee/pJFUoRX" target="_blank" rel="noopener">Talk to us on LINE</a>
+    <a class="cta ghost" href="#top">Back to the top</a>
+  </div>
+</section>
+</main>
+<footer>MAEWSOM OS · built at Orange Cat Coffee (กาแฟแมวส้ม), Nonthaburi. Names and numbers in the demos are examples.</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = s => document.querySelector(s);
+  const toast = (t) => { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2600); };
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  /* hero network */
+  const cv = $('#net'), ctx = cv.getContext('2d'); let W, H, pts = [], running = true;
+  function size(){ const r = cv.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1); W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx.setTransform(d,0,0,d,0,0);
+    const n = Math.round(Math.min(70, W * H / 14000)); pts = Array.from({length:n}, () => ({x:Math.random()*W, y:Math.random()*H, vx:(Math.random()-.5)*.25, vy:(Math.random()-.5)*.25})); }
+  function draw(){ ctx.clearRect(0,0,W,H); const a = css('--accent') || '#E8863A';
+    for (const p of pts){ if(!reduce){ p.x += p.vx; p.y += p.vy; if(p.x<0||p.x>W) p.vx*=-1; if(p.y<0||p.y>H) p.vy*=-1; } }
+    ctx.strokeStyle = a; ctx.fillStyle = a;
+    for (let i=0;i<pts.length;i++){ for (let j=i+1;j<pts.length;j++){ const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.hypot(dx,dy); if(d<140){ ctx.globalAlpha=(1-d/140)*.28; ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y); ctx.stroke(); } } }
+    ctx.globalAlpha=.55; for (const p of pts){ ctx.beginPath(); ctx.arc(p.x,p.y,2,0,Math.PI*2); ctx.fill(); } ctx.globalAlpha=1;
+    if(running && !reduce) requestAnimationFrame(draw); }
+  size(); draw(); addEventListener('resize', () => { size(); if(reduce) draw(); });
+  new IntersectionObserver(es => { const v = es[0].isIntersecting; if(v && !running){ running = true; draw(); } running = v; }).observe(cv);
+
+  /* progress rail */
+  const links = [...document.querySelectorAll('#railnav a')], secs = links.map(a => document.querySelector(a.getAttribute('href')));
+  addEventListener('scroll', () => { const h = document.documentElement; $('#bar').style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+    let cur = -1; secs.forEach((s,i) => { if (s.getBoundingClientRect().top < innerHeight * .35) cur = i; });
+    links.forEach((a,i) => a.classList.toggle('on', i === cur)); }, {passive:true});
+
+  /* reveal chat messages when visible */
+  new IntersectionObserver(es => es.forEach(e => { if(e.isIntersecting){ [...e.target.querySelectorAll('.msg')].forEach((m,i) => setTimeout(() => m.classList.add('in'), reduce ? 0 : i * 450)); } }), {threshold:.4})
+    .observe($('#payChat'));
+
+  /* 1. order pipeline */
+  const nodes = [...document.querySelectorAll('#pipe .node')], pulse = $('#pulse'), logEl = $('#orderLog'); let busy = false;
+  const addLog = t => { logEl.querySelectorAll('div').forEach(d => d.classList.remove('new')); const d = document.createElement('div'); d.className = 'new'; d.textContent = t; logEl.appendChild(d); };
+  const ys = [38, 116, 194];
+  function hop(i){ return new Promise(r => { nodes.forEach(n => n.classList.toggle('hot', +n.dataset.i === i)); pulse.setAttribute('opacity', 1);
+    const from = +pulse.getAttribute('cy'), to = ys[i], t0 = performance.now(), dur = reduce ? 0 : 520;
+    (function step(t){ const k = dur ? Math.min(1,(t-t0)/dur) : 1; pulse.setAttribute('cy', from + (to-from)*k); k < 1 ? requestAnimationFrame(step) : r(); })(t0); }); }
+  $('#sendOrder').addEventListener('click', async () => { if (busy) return; busy = true; logEl.innerHTML = '';
+    pulse.setAttribute('cy', 38);
+    await hop(0); addLog('Ploy orders Iced Latte · less sweet · oat milk · pickup Tue');
+    await new Promise(r => setTimeout(r, reduce ? 0 : 350)); await hop(1); addLog('order saved · ฿85 · loyalty card 7 → 8');
+    await new Promise(r => setTimeout(r, reduce ? 0 : 350)); await hop(2); addLog('added to Tuesday queue for the barista');
+    await new Promise(r => setTimeout(r, reduce ? 0 : 350)); addLog('LINE → Ploy: “Got it! Your Iced Latte is booked for Tuesday ☕”');
+    busy = false; });
+  $('#resetOrder').addEventListener('click', () => { nodes.forEach(n => n.classList.remove('hot')); pulse.setAttribute('opacity', 0); logEl.innerHTML = '<div>Waiting for an order…</div>'; });
+
+  /* 2. loyalty card */
+  let cups = 7; const CAP = 70;
+  function drawStamps(){ $('#stamps').innerHTML = Array.from({length:10}, (_,i) => `<div class="stamp ${i < cups ? 'on' : ''}">${i < cups ? '☕' : ''}</div>`).join('');
+    $('#redeem').disabled = cups < 10; $('#addCup').disabled = cups >= 10;
+    if (cups >= 10) { $('#unlock').classList.add('show'); $('#unlock').innerHTML = '🎉 Ten cups! LINE sent: “Your free cup is ready.” The barista now sees 🎁 next to this customer.'; } }
+  $('#addCup').addEventListener('click', () => { if (cups < 10) { cups++; drawStamps(); } });
+  $('#redeem').addEventListener('click', () => { const price = +$('#rewardMenu').value, due = Math.max(0, price - CAP);
+    $('#unlock').innerHTML = due ? `Free cup worth ฿${CAP}. This drink is ฿${price}, so the customer pays the ฿${due} difference. Card restarts at 0.` : `Free cup redeemed (฿${price} ≤ ฿${CAP}). Card restarts at 0.`;
+    cups = 0; $('#stamps').innerHTML = Array.from({length:10}, () => '<div class="stamp"></div>').join(''); $('#redeem').disabled = true; $('#addCup').disabled = false; });
+  drawStamps();
+
+  /* 3. barista queue + stock */
+  const ORDERS = [
+    { who:'Ploy', what:'Iced Latte', ch:'LINE', bean:20, pkg:'cup', member:true },
+    { who:'Grab #8841', what:'Dirty', ch:'Grab', bean:20, pkg:'cup_topping', kit:true },
+    { who:'K. Ton', what:'Matcha Latte', ch:'Office', bean:0, pkg:'cup', kit:true, member:true },
+  ];
+  const START = { beans:1000, cups:50, lids:40, kits:15 }; let stock, done;
+  function drawQueue(){ $('#queue').innerHTML = ORDERS.map((o,i) => `<div class="cup ${done[i]?'done':''}"><div style="font-size:24px">${done[i]?'✅':'☕'}</div><div><div class="ttl">${o.what}<span class="chan">${o.ch}</span></div><div class="sub">${o.who} · ${o.pkg === 'cup_topping' ? 'cup + topping lid' : 'cup'}${o.kit ? ' · delivery kit' : ''}</div></div><button class="btn" data-i="${i}" ${done[i]?'disabled':''}>Brewed</button></div>`).join('');
+    $('#stock').innerHTML = [['beans','g beans'],['cups','cups'],['lids','topping lids'],['kits','delivery kits']].map(([k,l]) => `<div><b id="st-${k}">${stock[k]}</b><span>${l}</span></div>`).join(''); }
+  function resetQ(){ stock = {...START}; done = ORDERS.map(() => false); drawQueue(); }
+  $('#queue').addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (!b) return; const i = +b.dataset.i, o = ORDERS[i];
+    done[i] = true; stock.beans -= o.bean; stock.cups -= 1; if (o.pkg === 'cup_topping') stock.lids -= 1; if (o.kit) stock.kits -= .5; drawQueue();
+    ['beans','cups', o.pkg === 'cup_topping' ? 'lids' : null, o.kit ? 'kits' : null].filter(Boolean).forEach(k => { const el = $('#st-'+k); el.classList.add('hit'); setTimeout(() => el.classList.remove('hit'), 900); });
+    toast(o.member ? `Feedback request sent to ${o.who} on LINE` : `${o.what} done · stock updated`); });
+  $('#resetQueue').addEventListener('click', resetQ); resetQ();
+
+  /* 4. three-tap order */
+  const MEMBERS = [ {n:'Ploy', last:'Iced Latte · less sweet', gift:false}, {n:'Pim', last:'Dirty · no sugar', gift:true}, {n:'Pete', last:'Matcha Latte · normal', gift:false}, {n:'Nan', last:'Cocoa · less sweet', gift:false}, {n:'Mint', last:'Americano', gift:true} ];
+  let picked = null;
+  function drawMembers(){ const q = $('#memberQ').value.trim().toLowerCase();
+    $('#memberChips').innerHTML = MEMBERS.filter(m => !q || m.n.toLowerCase().includes(q)).map(m => `<button class="chip ${m.gift?'gift':''} ${picked===m.n?'sel':''}" data-n="${m.n}">${m.n}${m.gift?' · 🎁 10 cups':''}</button>`).join('') || '<span style="color:var(--muted);font-size:14px">No match</span>'; }
+  $('#memberQ').addEventListener('input', drawMembers);
+  $('#memberChips').addEventListener('click', e => { const b = e.target.closest('button[data-n]'); if (!b) return; picked = b.dataset.n; const m = MEMBERS.find(x => x.n === picked); drawMembers();
+    $('#memberHint').innerHTML = (m.gift ? `<button data-act="gift">🎁 Use ${m.n}'s free cup this time</button>` : '') + `<button data-act="repeat">↻ Repeat last order: ${m.last}</button>`; });
+  $('#memberHint').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const m = MEMBERS.find(x => x.n === picked);
+    toast(b.dataset.act === 'gift' ? `Free cup applied for ${m.n} · up to ฿70` : `Order filled: ${m.last}`); b.textContent = b.dataset.act === 'gift' ? '✓ Free cup applied' : '✓ ' + m.last; });
+  drawMembers();
+
+  /* 5. morning brief */
+  const BRIEF = '☀️ Good morning — Tuesday\n\n☕ Brew today: 9 cups\n· Ploy × 2 · K. Ton × 1 · Omakase × 3 …\n\n🟡 Running low: oat milk, 16oz cups\n\n👋 Quiet for 2 weeks: Nan, Pete\n\n💰 Open bills: 2 people · ฿340\n\n🤖 Yesterday: 4 feedback asks · 1 birthday';
+  $('#playBrief').addEventListener('click', () => { const el = $('#brief'); el.textContent = ''; el.classList.add('in'); $('#briefClock').textContent = '06:00'; let i = 0;
+    if (reduce) { el.textContent = BRIEF; return; }
+    (function type(){ el.textContent = BRIEF.slice(0, i += 3); if (i < BRIEF.length) setTimeout(type, 16); })(); });
+
+  /* 6. targets */
+  const ACT30 = 190, nf = v => Math.round(v).toLocaleString('en-US');
+  function calc(){ const rev = +$('#rev').value, avg = +$('#avg').value, m = Math.ceil(rev/avg), w = Math.floor(m/4), d = w/7;
+    $('#revV').textContent = '฿' + nf(rev); $('#avgV').textContent = '฿' + avg; $('#gM').textContent = m; $('#gW').textContent = w; $('#gD').textContent = d.toFixed(1);
+    const p1 = Math.min(100, ACT30/m*100), p2 = Math.min(100, (ACT30/30)/d*100);
+    $('#mCups').style.width = p1 + '%'; $('#mDay').style.width = p2 + '%';
+    $('#tCups').textContent = `${ACT30} of ${m} · ${Math.round(ACT30/m*100)}%`; $('#tDay').textContent = `${(ACT30/30).toFixed(1)} of ${d.toFixed(1)} · ${Math.round((ACT30/30)/d*100)}%`; }
+  $('#rev').addEventListener('input', calc); $('#avg').addEventListener('input', calc); calc();
+
+  /* 7. channel margins (illustrative) */
+  const SPLITS = {
+    store:  [['Ingredients',30,'#8A6A52'],['Packaging',4,'#B08B6A'],['Kept',66,'accent']],
+    office: [['Ingredients',27,'#8A6A52'],['Packaging',4,'#B08B6A'],['Delivery kit',3,'#C9A27E'],['Rider fee',6,'#6E5A4B'],['Kept',60,'accent']],
+    grab:   [['Platform commission',32,'#5C4A3D'],['Ingredients',20,'#8A6A52'],['Packaging',4,'#B08B6A'],['Delivery kit',3,'#C9A27E'],['Shop-paid promo',11,'#6E5A4B'],['Kept',30,'accent']],
+  };
+  function drawSplit(k){ const a = css('--accent'); const s = SPLITS[k];
+    $('#stack').innerHTML = s.map(([l,v,c]) => `<div style="width:${v}%;background:${c==='accent'?a:c}">${v>=9?v:''}</div>`).join('');
+    $('#legend').innerHTML = s.map(([l,v,c]) => `<span class="k"><i style="background:${c==='accent'?a:c}"></i>${l}</span><span style="font-family:var(--mono)">฿${v}</span>`).join('');
+    $('#keep').textContent = '฿' + s[s.length-1][1];
+    document.querySelectorAll('#chanSeg button').forEach(b => b.classList.toggle('on', b.dataset.k === k)); }
+  $('#chanSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) drawSplit(b.dataset.k); }); drawSplit('store');
+
+  /* 8. approval gate */
+  const gate = $('#gateLog');
+  $('#sendSmall').addEventListener('click', () => { gate.innerHTML = '<div class="new">3 people ≤ 5 → sent automatically</div><div>logged: Nan, Pete, Ploy · “We miss you…”</div>'; });
+  $('#sendBig').addEventListener('click', () => { gate.innerHTML = '<div class="new">8 people > 5 → paused for approval</div><div>owner notified on LINE · nothing sent yet</div><div class="row" style="margin-top:8px"><button class="btn" id="approve">Approve</button><button class="btn ghost" id="cancelB">Cancel</button></div>';
+    $('#approve').onclick = () => { gate.innerHTML = '<div class="new">approved by owner → 8 messages sent</div><div>every message is in the send history</div>'; };
+    $('#cancelB').onclick = () => { gate.innerHTML = '<div class="new">cancelled → nothing sent</div>'; }; });
+})();
+</script>
+</body>
+</html>
