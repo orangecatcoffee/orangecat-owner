@@ -326,6 +326,16 @@
   #bdBody textarea{min-height:90px;resize:vertical}
   .bd-row{display:flex;gap:8px;flex-wrap:wrap}
   .bd-sheet-act{display:flex;gap:8px;margin-top:16px}
+
+  #mcSheet{position:fixed;left:0;right:0;bottom:0;height:92vh;max-width:640px;margin:0 auto;background:var(--bg);border-radius:22px 22px 0 0;transform:translateY(105%);transition:transform .22s;z-index:81;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.4)}
+  #mcSheet.open{transform:none}
+  #mcBody{flex:1;overflow-y:auto;padding:6px 16px 40px;-webkit-overflow-scrolling:touch}
+  .mc-row{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  .mc-k{font-size:11.5px;color:color-mix(in srgb, var(--text) 55%, transparent);margin-bottom:6px}
+  .mc-row input{margin-bottom:6px}.mc-ctl{display:flex;gap:8px;align-items:center}.mc-ctl input{width:92px;margin:0}
+  .mm-story textarea{width:100%;min-height:150px;resize:vertical}
+  details.mm-story{margin-top:16px;border:1px dashed var(--border);border-radius:12px;padding:8px 12px}
+  details.mm-story summary{cursor:pointer;font-weight:600;font-size:13.5px;min-height:36px;display:flex;align-items:center}
 </style>
 </head>
 <body>
@@ -600,9 +610,14 @@
     <input type="text" id="mmSearch" placeholder="🔍 ค้นหาเมนู" autocomplete="off" style="margin-bottom:10px">
     <div class="chip-row" id="mmFilter"></div>
     <button type="button" class="btn" id="mmNew" style="width:100%;margin-top:12px">＋ เพิ่มเมนูใหม่</button>
+    <button type="button" class="btn" id="mcOpen" style="width:100%;margin-top:8px;background:none;border:1px solid var(--border);color:var(--text)">🗂 จัดการหมวดหมู่</button>
   </div>
   <div id="mmList"></div>
   <div id="mmBg"></div>
+  <div id="mcSheet" role="dialog" aria-label="จัดการหมวดหมู่">
+    <div class="mm-sh"><div style="flex:1;font-weight:700;font-size:16px">จัดการหมวดหมู่เมนู</div><button type="button" id="mcClose" aria-label="ปิด" style="border:none;background:color-mix(in srgb, var(--text) 8%, transparent);width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;color:var(--text)">✕</button></div>
+    <div id="mcBody"></div>
+  </div>
   <div id="mmSheet" role="dialog" aria-label="รายละเอียดเมนู">
     <div class="mm-sh"><div id="mmTitle"></div><button type="button" id="mmClose" aria-label="ปิด">✕</button></div>
     <div id="mmTabs"></div>
@@ -958,6 +973,50 @@ async function computeCupsRemainingMap(ingredients) {
   return map;
 }
 
+
+
+// ---------- category manager (moved from Barista) ----------
+const MC = { rows: [] };
+async function mcOpen() {
+  document.getElementById('mmBg').classList.add('open'); document.getElementById('mcSheet').classList.add('open');
+  const body = document.getElementById('mcBody'); body.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try { MC.rows = await sb('menu_categories?select=*&order=sort_order.asc') || []; mcRender(); }
+  catch (e) { body.innerHTML = '<div class="loading">โหลดไม่สำเร็จ: ' + mmEsc(e.message) + '</div>'; }
+}
+function mcClose() { document.getElementById('mcSheet').classList.remove('open'); if (!document.getElementById('mmSheet').classList.contains('open')) document.getElementById('mmBg').classList.remove('open'); }
+function mcRender() {
+  const counts = {}; ((MM.data && MM.data.items) || []).forEach(i => counts[i.category] = (counts[i.category] || 0) + 1);
+  const pairs = [...new Map(MC.rows.map(r => [r.tab_key + '|' + r.tab_group, { tab_key: r.tab_key, tab_group: r.tab_group }])).values()];
+  document.getElementById('mcBody').innerHTML = `<div style="font-size:12px;color:color-mix(in srgb, var(--text) 60%, transparent);margin:2px 0 10px">แก้ชื่อที่แสดงและลำดับได้ทันที (เลขน้อยขึ้นก่อน) · หมวดที่ยังมีเมนูอยู่ลบไม่ได้ ให้ย้ายเมนูก่อน</div>` +
+    MC.rows.map(r => `<div class="mc-row" data-cat="${mmEsc(r.category)}"><div class="mc-k">${mmEsc(r.category)} · กลุ่ม ${mmEsc(r.tab_key)}/${mmEsc(r.tab_group)} · ${counts[r.category] || 0} เมนู</div>
+      <input class="mc-label" value="${mmEsc(r.label_th)}"><div class="mc-ctl"><input type="number" class="mc-sort" value="${r.sort_order}"><span style="font-size:12px;color:color-mix(in srgb, var(--text) 55%, transparent)">ลำดับ</span><button type="button" class="btn mc-save" style="flex:1">บันทึก</button></div></div>`).join('') +
+    `<div class="mc-row" id="mcNewBox" style="margin-top:14px;border-style:dashed"><div class="mc-k">＋ เพิ่มหมวดใหม่</div>
+      <input id="mcNewKey" placeholder="รหัสหมวด (อังกฤษ ตัวพิมพ์เล็ก เช่น seasonal_special)" autocomplete="off"><input id="mcNewLabel" placeholder="ชื่อที่แสดง (เช่น 🍂 เมนูฤดูกาล)">
+      <select id="mcNewTab">${pairs.map(p => `<option value="${mmEsc(p.tab_key + '|' + p.tab_group)}">กลุ่ม ${mmEsc(p.tab_key)} / ${mmEsc(p.tab_group)}</option>`).join('')}</select>
+      <div class="mc-ctl" style="margin-top:6px"><input type="number" id="mcNewSort" placeholder="ลำดับ" value="50"><button type="button" class="btn" id="mcAdd" style="flex:1">เพิ่มหมวด</button></div></div>`;
+}
+async function mcSaveRow(row) {
+  const cat = row.dataset.cat, btn = row.querySelector('.mc-save'); btn.disabled = true; btn.textContent = '...';
+  try {
+    await sb(`menu_categories?category=eq.${encodeURIComponent(cat)}`, { method: 'PATCH', body: JSON.stringify({ label_th: row.querySelector('.mc-label').value.trim(), sort_order: Number(row.querySelector('.mc-sort').value) || 0 }) });
+    btn.textContent = '✓ บันทึกแล้ว'; await mmRefreshAll();
+  } catch (e) { alert('บันทึกไม่สำเร็จ: ' + e.message); btn.textContent = 'บันทึก'; }
+  setTimeout(() => { btn.disabled = false; btn.textContent = 'บันทึก'; }, 1200);
+}
+async function mcAdd() {
+  const key = document.getElementById('mcNewKey').value.trim(), label = document.getElementById('mcNewLabel').value.trim();
+  if (!/^[a-z][a-z0-9_]{1,40}$/.test(key)) { alert('รหัสหมวดใช้ a-z ตัวเลข และ _ เท่านั้น (เช่น seasonal_special)'); return; }
+  if (!label) { alert('ใส่ชื่อที่แสดง'); return; }
+  if (MC.rows.some(r => r.category === key)) { alert('มีรหัสหมวดนี้แล้ว'); return; }
+  const [tab_key, tab_group] = document.getElementById('mcNewTab').value.split('|');
+  try { await sb('menu_categories', { method: 'POST', body: JSON.stringify({ category: key, label_th: label, tab_key, tab_group, sort_order: Number(document.getElementById('mcNewSort').value) || 50 }) });
+    MC.rows = await sb('menu_categories?select=*&order=sort_order.asc') || []; mcRender(); await mmRefreshAll(); }
+  catch (e) { alert('เพิ่มไม่สำเร็จ: ' + e.message); }
+}
+document.getElementById('mcOpen').addEventListener('click', mcOpen);
+document.getElementById('mcClose').addEventListener('click', mcClose);
+document.getElementById('mmBg').addEventListener('click', () => { if (document.getElementById('mcSheet').classList.contains('open')) mcClose(); });
+document.getElementById('mcBody').addEventListener('click', e => { const s = e.target.closest('.mc-save'); if (s) mcSaveRow(s.closest('.mc-row')); if (e.target.id === 'mcAdd') mcAdd(); });
 
 // ---------- COMPANY BOARD (Kanban) ----------
 const BD = { tasks: [], lane: 'todo', area: 'all', editId: null, showAllDone: false };
@@ -1397,7 +1456,21 @@ function mmInfo() {
     ${d.image_url ? `<div class="mm-img"><img src="${mmEsc(d.thumb_url || d.image_url)}" alt=""></div>` : ''}
     <input type="file" id="mmFile" accept="image/*" style="margin-bottom:8px">
     <input id="mmImg" placeholder="หรือวาง URL รูป" value="${mmEsc(d.image_url || '')}">
+    <details class="mm-story" id="mmStoryBox"><summary>📖 เรื่องราวเมนู (หน้าเมนูลูกค้า)</summary><div id="mmStoryBody" style="margin-top:6px"><div class="loading">กำลังโหลด...</div></div></details>
     <button type="button" class="btn" id="mmSaveInfo" style="width:100%;margin-top:14px">บันทึกข้อมูล</button>`;
+  const sbx = document.getElementById('mmStoryBox'); let storyLoaded = false;
+  sbx.addEventListener('toggle', async () => {
+    if (!sbx.open || storyLoaded) return;
+    const box = document.getElementById('mmStoryBody');
+    try {
+      const r = (await sb(`menu_items?id=eq.${MM.openId}&select=story_ingredients,story_body,made_from_scratch_images,chapter_number`))[0] || {};
+      box.innerHTML = `<label class="mm-l">ลำดับตอน (chapter) — ว่างได้</label><input type="number" id="mmsChap" min="1" step="1" value="${r.chapter_number ?? ''}">
+        <label class="mm-l">ส่วนผสมหลัก (คั่นด้วย ·)</label><input id="mmsIng" value="${mmEsc(r.story_ingredients || '')}">
+        <label class="mm-l">เรื่องราว / tasting journey / แท็กรส</label><textarea id="mmsBody" rows="8">${mmEsc(r.story_body || '')}</textarea>
+        <label class="mm-l">รูป "ทำจากศูนย์" (URL บรรทัดละ 1 รูป)</label><textarea id="mmsImgs" rows="3" style="min-height:70px">${mmEsc((r.made_from_scratch_images || []).join('\n'))}</textarea>`;
+      storyLoaded = true;
+    } catch (e) { box.innerHTML = '<div class="loading">โหลดไม่สำเร็จ: ' + mmEsc(e.message) + '</div>'; }
+  });
   document.getElementById('mmSaveInfo').onclick = async (ev) => {
     const b = ev.currentTarget; b.disabled = true; b.textContent = 'กำลังบันทึก...';
     try {
@@ -1412,7 +1485,10 @@ function mmInfo() {
       const name = document.getElementById('mmName').value.trim(); if (!name) throw new Error('ใส่ชื่อเมนู');
       const misc = document.getElementById('mmMisc').value;
       await sb(`menu_items?id=eq.${MM.openId}`, { method: 'PATCH', body: JSON.stringify({ name, category: document.getElementById('mmCat').value, status: document.getElementById('mmStatus').value,
-        show_in_add_order: document.getElementById('mmShow').checked, needs_bean: document.getElementById('mmBean').checked, default_misc_cost: misc === '' ? null : Number(misc), image_url: img }) });
+        show_in_add_order: document.getElementById('mmShow').checked, needs_bean: document.getElementById('mmBean').checked, default_misc_cost: misc === '' ? null : Number(misc), image_url: img,
+        ...(storyLoaded ? { story_ingredients: document.getElementById('mmsIng').value.trim() || null, story_body: document.getElementById('mmsBody').value.trim() || null,
+          made_from_scratch_images: (() => { const a = document.getElementById('mmsImgs').value.split('\n').map(s => s.trim()).filter(Boolean); return a.length ? a : null; })(),
+          chapter_number: document.getElementById('mmsChap').value === '' ? null : Number(document.getElementById('mmsChap').value) } : {}) }) });
       await mmRefreshAll(); b.textContent = '✓ บันทึกแล้ว';
     } catch (e) { alert('บันทึกไม่สำเร็จ: ' + e.message); b.textContent = 'บันทึกข้อมูล'; }
     setTimeout(() => { b.disabled = false; b.textContent = 'บันทึกข้อมูล'; }, 1200);
