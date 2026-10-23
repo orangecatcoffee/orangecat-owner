@@ -295,6 +295,37 @@
   .mm-chh span,.mm-note{font-weight:500;color:var(--muted);font-size:12px}.mm-chh label{display:flex;gap:6px;align-items:center;font-size:12.5px;font-weight:600}.mm-chh label input{width:20px;height:20px;margin:0}
   .mm-chr{display:flex;gap:8px}.mm-chr input{flex:1;margin:0 !important}.mm-sug{border:none;background:var(--raised);border-radius:8px;padding:0 12px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit}
   .mm-calc{font-size:12px;font-weight:600;margin-top:7px;min-height:16px}
+
+  /* company board (kanban) */
+  #bdLaneTabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:color-mix(in srgb, var(--text) 6%, transparent);border-radius:12px;padding:4px}
+  #bdLaneTabs button{border:none;background:none;padding:8px 2px;border-radius:9px;font-family:inherit;font-size:12.5px;font-weight:500;color:color-mix(in srgb, var(--text) 62%, transparent);cursor:pointer;line-height:1.3}
+  #bdLaneTabs button.on{background:var(--card);color:var(--text);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+  #bdLaneTabs b{display:block;font-size:15px}
+  .bd-chip{font-size:12px;padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:none;color:color-mix(in srgb, var(--text) 70%, transparent);font-family:inherit;cursor:pointer}
+  .bd-chip.on{background:var(--orange);border-color:var(--orange);color:var(--on-accent);font-weight:700}
+  #bdBoard{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:2px 2px 16px;margin:0 -2px}
+  .bd-lane{flex:0 0 88%;max-width:360px;scroll-snap-align:start;background:color-mix(in srgb, var(--text) 4%, transparent);border:1px solid var(--border);border-radius:16px;padding:10px 10px 4px}
+  .bd-lane-h{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px;padding:2px 4px 10px}
+  .bd-lane-h span{font-size:12px;font-weight:600;color:color-mix(in srgb, var(--text) 55%, transparent)}
+  .bd-card{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px;cursor:pointer}
+  .bd-card.p-high{border-left-color:var(--bad)}.bd-card.p-normal{border-left-color:var(--orange)}.bd-card.p-low{border-left-color:var(--muted)}
+  .bd-t{font-size:14px;font-weight:700;line-height:1.4;color:var(--text)}
+  .bd-d{font-size:12.5px;line-height:1.5;color:color-mix(in srgb, var(--text) 62%, transparent);margin-top:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .bd-m{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:11px}
+  .bd-m span{padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:color-mix(in srgb, var(--text) 70%, transparent)}
+  .bd-m .late{color:var(--bad);border-color:var(--bad);font-weight:700}
+  .bd-act{display:flex;gap:6px;margin-top:8px}
+  .bd-act button{flex:1;border:1px solid var(--border);background:none;color:var(--text);border-radius:9px;min-height:36px;font-family:inherit;font-size:12.5px;cursor:pointer}
+  .bd-act button.go{border-color:var(--orange);color:var(--ol);font-weight:700}
+  .bd-empty{font-size:12.5px;color:color-mix(in srgb, var(--text) 45%, transparent);text-align:center;padding:18px 6px}
+  #bdBg{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s;z-index:80}
+  #bdBg.open{opacity:1;pointer-events:auto}
+  #bdSheet{position:fixed;left:0;right:0;bottom:0;max-height:92vh;max-width:640px;margin:0 auto;background:var(--bg);border-radius:22px 22px 0 0;transform:translateY(105%);transition:transform .22s;z-index:81;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.4)}
+  #bdSheet.open{transform:none}
+  #bdBody{overflow-y:auto;padding:6px 16px 28px;-webkit-overflow-scrolling:touch}
+  #bdBody textarea{min-height:90px;resize:vertical}
+  .bd-row{display:flex;gap:8px;flex-wrap:wrap}
+  .bd-sheet-act{display:flex;gap:8px;margin-top:16px}
 </style>
 </head>
 <body>
@@ -340,6 +371,7 @@
 
 <div class="tabs">
   <div class="tab active" data-tab="target">เป้าหมาย</div>
+<div class="tab" data-tab="board">บอร์ดงาน</div>
 <div class="tab" data-tab="perf">Performance</div>
 <div class="tab" data-tab="report">Sales & Customers</div>
   <div class="tab" data-tab="purchasing">Purchasing</div>
@@ -413,6 +445,20 @@
 
 </div>
 
+<div class="view" id="view-board">
+  <div class="card" style="padding:14px 16px;">
+    <div class="card-title" style="margin-bottom:10px">บอร์ดงาน · ร้าน + MAEWSOM OS</div>
+    <div id="bdLaneTabs"></div>
+    <div class="chip-row" id="bdAreas" style="margin-top:10px"></div>
+    <button type="button" class="btn" id="bdNew" style="width:100%;margin-top:12px">＋ งานใหม่</button>
+  </div>
+  <div id="bdBoard"></div>
+  <div id="bdBg"></div>
+  <div id="bdSheet" role="dialog" aria-label="รายละเอียดงาน">
+    <div class="mm-sh"><div id="bdTitle" style="flex:1;font-weight:700;font-size:16px">งาน</div><button type="button" id="bdClose" aria-label="ปิด" style="border:none;background:color-mix(in srgb, var(--text) 8%, transparent);width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;color:var(--text)">✕</button></div>
+    <div id="bdBody"></div>
+  </div>
+</div>
 <div class="view" id="view-perf">
   <div class="gs">
     <h1>Performance</h1>
@@ -912,6 +958,102 @@ async function computeCupsRemainingMap(ingredients) {
   return map;
 }
 
+
+// ---------- COMPANY BOARD (Kanban) ----------
+const BD = { tasks: [], lane: 'todo', area: 'all', editId: null, showAllDone: false };
+const BD_LANES = [['waiting', '⏸ รอตัดสินใจ'], ['todo', '📥 รอทำ'], ['doing', '🔥 กำลังทำ'], ['done', '✅ เสร็จแล้ว']];
+const BD_AREAS = ['ร้าน', 'ระบบ', 'เมนู/แล็บ', 'การเงิน', 'ลูกค้า'];
+const BD_OWNERS = ['ฟ้า', 'ทีมร้าน', 'ซีเซีย', 'Claude'];
+const bdEsc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const bdToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+let boardLoaded = false;
+async function loadBoard() {
+  const el = document.getElementById('bdBoard'); el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try { BD.tasks = await sb('company_tasks?select=*&order=sort_order.asc') || []; bdRender(); }
+  catch (e) { el.innerHTML = '<div class="loading">โหลดไม่สำเร็จ: ' + bdEsc(e.message) + '</div>'; }
+}
+function bdVisible(lane) {
+  let t = BD.tasks.filter(x => x.lane === lane && (BD.area === 'all' || x.area === BD.area));
+  const pr = { high: 0, normal: 1, low: 2 };
+  if (lane === 'done') t.sort((a, b) => String(b.done_at || '').localeCompare(String(a.done_at || '')));
+  else t.sort((a, b) => (pr[a.priority] - pr[b.priority]) || (a.sort_order - b.sort_order));
+  return t;
+}
+function bdRender() {
+  document.getElementById('bdLaneTabs').innerHTML = BD_LANES.map(([k, n]) => `<button type="button" data-lane="${k}" class="${BD.lane === k ? 'on' : ''}">${n}<b>${bdVisible(k).length}</b></button>`).join('');
+  document.getElementById('bdAreas').innerHTML = ['all', ...BD_AREAS].map(a => `<button type="button" class="bd-chip${BD.area === a ? ' on' : ''}" data-area="${bdEsc(a)}">${a === 'all' ? 'ทุกหมวด' : bdEsc(a)}</button>`).join('');
+  const today = bdToday();
+  document.getElementById('bdBoard').innerHTML = BD_LANES.map(([k, n], li) => {
+    let items = bdVisible(k); const total = items.length;
+    if (k === 'done' && !BD.showAllDone) items = items.slice(0, 8);
+    const cards = items.map(t => {
+      const late = t.due_date && t.lane !== 'done' && t.due_date < today;
+      const prev = li > 0 ? BD_LANES[li - 1] : null, next = li < 3 ? BD_LANES[li + 1] : null;
+      return `<div class="bd-card p-${t.priority}" data-id="${t.id}">
+        <div class="bd-t">${bdEsc(t.title)}</div>
+        ${t.detail ? `<div class="bd-d">${bdEsc(t.detail)}</div>` : ''}
+        <div class="bd-m"><span>${bdEsc(t.area)}</span>${t.owner ? `<span>👤 ${bdEsc(t.owner)}</span>` : ''}${t.priority === 'high' ? '<span class="late" style="color:var(--bad)">สำคัญ</span>' : ''}${t.due_date ? `<span class="${late ? 'late' : ''}">📅 ${new Date(t.due_date + 'T12:00:00+07:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}${late ? ' เกินกำหนด' : ''}</span>` : ''}</div>
+        <div class="bd-act">${prev ? `<button type="button" data-mv="${prev[0]}" title="ย้ายไป ${prev[1]}">‹ ${prev[1].replace(/^\S+\s/, '')}</button>` : ''}${next ? `<button type="button" class="go" data-mv="${next[0]}">${next[1].replace(/^\S+\s/, '')} ›</button>` : ''}</div>
+      </div>`;
+    }).join('') || '<div class="bd-empty">ไม่มีงานในช่องนี้</div>';
+    const more = (k === 'done' && total > 8 && !BD.showAllDone) ? `<button type="button" class="bd-chip" id="bdMoreDone" style="width:100%;margin-bottom:10px">ดูทั้งหมด (${total})</button>` : '';
+    return `<div class="bd-lane" id="bdLane-${k}"><div class="bd-lane-h">${n}<span>${total} งาน</span></div>${cards}${more}</div>`;
+  }).join('');
+}
+async function bdMove(id, lane) {
+  const t = BD.tasks.find(x => x.id === id); if (!t || t.lane === lane) return;
+  const top = Math.min(0, ...BD.tasks.map(x => x.sort_order)) - 1;
+  const old = { lane: t.lane, sort_order: t.sort_order, done_at: t.done_at };
+  t.lane = lane; t.sort_order = top; t.done_at = lane === 'done' ? new Date().toISOString() : null; bdRender();
+  try { await sb(`company_tasks?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ lane, sort_order: top }) }); }
+  catch (e) { Object.assign(t, old); bdRender(); alert('ย้ายไม่สำเร็จ: ' + e.message); }
+}
+function bdOpen(id) {
+  BD.editId = id; const t = id ? BD.tasks.find(x => x.id === id) : { title: '', detail: '', lane: BD.lane === 'done' ? 'todo' : BD.lane, area: BD.area === 'all' ? 'ระบบ' : BD.area, priority: 'normal', owner: 'ฟ้า', due_date: '' };
+  document.getElementById('bdTitle').textContent = id ? 'แก้ไขงาน' : 'งานใหม่';
+  const opt = (arr, v) => arr.map(x => `<option value="${bdEsc(x)}"${x === v ? ' selected' : ''}>${bdEsc(x)}</option>`).join('');
+  document.getElementById('bdBody').innerHTML = `
+    <label class="mm-l">ชื่องาน</label><input type="text" id="bdfTitle" value="${bdEsc(t.title)}" autocomplete="off">
+    <label class="mm-l">รายละเอียด</label><textarea id="bdfDetail">${bdEsc(t.detail || '')}</textarea>
+    <div class="bd-row"><div style="flex:1;min-width:140px"><label class="mm-l">ช่อง</label><select id="bdfLane">${BD_LANES.map(([k, n]) => `<option value="${k}"${k === t.lane ? ' selected' : ''}>${n}</option>`).join('')}</select></div>
+    <div style="flex:1;min-width:140px"><label class="mm-l">หมวด</label><select id="bdfArea">${opt(BD_AREAS, t.area)}</select></div></div>
+    <div class="bd-row"><div style="flex:1;min-width:140px"><label class="mm-l">ความสำคัญ</label><select id="bdfPri">${[['high', 'สำคัญมาก'], ['normal', 'ปกติ'], ['low', 'ไม่รีบ']].map(([k, n]) => `<option value="${k}"${k === t.priority ? ' selected' : ''}>${n}</option>`).join('')}</select></div>
+    <div style="flex:1;min-width:140px"><label class="mm-l">ผู้รับผิดชอบ</label><select id="bdfOwner"><option value="">—</option>${opt(BD_OWNERS, t.owner)}</select></div></div>
+    <label class="mm-l">กำหนดเสร็จ (ไม่ใส่ก็ได้)</label><input type="date" id="bdfDue" value="${t.due_date || ''}">
+    <div class="bd-sheet-act"><button type="button" class="btn" id="bdSave" style="flex:1">บันทึก</button>${id ? '<button type="button" class="btn" id="bdDel" style="background:none;border:1px solid var(--bad);color:var(--bad)">ลบ</button>' : ''}</div>`;
+  document.getElementById('bdBg').classList.add('open'); document.getElementById('bdSheet').classList.add('open');
+}
+function bdClose() { document.getElementById('bdBg').classList.remove('open'); document.getElementById('bdSheet').classList.remove('open'); }
+async function bdSave() {
+  const title = document.getElementById('bdfTitle').value.trim(); if (!title) { alert('ใส่ชื่องานก่อน'); return; }
+  const body = { title, detail: document.getElementById('bdfDetail').value.trim() || null, lane: document.getElementById('bdfLane').value, area: document.getElementById('bdfArea').value,
+    priority: document.getElementById('bdfPri').value, owner: document.getElementById('bdfOwner').value || null, due_date: document.getElementById('bdfDue').value || null };
+  const btn = document.getElementById('bdSave'); btn.disabled = true;
+  try {
+    if (BD.editId) { const r = await sb(`company_tasks?id=eq.${BD.editId}`, { method: 'PATCH', body: JSON.stringify(body) }); const i = BD.tasks.findIndex(x => x.id === BD.editId); if (i >= 0 && r && r[0]) BD.tasks[i] = r[0]; }
+    else { body.sort_order = Math.min(0, ...BD.tasks.map(x => x.sort_order)) - 1; const r = await sb('company_tasks', { method: 'POST', body: JSON.stringify(body) }); if (r && r[0]) BD.tasks.push(r[0]); }
+    bdClose(); bdRender();
+  } catch (e) { alert('บันทึกไม่สำเร็จ: ' + e.message); btn.disabled = false; }
+}
+async function bdDelete() {
+  const t = BD.tasks.find(x => x.id === BD.editId); if (!t || !confirm(`ลบงาน "${t.title}" ใช่ไหม`)) return;
+  try { await sb(`company_tasks?id=eq.${t.id}`, { method: 'DELETE' }); BD.tasks = BD.tasks.filter(x => x.id !== t.id); bdClose(); bdRender(); }
+  catch (e) { alert('ลบไม่สำเร็จ: ' + e.message); }
+}
+document.getElementById('bdLaneTabs').addEventListener('click', e => { const b = e.target.closest('[data-lane]'); if (!b) return; BD.lane = b.dataset.lane; bdRender();
+  const lane = document.getElementById('bdLane-' + BD.lane); if (lane) lane.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' }); });
+document.getElementById('bdAreas').addEventListener('click', e => { const b = e.target.closest('[data-area]'); if (!b) return; BD.area = b.dataset.area; bdRender(); });
+document.getElementById('bdNew').addEventListener('click', () => bdOpen(null));
+document.getElementById('bdBoard').addEventListener('click', e => {
+  if (e.target.id === 'bdMoreDone') { BD.showAllDone = true; bdRender(); return; }
+  const mv = e.target.closest('[data-mv]'); const card = e.target.closest('.bd-card'); if (!card) return;
+  if (mv) { bdMove(card.dataset.id, mv.dataset.mv); return; }
+  bdOpen(card.dataset.id);
+});
+document.getElementById('bdClose').addEventListener('click', bdClose);
+document.getElementById('bdBg').addEventListener('click', bdClose);
+document.getElementById('bdSheet').addEventListener('click', e => { if (e.target.id === 'bdSave') bdSave(); if (e.target.id === 'bdDel') bdDelete(); });
+
 // ---------- TABS ----------
 document.querySelectorAll(".tab").forEach(tab => {
   tab.addEventListener("click", () => {
@@ -923,6 +1065,7 @@ document.querySelectorAll(".tab").forEach(tab => {
       reportLoaded = true;
       loadReportTab();
     }
+    if (tab.dataset.tab === "board" && !boardLoaded) { boardLoaded = true; loadBoard(); }
     if (tab.dataset.tab === "perf" && !perfLoaded) { perfLoaded = true; loadPerf(); }
     if (tab.dataset.tab === "menu" && !menuLoaded) { menuLoaded = true; loadMenuTab(); }
     if (tab.dataset.tab === "purchasing" && !purchLoaded) { purchLoaded = true; loadPurchasingTab(); }
