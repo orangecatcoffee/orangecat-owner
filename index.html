@@ -349,6 +349,15 @@
   .lm-price{text-align:right;flex:none;font-size:11px;color:color-mix(in srgb, var(--text) 60%, transparent)}
   .lm-price button{background:none;border:none;color:var(--ok);font-size:11.5px;padding:6px 0 0;font-family:inherit;cursor:pointer}
   .lm-bar{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+
+  #bpSheet{position:fixed;left:0;right:0;bottom:0;height:92vh;max-width:640px;margin:0 auto;background:var(--bg);border-radius:22px 22px 0 0;transform:translateY(105%);transition:transform .22s;z-index:81;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.4)}
+  #bpSheet.open{transform:none}
+  #bpBody{flex:1;overflow-y:auto;padding:6px 16px 40px;-webkit-overflow-scrolling:touch}
+  .bp-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px}
+  .bp-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-weight:700;font-size:14px}.bp-h small{font-weight:400;font-size:11.5px;color:color-mix(in srgb, var(--text) 55%, transparent)}
+  .bp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .bp-grid label{font-size:11.5px;color:color-mix(in srgb, var(--text) 62%, transparent);display:block;margin-bottom:3px}.bp-grid input{margin:0;width:100%}
+  .bp-eff{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;font-size:11.5px}.bp-eff span{border:1px solid var(--border);border-radius:999px;padding:2px 9px}
 </style>
 </head>
 <body>
@@ -625,9 +634,14 @@
     <button type="button" class="btn" id="mmNew" style="width:100%;margin-top:12px">＋ เพิ่มเมนูใหม่</button>
     <button type="button" class="btn" id="mcOpen" style="width:100%;margin-top:8px;background:none;border:1px solid var(--border);color:var(--text)">🗂 จัดการหมวดหมู่</button>
     <button type="button" class="btn" id="lmOpen" style="width:100%;margin-top:8px;background:none;border:1px solid var(--border);color:var(--text)">🛵 รายการ Grab &amp; โปรโมชั่น</button>
+    <button type="button" class="btn" id="bpOpen" style="width:100%;margin-top:8px;background:none;border:1px solid var(--border);color:var(--text)">🫘 ราคาเมล็ดพิเศษ (แยกตามช่องทาง)</button>
   </div>
   <div id="mmList"></div>
   <div id="mmBg"></div>
+  <div id="bpSheet" role="dialog" aria-label="ราคาเมล็ดพิเศษ">
+    <div class="mm-sh"><div style="flex:1;font-weight:700;font-size:16px">🫘 ราคาเมล็ดพิเศษ</div><button type="button" id="bpClose" aria-label="ปิด" style="border:none;background:color-mix(in srgb, var(--text) 8%, transparent);width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;color:var(--text)">✕</button></div>
+    <div id="bpBody"></div>
+  </div>
   <div id="lmSheet" role="dialog" aria-label="รายการ Grab และโปรโมชั่น">
     <div class="mm-sh"><div style="flex:1;font-weight:700;font-size:16px">🛵 รายการ Grab &amp; โปรโมชั่น</div><button type="button" id="lmClose" aria-label="ปิด" style="border:none;background:color-mix(in srgb, var(--text) 8%, transparent);width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;color:var(--text)">✕</button></div>
     <div id="lmBody"></div>
@@ -1096,6 +1110,52 @@ document.getElementById('lmBody').addEventListener('click', async e => {
 });
 document.getElementById('lmBody').addEventListener('change', e => { const c = e.target.closest('[data-lm-id]'); if (!c) return; if (c.checked) LM.sel.add(c.dataset.lmId); else LM.sel.delete(c.dataset.lmId); const b = document.getElementById('lmApply'); if (b) b.textContent = `ใช้กับที่เลือก (${LM.sel.size})`; });
 
+
+// ---------- special-bean prices per channel (like menu prices per channel) ----------
+const BP = { rows: [], saving: false };
+const BP_CH = [['office', 'ร้าน · LINE · ชิดลม'], ['standard', 'Standard Price'], ['grab', 'Grab']];
+async function bpOpen() { document.getElementById('mmBg').classList.add('open'); document.getElementById('bpSheet').classList.add('open'); await bpLoad(); }
+function bpClose() { document.getElementById('bpSheet').classList.remove('open'); if (!['mmSheet', 'mcSheet', 'lmSheet'].some(i => document.getElementById(i).classList.contains('open'))) document.getElementById('mmBg').classList.remove('open'); }
+async function bpLoad(msg) {
+  const body = document.getElementById('bpBody'); if (!BP.rows.length) body.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try { BP.rows = await mmRpc('get_bean_prices') || []; bpRender(msg); } catch (e) { body.innerHTML = '<div class="loading">โหลดไม่สำเร็จ: ' + mmEsc(e.message) + '</div>'; }
+}
+function bpEff(b) {
+  const o = b.overrides || {}, d = Number(b.default) || 0, v = k => o[k] !== undefined && o[k] !== null ? Number(o[k]) : (k === 'grab' ? 0 : d);
+  return BP_CH.map(([k, n]) => `<span style="${v(k) > 0 ? 'color:var(--ol);border-color:var(--orange);font-weight:700' : 'color:color-mix(in srgb, var(--text) 55%, transparent)'}">${n.split(' ·')[0]} ${v(k) > 0 ? '+฿' + v(k) : 'ไม่บวก'}</span>`).join('');
+}
+function bpCard(b) {
+  const o = b.overrides || {};
+  return `<div class="bp-card" data-bean="${b.id}"><div class="bp-h"><span>${mmEsc(b.name)}</span><small>สต็อก ${Math.round(Number(b.stock) || 0)}g</small></div>
+    <div class="bp-grid"><div style="grid-column:1/-1"><label>ราคาหลัก (ใช้กับ ร้าน/Standard ที่ไม่ได้ตั้งแยก)</label><input type="number" min="0" step="1" class="bp-def" value="${Number(b.default) || 0}"></div>
+    ${BP_CH.map(([k, n]) => `<div><label>${n}${k === 'grab' ? ' (ว่าง = ไม่บวก)' : ' (ว่าง = ราคาหลัก)'}</label><input type="number" min="0" step="1" class="bp-ch" data-ch="${k}" placeholder="${k === 'grab' ? '0' : 'ราคาหลัก'}" value="${o[k] !== undefined && o[k] !== null ? Number(o[k]) : ''}"></div>`).join('')}</div>
+    <div class="bp-eff">${bpEff(b)}</div><button type="button" class="btn bp-save" style="margin-top:10px">บันทึก</button></div>`;
+}
+function bpRender(msg) {
+  const hot = BP.rows.filter(b => (Number(b.default) || 0) > 0 || Object.keys(b.overrides || {}).length), rest = BP.rows.filter(b => !hot.includes(b));
+  document.getElementById('bpBody').innerHTML = `<div style="font-size:12.5px;line-height:1.6;color:color-mix(in srgb, var(--text) 62%, transparent);margin:2px 0 10px">เมล็ดที่บวกราคาให้ลูกค้า ตั้งราคาแยกตามช่องทางได้เหมือนราคาเมนู ใช้กับออเดอร์ใหม่ทันที (ออเดอร์เก่าไม่เปลี่ยน) · เมล็ดผสมในแก้วเดียว คิดตัวที่แพงสุดเต็มจำนวน</div>
+    <div style="font-size:12.5px;min-height:18px;margin-bottom:6px;color:${msg && msg.err ? 'var(--bad)' : 'var(--ok)'}">${msg ? mmEsc(msg.t) : ''}</div>
+    ${hot.map(bpCard).join('')}${rest.length ? `<details style="margin-top:6px"><summary style="cursor:pointer;font-size:13px;padding:10px 2px">เมล็ดที่ยังไม่บวกราคา (${rest.length}) — แตะเพื่อตั้งราคา</summary>${rest.map(bpCard).join('')}</details>` : ''}`;
+}
+async function bpSave(card) {
+  if (BP.saving) return; BP.saving = true; const id = card.dataset.bean, btn = card.querySelector('.bp-save'); btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  const def = Number(card.querySelector('.bp-def').value); if (!(def >= 0)) { BP.saving = false; return bpLoad({ t: 'ราคาหลักไม่ถูกต้อง', err: true }); }
+  try {
+    await sb(`ingredients?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ customer_bean_surcharge: def }) });
+    for (const inp of card.querySelectorAll('.bp-ch')) {
+      const ch = inp.dataset.ch, v = inp.value.trim();
+      if (v === '') await sb(`bean_channel_prices?ingredient_id=eq.${id}&channel_key=eq.${ch}`, { method: 'DELETE' });
+      else { const n = Number(v); if (!(n >= 0)) throw new Error('ราคาช่อง ' + ch + ' ไม่ถูกต้อง');
+        await sb('bean_channel_prices?on_conflict=ingredient_id,channel_key', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: JSON.stringify({ ingredient_id: id, channel_key: ch, surcharge: n, updated_at: new Date().toISOString() }) }); }
+    }
+    BP.saving = false; await bpLoad({ t: '✅ บันทึกแล้ว · ' + (BP.rows.find(b => b.id === id) || {}).name });
+  } catch (e) { BP.saving = false; await bpLoad({ t: 'บันทึกไม่สำเร็จ: ' + e.message, err: true }); }
+}
+document.getElementById('bpOpen').addEventListener('click', bpOpen);
+document.getElementById('bpClose').addEventListener('click', bpClose);
+document.getElementById('mmBg').addEventListener('click', () => { if (document.getElementById('bpSheet').classList.contains('open')) bpClose(); });
+document.getElementById('bpBody').addEventListener('click', e => { const s = e.target.closest('.bp-save'); if (s) bpSave(s.closest('.bp-card')); });
+
 // ---------- COMPANY BOARD (Kanban) ----------
 const BD = { tasks: [], lane: 'todo', area: 'all', editId: null, showAllDone: false };
 const BD_LANES = [['waiting', '⏸ รอตัดสินใจ'], ['todo', '📥 รอทำ'], ['doing', '🔥 กำลังทำ'], ['done', '✅ เสร็จแล้ว']];
@@ -1217,9 +1277,9 @@ const SWEETNESS_RULES_REPORT = {
   'Condensed milk': { 'หวานปกติ': 20, 'หวานน้อย': 10, 'ไม่หวาน': 0 },
 };
 const FLAT_BEAN_COST = 20;
-// Total the customer actually paid — price (base) + bean_surcharge (special-bean upcharge kept in
-// its own column so menu-dimension reporting can roll special-bean drinks up under their base name).
-function orderTotal(o) { return Number(o.price || 0) + Number(o.bean_surcharge || 0); }
+// Total the customer actually paid = price. price already INCLUDES the special-bean / milk surcharge; bean_surcharge is only the breakdown
+// (kept in its own column so menu-dimension reporting can roll special-bean drinks up under their base name).
+function orderTotal(o) { return Number(o.price || 0); }
 let reportRange = 'all';
 let reportChannel = 'all'; // 'all' | 'own' (ขายเอง ไม่หัก GP) | channel_key ของแพลตฟอร์ม เช่น 'grab'
 let earliestDateCache = null;
@@ -2230,7 +2290,7 @@ async function loadReportTab() {
       const reps = {};
       rows.forEach(o => {
         const r = reps[o.customer_name] = reps[o.customer_name] || { cups: 0, rev: 0, disc: 0, drinkers: {} };
-        r.cups += 1; r.rev += Number(o.price || 0) + Number(o.bean_surcharge || 0); r.disc += Number(o.discount_amount || 0);
+        r.cups += 1; r.rev += Number(o.price || 0); r.disc += Number(o.discount_amount || 0);
         const d = String(o.drinker_name).trim(); r.drinkers[d] = (r.drinkers[d] || 0) + 1;
       });
       const money = (n) => '฿' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -2785,7 +2845,7 @@ async function loadPurchasingTab() {
     // ออเดอร์แพลตฟอร์ม (Grab) นับเป็นยอดสุทธิ: หักส่วนลดค่าส่งที่ร้านออก แล้วหัก GP ของแพลตฟอร์ม — เหมือนแท็บ Sales & Customers
     const revenueForProfit = brewedOrders.filter(o => o.paid).reduce((s, o) => {
       const plat = o.platform_gp_pct !== null && o.platform_gp_pct !== undefined;
-      if (!plat) return s + Number(o.price || 0) + Number(o.bean_surcharge || 0);
+      if (!plat) return s + Number(o.price || 0);
       return s + (Number(o.price || 0) - Number(o.order_discount_share || 0)) * (1 - Number(o.platform_gp_pct) / 100);
     }, 0);
     const netProfit = revenueForProfit - recipeCogs - packagingCogs;
@@ -2947,7 +3007,7 @@ async function loadFinancialsTab() {
     const byMenu = {};
     menuRows.forEach(r => {
       const m = byMenu[r.menu_item_name] = byMenu[r.menu_item_name] || { cups: 0, net: 0, cost: 0 };
-      m.cups++; m.net += Number(r.price) + Number(r.bean_surcharge) - Number(r.platform_promo);
+      m.cups++; m.net += Number(r.price) - Number(r.platform_promo);
       m.cost += Number(r.ingredients) + Number(r.packaging) + Number(r.delivery_pkg) + Number(r.platform_fee);
     });
     const menus = Object.entries(byMenu).map(([name, m]) => ({ name, ...m, profit: m.net - m.cost, margin: m.net ? (m.net - m.cost) / m.net : 0 }));
