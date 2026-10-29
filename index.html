@@ -357,6 +357,7 @@
   .bp-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-weight:700;font-size:14px}.bp-h small{font-weight:400;font-size:11.5px;color:color-mix(in srgb, var(--text) 55%, transparent)}
   .bp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
   .bp-grid label{font-size:11.5px;color:color-mix(in srgb, var(--text) 62%, transparent);display:block;margin-bottom:3px}.bp-grid input{margin:0;width:100%}
+  .bp-new{font-size:10.5px;font-weight:700;background:var(--orange);color:var(--on-accent);border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:middle}
   .bp-eff{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;font-size:11.5px}.bp-eff span{border:1px solid var(--border);border-radius:999px;padding:2px 9px}
 </style>
 </head>
@@ -1126,13 +1127,13 @@ function bpEff(b) {
 }
 function bpCard(b) {
   const o = b.overrides || {};
-  return `<div class="bp-card" data-bean="${b.id}"><div class="bp-h"><span>${mmEsc(b.name)}</span><small>สต็อก ${Math.round(Number(b.stock) || 0)}g</small></div>
+  return `<div class="bp-card" data-bean="${b.id}"><div class="bp-h"><span>${mmEsc(b.name)}${b.is_new ? ' <span class="bp-new">ใหม่</span>' : ''}</span><small>สต็อก ${Math.round(Number(b.stock) || 0)}g</small></div>${(b.setup || []).length ? `<div class="bp-eff" style="margin-top:6px">${b.setup.map(s => `<span style="color:var(--bad);border-color:var(--bad)">⚠️ ${mmEsc(s)}</span>`).join('')}</div>` : ''}
     <div class="bp-grid"><div style="grid-column:1/-1"><label>ราคาหลัก (ใช้กับ ร้าน/Standard ที่ไม่ได้ตั้งแยก)</label><input type="number" min="0" step="1" class="bp-def" value="${Number(b.default) || 0}"></div>
     ${BP_CH.map(([k, n]) => `<div><label>${n}${k === 'grab' ? ' (ว่าง = ไม่บวก)' : ' (ว่าง = ราคาหลัก)'}</label><input type="number" min="0" step="1" class="bp-ch" data-ch="${k}" placeholder="${k === 'grab' ? '0' : 'ราคาหลัก'}" value="${o[k] !== undefined && o[k] !== null ? Number(o[k]) : ''}"></div>`).join('')}</div>
     <div class="bp-eff">${bpEff(b)}</div><button type="button" class="btn bp-save" style="margin-top:10px">บันทึก</button></div>`;
 }
 function bpRender(msg) {
-  const hot = BP.rows.filter(b => (Number(b.default) || 0) > 0 || Object.keys(b.overrides || {}).length), rest = BP.rows.filter(b => !hot.includes(b));
+  const hot = BP.rows.filter(b => (Number(b.default) || 0) > 0 || Object.keys(b.overrides || {}).length || (b.setup || []).length), rest = BP.rows.filter(b => !hot.includes(b));
   document.getElementById('bpBody').innerHTML = `<div style="font-size:12.5px;line-height:1.6;color:color-mix(in srgb, var(--text) 62%, transparent);margin:2px 0 10px">เมล็ดที่บวกราคาให้ลูกค้า ตั้งราคาแยกตามช่องทางได้เหมือนราคาเมนู ใช้กับออเดอร์ใหม่ทันที (ออเดอร์เก่าไม่เปลี่ยน) · เมล็ดผสมในแก้วเดียว คิดตัวที่แพงสุดเต็มจำนวน</div>
     <div style="font-size:12.5px;min-height:18px;margin-bottom:6px;color:${msg && msg.err ? 'var(--bad)' : 'var(--ok)'}">${msg ? mmEsc(msg.t) : ''}</div>
     ${hot.map(bpCard).join('')}${rest.length ? `<details style="margin-top:6px"><summary style="cursor:pointer;font-size:13px;padding:10px 2px">เมล็ดที่ยังไม่บวกราคา (${rest.length}) — แตะเพื่อตั้งราคา</summary>${rest.map(bpCard).join('')}</details>` : ''}`;
