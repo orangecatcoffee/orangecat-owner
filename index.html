@@ -359,6 +359,17 @@
   .bp-grid label{font-size:11.5px;color:color-mix(in srgb, var(--text) 62%, transparent);display:block;margin-bottom:3px}.bp-grid input{margin:0;width:100%}
   .bp-new{font-size:10.5px;font-weight:700;background:var(--orange);color:var(--on-accent);border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:middle}
   .bp-eff{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;font-size:11.5px}.bp-eff span{border:1px solid var(--border);border-radius:999px;padding:2px 9px}
+
+  #ocBg{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s;z-index:80}#ocBg.open{opacity:1;pointer-events:auto}
+  #ocSheet{position:fixed;left:0;right:0;bottom:0;height:92vh;max-width:640px;margin:0 auto;background:var(--bg);border-radius:22px 22px 0 0;transform:translateY(105%);transition:transform .22s;z-index:81;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.4)}#ocSheet.open{transform:none}
+  #ocBody{flex:1;overflow-y:auto;padding:6px 16px 28px;-webkit-overflow-scrolling:touch}#ocBody textarea{min-height:190px;resize:vertical;width:100%}
+  .oc-card{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--orange);border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;gap:10px;align-items:center}
+  .oc-card .n{flex:1;min-width:0;font-weight:700;font-size:14px}.oc-card .n small{display:block;font-weight:400;font-size:11.5px;color:color-mix(in srgb, var(--text) 60%, transparent)}
+  .oc-rc{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:9px 10px;margin-bottom:6px}
+  .oc-rc input{width:22px;height:22px;margin:2px 0 0;flex:none}.oc-rc .n{flex:1;min-width:0;font-size:13.5px;font-weight:600}
+  .oc-rc .why{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}.oc-rc .why span{font-size:11px;border:1px solid var(--border);border-radius:999px;padding:1px 8px;font-weight:400;color:color-mix(in srgb, var(--text) 70%, transparent)}
+  .oc-sc{font-size:11.5px;font-weight:700;color:var(--ol);white-space:nowrap}
+  .oc-sw{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px}.oc-sw>div{flex:1}.oc-sw small{display:block;font-size:11.5px;color:color-mix(in srgb, var(--text) 55%, transparent)}.oc-sw input[type=number]{width:74px;margin:0}
 </style>
 </head>
 <body>
@@ -405,6 +416,7 @@
 <div class="tabs">
   <div class="tab active" data-tab="target">เป้าหมาย</div>
 <div class="tab" data-tab="board">บอร์ดงาน</div>
+<div class="tab" data-tab="control">ควบคุม</div>
 <div class="tab" data-tab="perf">Performance</div>
 <div class="tab" data-tab="report">Sales & Customers</div>
   <div class="tab" data-tab="purchasing">Purchasing</div>
@@ -490,6 +502,24 @@
   <div id="bdSheet" role="dialog" aria-label="รายละเอียดงาน">
     <div class="mm-sh"><div id="bdTitle" style="flex:1;font-weight:700;font-size:16px">งาน</div><button type="button" id="bdClose" aria-label="ปิด" style="border:none;background:color-mix(in srgb, var(--text) 8%, transparent);width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;color:var(--text)">✕</button></div>
     <div id="bdBody"></div>
+  </div>
+</div>
+<div class="view" id="view-control">
+  <div class="card" style="padding:14px 16px;">
+    <div class="card-title" style="margin-bottom:6px">ควบคุม · สิ่งสำคัญของเจ้าของ</div>
+    <div style="font-size:12.5px;color:color-mix(in srgb, var(--text) 62%, transparent);line-height:1.55">รวมเรื่องที่ต้องให้เจ้าของตัดสินใจไว้ที่เดียว (รุ่นแรก: ข่าวเมล็ดถึงลูกค้า · สวิตช์อื่นๆ จะทยอยมารวมที่นี่)</div>
+  </div>
+  <div class="card" style="padding:14px 16px;">
+    <div class="card-title" style="margin-bottom:4px">🫘 ข่าวเมล็ดถึงลูกค้า <span id="ocBadge" class="bp-new" style="display:none"></span></div>
+    <div style="font-size:12px;color:color-mix(in srgb, var(--text) 60%, transparent);line-height:1.5;margin-bottom:10px">ระบบเสนอเมื่อมีเมล็ดใหม่ หรือเมล็ดที่หมดไปสักระยะแล้วกลับมา · พี่ดูข้อความ เลือกคน แล้วกดส่งเอง ไม่มีส่งเอง</div>
+    <div id="ocList"></div>
+    <div class="bd-row" style="margin-top:10px"><select id="ocBeanPick" style="flex:1;min-width:0;margin:0"></select><button type="button" class="btn" id="ocManual" style="width:auto;padding:11px 14px">＋ สร้างข่าว</button></div>
+    <div id="ocSettings" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px"></div>
+  </div>
+  <div id="ocBg"></div>
+  <div id="ocSheet" role="dialog" aria-label="ข่าวเมล็ด">
+    <div class="mm-sh"><div id="ocTitle" style="flex:1;font-weight:700;font-size:16px">ข่าวเมล็ด</div><button type="button" id="ocClose" aria-label="ปิด" style="border:none;background:color-mix(in srgb, var(--text) 8%, transparent);width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;color:var(--text)">✕</button></div>
+    <div id="ocBody"></div>
   </div>
 </div>
 <div class="view" id="view-perf">
@@ -1157,6 +1187,100 @@ document.getElementById('bpClose').addEventListener('click', bpClose);
 document.getElementById('mmBg').addEventListener('click', () => { if (document.getElementById('bpSheet').classList.contains('open')) bpClose(); });
 document.getElementById('bpBody').addEventListener('click', e => { const s = e.target.closest('.bp-save'); if (s) bpSave(s.closest('.bp-card')); });
 
+
+// ---------- CONTROL: bean news to customers (propose → owner approves → owner picks people → send) ----------
+const OC = { props: [], hist: [], beans: [], cur: null, sugg: [], step: 1, tested: false, busy: false };
+const OC_LINK = 'https://liff.line.me/2010600301-1tjt7IdG';
+let controlLoaded = false;
+async function loadControl() {
+  const list = document.getElementById('ocList'); list.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try {
+    const [props, hist, beans, sets] = await Promise.all([
+      sb('outreach_proposals?status=eq.pending&select=*&order=created_at.desc'), sb('outreach_proposals?status=neq.pending&select=*&order=decided_at.desc.nullslast&limit=5'),
+      mmRpc('get_bean_prices'), sb('system_settings?key=like.outreach.*&select=key,value')]);
+    OC.props = props || []; OC.hist = hist || []; OC.beans = beans || []; OC.sets = Object.fromEntries((sets || []).map(s => [s.key, s.value]));
+    ocRender();
+  } catch (e) { list.innerHTML = '<div class="loading">โหลดไม่สำเร็จ: ' + bdEsc(e.message) + '</div>'; }
+}
+const ocKind = p => p.kind === 'new_bean' ? '🆕 เมล็ดใหม่' : p.kind === 'bean_back' ? `🔄 กลับมาแล้ว${p.days_out ? ' หลังหมด ' + p.days_out + ' วัน' : ''}` : '✍️ ข่าวที่สร้างเอง';
+const ocDate = s => s ? new Date(s).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : '';
+function ocRender() {
+  const b = document.getElementById('ocBadge'); b.style.display = OC.props.length ? '' : 'none'; b.textContent = OC.props.length + ' รออนุมัติ';
+  document.getElementById('ocList').innerHTML = (OC.props.length ? OC.props.map(p => `<div class="oc-card"><div class="n">${bdEsc(p.bean_name)}<small>${ocKind(p)} · ${ocDate(p.created_at)}</small></div><button type="button" class="btn" data-oc-open="${p.id}" style="width:auto;padding:10px 14px">ดูและส่ง</button></div>`).join('')
+    : '<div class="bd-empty">ยังไม่มีข่าวรออนุมัติ · ระบบจะเสนอเมื่อมีเมล็ดใหม่หรือเมล็ดกลับมา</div>') +
+    (OC.hist.length ? `<div style="font-size:11.5px;color:color-mix(in srgb, var(--text) 55%, transparent);margin-top:10px">ล่าสุด: ${OC.hist.map(h => `${bdEsc(h.bean_name)} — ${h.status === 'sent' ? 'ส่ง ' + h.sent_count + ' คน' : 'ไม่ส่ง'} (${ocDate(h.decided_at)})`).join(' · ')}</div>` : '');
+  document.getElementById('ocBeanPick').innerHTML = '<option value="">เลือกเมล็ดเพื่อสร้างข่าวเอง…</option>' + OC.beans.map(x => `<option value="${x.id}">${bdEsc(x.name)}</option>`).join('');
+  const s = OC.sets || {}, on = s['outreach.enabled'] !== false && s['outreach.enabled'] !== 'false';
+  document.getElementById('ocSettings').innerHTML = `<div class="oc-sw"><div>ให้ระบบเสนอข่าวเมล็ดอัตโนมัติ<small>ปิด = ไม่เสนอข่าวใหม่ (สร้างเองได้ตลอด)</small></div><button type="button" class="tg${on ? ' on' : ''}" id="ocTgl" aria-label="เปิด/ปิด" style="width:48px;height:28px;border-radius:99px;border:none;position:relative;background:${on ? 'var(--ok)' : 'color-mix(in srgb, var(--text) 18%, transparent)'}"><span style="position:absolute;top:3px;${on ? 'left:23px' : 'left:3px'};width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s"></span></button></div>
+    <div class="oc-sw"><div>เมล็ดหมดกี่วันถึงนับว่า "กลับมา"<small>ค่าเริ่มต้น 14 วัน</small></div><input type="number" min="1" id="ocDays" value="${Number(s['outreach.back_in_stock_days']) || 14}"></div>
+    <div class="oc-sw"><div>เว้นกี่วันก่อนส่งข่าวซ้ำคนเดิม<small>กันรบกวนลูกค้า · ใช้บังคับตอนส่งจริง</small></div><input type="number" min="1" id="ocGap" value="${Number(s['outreach.min_days_between']) || 7}"></div>`;
+}
+async function ocSetting(key, val) { try { await sb(`system_settings?key=eq.${encodeURIComponent(key)}`, { method: 'PATCH', body: JSON.stringify({ value: val, updated_at: new Date().toISOString() }) }); OC.sets[key] = val; } catch (e) { alert('บันทึกไม่สำเร็จ: ' + e.message); } }
+async function ocDraft(p) {
+  const bean = OC.beans.find(x => x.id === p.ingredient_id) || {};
+  let prof = {}; try { prof = ((await sb(`bean_profiles?ingredient_id=eq.${p.ingredient_id}&select=notes,roast`)) || [])[0] || {}; } catch (e) {}
+  const sur = Number(bean.overrides && bean.overrides.office !== undefined ? bean.overrides.office : bean.default) || 0;
+  const notes = prof.notes ? `\nรสชาติ: ${prof.notes}${prof.roast ? ' · คั่น ' + prof.roast : ''}` : '';
+  const price = sur > 0 ? `\nเมล็ดพิเศษ บวก ${sur} บาทต่อแก้ว` : '';
+  const head = p.kind === 'bean_back' ? `✨ ${p.bean_name} กลับมาแล้ว!` : `🫘 เมล็ดใหม่มาแล้ว: ${p.bean_name}`;
+  return `สวัสดีค่ะคุณ {{name}} 🐱\n${head}${notes}${price}\n\nสั่งได้เลยที่หน้าเมล็ดในไลน์ 👉 ${OC_LINK}\n\n(ไม่อยากรับข่าวแบบนี้ ปิดได้ที่หน้าสั่งในไลน์ → ตั้งค่าการรับข่าว)`;
+}
+function ocClose() { document.getElementById('ocBg').classList.remove('open'); document.getElementById('ocSheet').classList.remove('open'); }
+async function ocOpen(id) {
+  const p = OC.props.find(x => x.id === id); if (!p) return; OC.cur = p; OC.step = 1; OC.tested = false; OC.sugg = []; OC.text = await ocDraft(p);
+  document.getElementById('ocBg').classList.add('open'); document.getElementById('ocSheet').classList.add('open'); ocStep();
+}
+function ocStep(msg) {
+  const p = OC.cur, body = document.getElementById('ocBody'); document.getElementById('ocTitle').textContent = `${p.bean_name} · ${ocKind(p)}`;
+  const say = msg ? `<div style="font-size:12.5px;margin:6px 0;color:${msg.err ? 'var(--bad)' : 'var(--ok)'}">${bdEsc(msg.t)}</div>` : '';
+  if (OC.step === 1) {
+    body.innerHTML = `<div style="font-size:12px;color:color-mix(in srgb, var(--text) 60%, transparent);margin:2px 0 8px">ขั้น 1/2 · ข้อความ (แก้ได้) — {{name}} จะถูกแทนด้วยชื่อลูกค้าแต่ละคน</div>
+      <textarea id="ocText">${bdEsc(OC.text)}</textarea>${say}
+      <div class="bd-sheet-act"><button type="button" class="btn" id="ocNext" style="flex:1">ถัดไป: เลือกคน</button><button type="button" class="btn" id="ocSkip" style="background:none;border:1px solid var(--bad);color:var(--bad);width:auto;padding:11px 14px">ไม่ส่งเรื่องนี้</button></div>`;
+  } else {
+    const s = OC.sugg, pre = s.filter(x => x.preselect).length;
+    body.innerHTML = `<div style="font-size:12px;color:color-mix(in srgb, var(--text) 60%, transparent);margin:2px 0 8px">ขั้น 2/2 · เลือกคน — ระบบเลือกให้ ${pre} คนที่เข้ากับเมล็ดนี้มากสุด (ตามที่เคยสั่ง/โปรไฟล์) ติ๊กเพิ่มหรือเอาออกได้ · ไม่แสดงคนที่ปิดรับข่าว ไม่กินกาแฟ หรือเพิ่งได้ข่าวภายในไม่กี่วัน</div>
+      <div class="bd-row" style="margin-bottom:8px"><button type="button" class="bd-chip" data-oc-sel="pre">ที่ระบบเลือก</button><button type="button" class="bd-chip" data-oc-sel="all">ทั้งหมด</button><button type="button" class="bd-chip" data-oc-sel="none">ล้าง</button></div>
+      ${s.length ? s.map(x => `<label class="oc-rc"><input type="checkbox" data-oc-id="${bdEsc(x.line_user_id)}" ${x.preselect ? 'checked' : ''}><div class="n">${bdEsc(x.name)}<div class="why">${(x.reasons || []).map(r => `<span>${bdEsc(r)}</span>`).join('')}</div></div><div class="oc-sc">${x.score} คะแนน</div></label>`).join('') : '<div class="bd-empty">ไม่มีรายชื่อที่เข้าเกณฑ์ตอนนี้</div>'}${say}
+      <div class="bd-sheet-act" style="flex-wrap:wrap"><button type="button" class="btn" id="ocTest" style="background:none;border:1px solid var(--orange);color:var(--ol);flex:1;min-width:150px">1) ส่งทดสอบหาตัวเอง</button><button type="button" class="btn" id="ocSend" style="flex:1;min-width:150px" ${OC.tested ? '' : 'disabled'}>2) ส่งจริง (<span id="ocN">0</span> คน)</button></div>
+      <button type="button" class="bd-chip" id="ocBack" style="margin-top:8px">‹ กลับไปแก้ข้อความ</button>`;
+    ocCount();
+  }
+}
+const ocPicked = () => [...document.querySelectorAll('[data-oc-id]:checked')].map(i => i.dataset.ocId);
+function ocCount() { const n = document.getElementById('ocN'); if (n) n.textContent = ocPicked().length; }
+async function ocCall(payload) {
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/outreach-send`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }, body: JSON.stringify({ proposal_id: OC.cur.id, ...payload }) });
+  const j = await r.json().catch(() => ({})); if (!r.ok && !j.results) throw new Error(j.error || ('HTTP ' + r.status)); return j;
+}
+async function ocSkip() { if (!confirm('ไม่ส่งข่าวเรื่องนี้ใช่ไหม (จะหายจากรายการรออนุมัติ)')) return;
+  try { await sb(`outreach_proposals?id=eq.${OC.cur.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'skipped', decided_at: new Date().toISOString() }) }); ocClose(); await loadControl(); } catch (e) { alert('ไม่สำเร็จ: ' + e.message); } }
+document.getElementById('ocList').addEventListener('click', e => { const b = e.target.closest('[data-oc-open]'); if (b) ocOpen(b.dataset.ocOpen); });
+document.getElementById('ocManual').addEventListener('click', async () => {
+  const id = document.getElementById('ocBeanPick').value; if (!id) { alert('เลือกเมล็ดก่อน'); return; } const bean = OC.beans.find(x => x.id === id);
+  try { try { await sb('outreach_proposals', { method: 'POST', prefer: 'return=minimal', body: JSON.stringify({ kind: 'manual', ingredient_id: id, bean_name: bean.name }) }); } catch (dup) { if (!/23505|duplicate/i.test(String(dup.message))) throw dup; }   // already waiting for approval → just open it
+    await loadControl(); const p = OC.props.find(x => x.ingredient_id === id && x.kind === 'manual'); if (p) ocOpen(p.id); }
+  catch (e) { alert('สร้างไม่สำเร็จ: ' + e.message); } });
+document.getElementById('ocSettings').addEventListener('click', e => { if (e.target.closest('#ocTgl')) { const on = !(OC.sets['outreach.enabled'] !== false && OC.sets['outreach.enabled'] !== 'false'); ocSetting('outreach.enabled', on).then(ocRender); } });
+document.getElementById('ocSettings').addEventListener('change', e => { const v = Number(e.target.value); if (!(v >= 1)) return; if (e.target.id === 'ocDays') ocSetting('outreach.back_in_stock_days', v); if (e.target.id === 'ocGap') ocSetting('outreach.min_days_between', v); });
+document.getElementById('ocClose').addEventListener('click', ocClose); document.getElementById('ocBg').addEventListener('click', ocClose);
+document.getElementById('ocBody').addEventListener('click', async e => {
+  const t = e.target;
+  if (t.id === 'ocSkip') return ocSkip();
+  if (t.id === 'ocBack') { OC.step = 1; return ocStep(); }
+  if (t.id === 'ocNext') { OC.text = document.getElementById('ocText').value.trim(); if (!OC.text) { alert('ข้อความว่างอยู่'); return; } t.disabled = true; t.textContent = 'กำลังคัดรายชื่อ...';
+    try { OC.sugg = await mmRpc('outreach_suggest', { p_ingredient: OC.cur.ingredient_id }) || []; OC.step = 2; ocStep(); } catch (er) { t.disabled = false; t.textContent = 'ถัดไป: เลือกคน'; alert('คัดรายชื่อไม่สำเร็จ: ' + er.message); } return; }
+  const sel = t.closest('[data-oc-sel]'); if (sel) { document.querySelectorAll('[data-oc-id]').forEach(i => { const x = OC.sugg.find(s => s.line_user_id === i.dataset.ocId); i.checked = sel.dataset.ocSel === 'all' ? true : sel.dataset.ocSel === 'none' ? false : !!(x && x.preselect); }); return ocCount(); }
+  if (t.id === 'ocTest') { t.disabled = true; try { const j = await ocCall({ test: true, text: OC.text }); if (j.ok) { OC.tested = true; ocStep({ t: '✅ ส่งทดสอบเข้า LINE ของพี่แล้ว — เปิดดูข้อความและลิงก์ก่อน แล้วค่อยกด "ส่งจริง"' }); } else ocStep({ t: 'ส่งทดสอบไม่สำเร็จ: ' + (j.detail || j.status), err: true }); } catch (er) { ocStep({ t: 'ส่งทดสอบไม่สำเร็จ: ' + er.message, err: true }); } return; }
+  if (t.id === 'ocSend') { const ids = ocPicked(); if (!ids.length) { alert('ยังไม่ได้เลือกคน'); return; } if (ids.length > 30) { alert('ส่งได้ครั้งละไม่เกิน 30 คน'); return; }
+    if (!confirm(`ส่งข่าว "${OC.cur.bean_name}" ให้ ${ids.length} คน ใช่ไหม? ส่งแล้วย้อนกลับไม่ได้`)) return; t.disabled = true; t.textContent = 'กำลังส่ง...';
+    try { const j = await ocCall({ text: OC.text, line_user_ids: ids }); const sk = (j.results || []).filter(r => r.skipped), fl = (j.results || []).filter(r => r.ok === false);
+      alert(`ส่งสำเร็จ ${j.sent || 0} คน` + (sk.length ? `\nข้าม ${sk.length}: ${sk.map(r => (r.name || '') + ' (' + r.skipped + ')').join(', ')}` : '') + (fl.length ? `\nส่งไม่ผ่าน ${fl.length}: ${fl.map(r => (r.name || '') + ' [' + r.status + ']').join(', ')}` : ''));
+      if (j.sent > 0) { ocClose(); await loadControl(); } else { t.disabled = false; t.textContent = 'ส่งจริง'; } }
+    catch (er) { alert('ส่งไม่สำเร็จ: ' + er.message); t.disabled = false; t.textContent = 'ส่งจริง'; } }
+});
+document.getElementById('ocBody').addEventListener('change', e => { if (e.target.matches('[data-oc-id]')) ocCount(); });
+
 // ---------- COMPANY BOARD (Kanban) ----------
 const BD = { tasks: [], lane: 'todo', area: 'all', editId: null, showAllDone: false };
 const BD_LANES = [['waiting', '⏸ รอตัดสินใจ'], ['todo', '📥 รอทำ'], ['doing', '🔥 กำลังทำ'], ['done', '✅ เสร็จแล้ว']];
@@ -1264,6 +1388,7 @@ document.querySelectorAll(".tab").forEach(tab => {
       loadReportTab();
     }
     if (tab.dataset.tab === "board" && !boardLoaded) { boardLoaded = true; loadBoard(); }
+    if (tab.dataset.tab === "control") { loadControl(); }
     if (tab.dataset.tab === "perf" && !perfLoaded) { perfLoaded = true; loadPerf(); }
     if (tab.dataset.tab === "menu" && !menuLoaded) { menuLoaded = true; loadMenuTab(); }
     if (tab.dataset.tab === "purchasing" && !purchLoaded) { purchLoaded = true; loadPurchasingTab(); }
